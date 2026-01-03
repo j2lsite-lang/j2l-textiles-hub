@@ -18,9 +18,9 @@ export function Hero() {
         <img 
           src={heroBg} 
           alt="" 
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover object-right"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/70 via-primary/50 to-primary/30" />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/90 via-primary/60 to-transparent" />
       </div>
       
       {/* Decorative elements */}
@@ -31,7 +31,7 @@ export function Hero() {
       
       <div className="relative container-page">
         <div className="min-h-[calc(100vh-8rem)] flex flex-col justify-center py-16 lg:py-24">
-          <div className="max-w-3xl mx-auto text-center">
+          <div className="max-w-2xl">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-white/90 text-sm font-medium animate-fade-in mb-8">
               <Zap className="h-4 w-4 text-accent" />
@@ -51,13 +51,13 @@ export function Hero() {
             </h1>
 
             {/* Description */}
-            <p className="text-lg sm:text-xl text-white/80 leading-relaxed max-w-xl mx-auto animate-slide-up mb-8" style={{ animationDelay: '0.1s' }}>
+            <p className="text-lg sm:text-xl text-white/80 leading-relaxed max-w-lg animate-slide-up mb-8" style={{ animationDelay: '0.1s' }}>
               Vêtements de travail, accessoires textiles personnalisés... 
               Découvrez notre catalogue et personnalisez vos textiles avec votre logo.
             </p>
 
             {/* CTAs */}
-            <div className="flex flex-wrap gap-4 justify-center animate-slide-up mb-10" style={{ animationDelay: '0.2s' }}>
+            <div className="flex flex-wrap gap-4 animate-slide-up mb-10" style={{ animationDelay: '0.2s' }}>
               <Link to="/catalogue">
                 <Button 
                   size="lg" 
@@ -78,7 +78,7 @@ export function Hero() {
             </div>
 
             {/* Features */}
-            <div className="flex flex-wrap gap-6 justify-center animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            <div className="flex flex-wrap gap-6 animate-fade-in" style={{ animationDelay: '0.3s' }}>
               {features.map((feature) => (
                 <div key={feature.label} className="flex items-center gap-2 text-white/80">
                   <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
