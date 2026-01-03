@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin, Clock, Facebook, Instagram, Linkedin, ArrowRight } from 'lucide-react';
 import { COMPANY_INFO } from '@/lib/company-info';
+import logoJ2L from '@/assets/logo-j2l.png';
 
 export function Footer() {
   return (
@@ -33,9 +34,11 @@ export function Footer() {
           {/* Brand */}
           <div className="space-y-5">
             <Link to="/" className="inline-block">
-              <span className="text-2xl font-display font-bold">
-                J2L<span className="text-accent">Textiles</span>
-              </span>
+              <img 
+                src={logoJ2L} 
+                alt="J2L Textiles" 
+                className="h-12 w-auto object-contain brightness-0 invert"
+              />
             </Link>
             <p className="text-sm text-white/70 leading-relaxed">
               Spécialiste du textile personnalisé pour les professionnels.
