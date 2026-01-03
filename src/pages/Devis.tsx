@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { sendEmail } from '@/lib/emailjs';
 import {
   Select,
   SelectContent,
@@ -68,12 +69,56 @@ export default function Devis() {
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Préparer les infos produits pour l'email
+      const productDetails = items.map(item => 
+        `${item.name} (Réf: ${item.sku}) - ${item.color} / ${item.size} - Qté: ${item.quantity}`
+      ).join('\n');
+      
+      const firstItem = items[0];
+      const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+      
+      // Construire le message complet
+      const fullMessage = `
+Délai souhaité: ${formData.deadline || 'Non précisé'}
+Livraison: ${formData.delivery || 'Non précisé'}
+Entreprise: ${formData.company || 'Non précisé'}
 
-    setIsSubmitting(false);
-    setIsSubmitted(true);
-    clear();
+Message: ${formData.message || 'Aucun message'}
+
+--- PRODUITS ---
+${productDetails}
+      `.trim();
+
+      await sendEmail({
+        nom: formData.name,
+        email: formData.email,
+        telephone: formData.phone,
+        message: fullMessage,
+        product_ref: items.length === 1 ? firstItem.sku : `${items.length} produits`,
+        product_name: items.length === 1 ? firstItem.name : items.map(i => i.name).join(', '),
+        product_brand: items.length === 1 ? firstItem.brand : items.map(i => i.brand).filter((v, i, a) => a.indexOf(v) === i).join(', '),
+        quantity: totalQty.toString(),
+        variant: items.length === 1 ? `${firstItem.color} / ${firstItem.size}` : 'Voir détails',
+        page: 'Demande de devis',
+      });
+
+      toast({
+        title: 'Demande envoyée !',
+        description: 'Nous vous répondrons sous 24h ouvrées.',
+      });
+
+      setIsSubmitted(true);
+      clear();
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible d\'envoyer votre demande. Veuillez réessayer.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);

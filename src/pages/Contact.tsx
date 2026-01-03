@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { COMPANY_INFO } from '@/lib/company-info';
+import { sendEmail } from '@/lib/emailjs';
 
 export default function Contact() {
   const { toast } = useToast();
@@ -25,16 +26,30 @@ export default function Contact() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      await sendEmail({
+        nom: formData.name,
+        email: formData.email,
+        telephone: formData.phone,
+        message: `Sujet: ${formData.subject}\n\n${formData.message}`,
+        page: 'Page Contact',
+      });
 
-    setIsSubmitting(false);
-    setIsSubmitted(true);
+      setIsSubmitted(true);
 
-    toast({
-      title: 'Message envoyé !',
-      description: 'Nous vous répondrons dans les meilleurs délais.',
-    });
+      toast({
+        title: 'Message envoyé !',
+        description: 'Nous vous répondrons dans les meilleurs délais.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible d\'envoyer votre message. Veuillez réessayer.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSubmitted) {
