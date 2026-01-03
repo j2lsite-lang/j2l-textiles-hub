@@ -20,7 +20,7 @@ export function Hero() {
           alt="" 
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-primary/85" />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/70 via-primary/50 to-primary/30" />
       </div>
       
       {/* Decorative elements */}
@@ -70,8 +70,7 @@ export function Hero() {
               <Link to="/devis">
                 <Button 
                   size="lg" 
-                  variant="outline" 
-                  className="font-semibold border-2 border-white/30 text-white hover:bg-white hover:text-primary hover:border-white h-14 px-8 text-base transition-all"
+                  className="font-semibold bg-white text-primary hover:bg-white/90 h-14 px-8 text-base transition-all shadow-lg"
                 >
                   Demander un devis
                 </Button>
