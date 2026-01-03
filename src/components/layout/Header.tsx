@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingBag, Search, Phone, PhoneCall, ChevronDown } from 'lucide-react';
+import { Menu, X, ShoppingBag, Search, Phone, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { cn } from '@/lib/utils';
 import { COMPANY_INFO } from '@/lib/company-info';
+import { CallbackModal } from '@/components/CallbackModal';
 import logoJ2L from '@/assets/logo-j2l.png';
 import {
   Popover,
@@ -282,13 +283,8 @@ export function Header() {
                 </Button>
               </Link>
 
-              {/* Call button */}
-              <a href={`tel:${COMPANY_INFO.phoneLink}`} className="hidden md:block">
-                <Button variant="outline" size="sm" className="flex items-center gap-2 font-semibold border-primary/20 hover:border-primary hover:bg-primary/5">
-                  <PhoneCall className="h-4 w-4 text-accent" />
-                  {COMPANY_INFO.phone}
-                </Button>
-              </a>
+              {/* Callback Modal */}
+              <CallbackModal />
 
               <Link to="/devis" className="hidden sm:block">
                 <Button className="font-semibold accent-gradient text-white border-0 shadow-accent hover:shadow-lg hover:-translate-y-0.5 transition-all">
