@@ -230,7 +230,13 @@ serve(async (req) => {
       }
 
       case "attributes": {
-        result = await fetchFromTopTex("/v3/attributs");
+        // /v3/attributs requires "attributs" param (e.g. "marques", "couleurs", "tailles", "categories")
+        const attrType = body.attributType || "marques";
+        const attrParams = new URLSearchParams();
+        attrParams.append("attributs", attrType);
+        attrParams.append("taille_de_page", "100");
+        attrParams.append("numéro_de_page", "1");
+        result = await fetchFromTopTex(`/v3/attributs?${attrParams.toString()}`);
         break;
       }
 
@@ -241,8 +247,9 @@ serve(async (req) => {
         if (query) params.append("recherche", query);
         if (category && category !== "Tous") params.append("categorie", category);
         if (brand && brand !== "Toutes") params.append("marque", brand);
-        params.append("page", page.toString());
-        params.append("limit", limit.toString());
+        // TopTex uses French param names
+        params.append("taille_de_page", limit.toString());
+        params.append("numéro_de_page", page.toString());
 
         const endpoint = `/v3/produits?${params.toString()}`;
         const data = await fetchFromTopTex(endpoint);
