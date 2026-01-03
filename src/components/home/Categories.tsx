@@ -9,48 +9,54 @@ const categories = [
     name: 'T-shirts & Polos',
     description: 'Coton, polyester, bio',
     query: 't-shirt',
-    color: 'bg-blue-50 text-blue-600',
+    gradient: 'from-blue-500 to-blue-600',
+    iconBg: 'bg-blue-500',
   },
   {
     icon: HardHat,
     name: 'Vêtements de travail',
     description: 'Vestes, pantalons, blouses',
     query: 'travail',
-    color: 'bg-amber-50 text-amber-600',
+    gradient: 'from-amber-500 to-orange-500',
+    iconBg: 'bg-amber-500',
   },
   {
     icon: Gift,
     name: 'Objets publicitaires',
     description: 'Goodies et accessoires',
     query: 'objet',
-    color: 'bg-green-50 text-green-600',
+    gradient: 'from-green-500 to-emerald-500',
+    iconBg: 'bg-green-500',
   },
   {
     icon: Briefcase,
     name: 'Bagagerie',
     description: 'Sacs, sacoches, valises',
     query: 'sac',
-    color: 'bg-purple-50 text-purple-600',
+    gradient: 'from-purple-500 to-violet-500',
+    iconBg: 'bg-purple-500',
   },
   {
     icon: Umbrella,
     name: 'Pluie & Vent',
     description: 'Parapluies, coupe-vent',
     query: 'parapluie',
-    color: 'bg-cyan-50 text-cyan-600',
+    gradient: 'from-cyan-500 to-blue-500',
+    iconBg: 'bg-cyan-500',
   },
   {
     icon: Flame,
     name: 'Haute visibilité',
     description: 'Vêtements normés',
     query: 'visibilite',
-    color: 'bg-orange-50 text-orange-600',
+    gradient: 'from-orange-500 to-red-500',
+    iconBg: 'bg-orange-500',
   },
 ];
 
 export function Categories() {
   return (
-    <section className="section-padding bg-secondary/30">
+    <section className="section-padding section-gray">
       <div className="container-page">
         <SectionHeader
           eyebrow="Catégories"
@@ -58,21 +64,37 @@ export function Categories() {
           description="Des milliers de produits textiles et objets promotionnels à personnaliser"
         />
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 mt-12">
           {categories.map((category, index) => (
             <Link
               key={category.name}
               to={`/catalogue?q=${category.query}`}
-              className="group"
+              className="group animate-slide-up"
               style={{ animationDelay: `${index * 0.05}s` }}
             >
-              <div className="surface-elevated rounded-xl p-6 text-center hover-lift h-full flex flex-col items-center justify-center">
-                <div className={cn('w-12 h-12 rounded-lg flex items-center justify-center mb-4', category.color)}>
-                  <category.icon className="h-6 w-6" />
+              <div className="surface-elevated p-6 text-center hover-lift h-full flex flex-col items-center justify-center relative overflow-hidden">
+                {/* Gradient background on hover */}
+                <div className={cn(
+                  'absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300',
+                  category.gradient
+                )} />
+                
+                <div className="relative z-10">
+                  <div className={cn(
+                    'w-14 h-14 rounded-2xl flex items-center justify-center mb-4 mx-auto transition-all duration-300',
+                    category.iconBg,
+                    'group-hover:bg-white/20 group-hover:scale-110'
+                  )}>
+                    <category.icon className="h-7 w-7 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-foreground text-sm mb-1 group-hover:text-white transition-colors">
+                    {category.name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground group-hover:text-white/80 transition-colors">
+                    {category.description}
+                  </p>
+                  <ArrowRight className="h-4 w-4 mx-auto mt-3 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:text-white transition-all transform group-hover:translate-x-0 -translate-x-2" />
                 </div>
-                <h3 className="font-semibold text-foreground text-sm mb-1">{category.name}</h3>
-                <p className="text-xs text-muted-foreground">{category.description}</p>
-                <ArrowRight className="h-4 w-4 text-muted-foreground mt-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </Link>
           ))}

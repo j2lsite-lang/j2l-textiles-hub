@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Phone, MapPin, Send, CheckCircle, Clock } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, CheckCircle, Clock, ArrowRight } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-
-const CONTACT_INFO = {
-  address: '[ADRESSE]',
-  phone: '[TEL]',
-  email: '[EMAIL]',
-  hours: 'Lundi - Vendredi : 9h - 18h',
-};
+import { COMPANY_INFO } from '@/lib/company-info';
 
 export default function Contact() {
   const { toast } = useToast();
@@ -56,7 +50,7 @@ export default function Contact() {
               <p className="text-muted-foreground mb-8">
                 Merci de nous avoir contactés. Notre équipe vous répondra dans les meilleurs délais.
               </p>
-              <Button onClick={() => setIsSubmitted(false)}>
+              <Button onClick={() => setIsSubmitted(false)} className="accent-gradient text-white">
                 Envoyer un autre message
               </Button>
             </div>
@@ -68,81 +62,99 @@ export default function Contact() {
 
   return (
     <Layout>
+      {/* Hero */}
+      <section className="relative py-16 md:py-20 overflow-hidden">
+        <div className="absolute inset-0 hero-gradient" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNiIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjIiLz48L2c+PC9zdmc+')] opacity-40" />
+        <div className="relative container-page">
+          <div className="max-w-2xl">
+            <h1 className="text-4xl md:text-5xl font-display font-bold text-white mb-4">
+              Parlons de votre projet
+            </h1>
+            <p className="text-xl text-white/80">
+              Une question, un devis, une demande spécifique ? Notre équipe est à votre écoute.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="section-padding">
         <div className="container-page">
-          <SectionHeader
-            eyebrow="Contact"
-            title="Parlons de votre projet"
-            description="Une question, un devis, une demande spécifique ? Notre équipe est à votre écoute."
-          />
-
-          <div className="mt-12 grid lg:grid-cols-3 gap-12">
+          <div className="grid lg:grid-cols-3 gap-12">
             {/* Contact Info */}
             <div className="lg:col-span-1 space-y-6">
-              <div className="surface-elevated rounded-xl p-6">
-                <h3 className="font-semibold mb-4">Nos coordonnées</h3>
-                <ul className="space-y-4">
+              <div className="surface-elevated p-6">
+                <h3 className="font-display font-semibold text-lg mb-6">Nos coordonnées</h3>
+                <ul className="space-y-5">
                   <li className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                       <MapPin className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">Adresse</p>
-                      <p className="text-sm text-muted-foreground">{CONTACT_INFO.address}</p>
+                      <p className="font-medium text-foreground">Adresse</p>
+                      <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                        {COMPANY_INFO.address}<br />
+                        {COMPANY_INFO.postalCode} {COMPANY_INFO.city}<br />
+                        {COMPANY_INFO.country}
+                      </p>
                     </div>
                   </li>
                   <li className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Phone className="h-5 w-5 text-primary" />
+                    <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                      <Phone className="h-5 w-5 text-accent" />
                     </div>
                     <div>
-                      <p className="font-medium">Téléphone</p>
+                      <p className="font-medium text-foreground">Téléphone</p>
                       <a
-                        href={`tel:${CONTACT_INFO.phone}`}
-                        className="text-sm text-muted-foreground hover:text-primary"
+                        href={`tel:${COMPANY_INFO.phoneLink}`}
+                        className="text-sm text-accent hover:underline font-semibold mt-1 block"
                       >
-                        {CONTACT_INFO.phone}
+                        {COMPANY_INFO.phone}
                       </a>
                     </div>
                   </li>
                   <li className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                       <Mail className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">Email</p>
+                      <p className="font-medium text-foreground">Email</p>
                       <a
-                        href={`mailto:${CONTACT_INFO.email}`}
-                        className="text-sm text-muted-foreground hover:text-primary"
+                        href={`mailto:${COMPANY_INFO.email}`}
+                        className="text-sm text-primary hover:underline mt-1 block"
                       >
-                        {CONTACT_INFO.email}
+                        {COMPANY_INFO.email}
                       </a>
                     </div>
                   </li>
                   <li className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                       <Clock className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">Horaires</p>
-                      <p className="text-sm text-muted-foreground">{CONTACT_INFO.hours}</p>
+                      <p className="font-medium text-foreground">Horaires</p>
+                      <p className="text-sm text-muted-foreground mt-1">{COMPANY_INFO.hours}</p>
                     </div>
                   </li>
                 </ul>
               </div>
 
-              <div className="surface-elevated rounded-xl p-6">
-                <h3 className="font-semibold mb-2">Réponse rapide</h3>
+              <div className="surface-elevated p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+                  <h3 className="font-semibold">Réponse rapide</h3>
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  Nous nous engageons à vous répondre sous 24h ouvrées. Pour les urgences, privilégiez l'appel téléphonique.
+                  Nous nous engageons à vous répondre sous <strong className="text-foreground">24h ouvrées</strong>. 
+                  Pour les urgences, privilégiez l'appel téléphonique.
                 </p>
               </div>
             </div>
 
             {/* Contact Form */}
             <div className="lg:col-span-2">
-              <div className="surface-elevated rounded-xl p-8">
-                <h2 className="text-xl font-semibold mb-6">Envoyez-nous un message</h2>
+              <div className="surface-elevated p-8">
+                <h2 className="text-2xl font-display font-bold mb-6">Envoyez-nous un message</h2>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid sm:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -150,8 +162,10 @@ export default function Contact() {
                       <Input
                         id="name"
                         required
+                        placeholder="Votre nom"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="h-12"
                       />
                     </div>
                     <div className="space-y-2">
@@ -160,8 +174,10 @@ export default function Contact() {
                         id="email"
                         type="email"
                         required
+                        placeholder="votre@email.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="h-12"
                       />
                     </div>
                   </div>
@@ -172,8 +188,10 @@ export default function Contact() {
                       <Input
                         id="phone"
                         type="tel"
+                        placeholder="03 XX XX XX XX"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        className="h-12"
                       />
                     </div>
                     <div className="space-y-2">
@@ -181,8 +199,10 @@ export default function Contact() {
                       <Input
                         id="subject"
                         required
+                        placeholder="Objet de votre message"
                         value={formData.subject}
                         onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                        className="h-12"
                       />
                     </div>
                   </div>
@@ -199,13 +219,19 @@ export default function Contact() {
                     />
                   </div>
 
-                  <Button type="submit" size="lg" disabled={isSubmitting}>
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    disabled={isSubmitting}
+                    className="accent-gradient text-white font-semibold h-14 px-8 shadow-accent hover:shadow-lg transition-all group"
+                  >
                     {isSubmitting ? (
                       'Envoi en cours...'
                     ) : (
                       <>
-                        <Send className="h-4 w-4 mr-2" />
+                        <Send className="h-5 w-5 mr-2" />
                         Envoyer le message
+                        <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1" />
                       </>
                     )}
                   </Button>

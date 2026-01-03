@@ -1,111 +1,173 @@
 import { Link } from 'react-router-dom';
-import { Mail, Phone, MapPin } from 'lucide-react';
-
-const CONTACT_INFO = {
-  address: '[ADRESSE]',
-  phone: '[TEL]',
-  email: '[EMAIL]',
-};
+import { Mail, Phone, MapPin, Clock, Facebook, Instagram, Linkedin, ArrowRight } from 'lucide-react';
+import { COMPANY_INFO } from '@/lib/company-info';
 
 export function Footer() {
   return (
-    <footer className="bg-foreground text-background">
-      <div className="container-page section-padding">
+    <footer className="bg-primary text-primary-foreground">
+      {/* Top CTA Section */}
+      <div className="border-b border-white/10">
+        <div className="container-page py-12">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+              <h3 className="text-2xl font-display font-bold mb-2">
+                Prêt à personnaliser vos textiles ?
+              </h3>
+              <p className="text-white/70">
+                Devis gratuit en 24h • Sans engagement
+              </p>
+            </div>
+            <Link
+              to="/devis"
+              className="inline-flex items-center gap-2 px-8 py-4 accent-gradient text-white font-semibold rounded-xl shadow-accent hover:shadow-lg transition-all hover:-translate-y-0.5 group"
+            >
+              Demander un devis
+              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="container-page py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           {/* Brand */}
-          <div className="space-y-4">
+          <div className="space-y-5">
             <Link to="/" className="inline-block">
               <span className="text-2xl font-display font-bold">
                 J2L<span className="text-accent">Textiles</span>
               </span>
             </Link>
-            <p className="text-sm text-background/70 leading-relaxed">
-              Spécialiste du textile personnalisé pour les professionnels. 
-              Vêtements de travail, objets promotionnels et plus encore.
+            <p className="text-sm text-white/70 leading-relaxed">
+              Spécialiste du textile personnalisé pour les professionnels.
+              Vêtements de travail, objets promotionnels et bien plus.
+            </p>
+            <p className="text-xs text-white/50">
+              Une marque de <strong className="text-white/70">{COMPANY_INFO.legalName}</strong>
             </p>
           </div>
 
           {/* Navigation */}
           <div>
-            <h4 className="font-semibold mb-4">Navigation</h4>
+            <h4 className="font-display font-semibold mb-5 text-lg">Navigation</h4>
             <ul className="space-y-3 text-sm">
-              <li>
-                <Link to="/catalogue" className="text-background/70 hover:text-accent transition-colors">
-                  Catalogue
-                </Link>
-              </li>
-              <li>
-                <Link to="/personnalisation" className="text-background/70 hover:text-accent transition-colors">
-                  Personnalisation
-                </Link>
-              </li>
-              <li>
-                <Link to="/devis" className="text-background/70 hover:text-accent transition-colors">
-                  Demander un devis
-                </Link>
-              </li>
-              <li>
-                <Link to="/faq" className="text-background/70 hover:text-accent transition-colors">
-                  FAQ
-                </Link>
-              </li>
+              {[
+                { href: '/catalogue', label: 'Catalogue produits' },
+                { href: '/personnalisation', label: 'Personnalisation' },
+                { href: '/devis', label: 'Demander un devis' },
+                { href: '/faq', label: 'Questions fréquentes' },
+                { href: '/contact', label: 'Nous contacter' },
+              ].map((link) => (
+                <li key={link.href}>
+                  <Link 
+                    to={link.href} 
+                    className="text-white/70 hover:text-accent transition-colors inline-flex items-center gap-1 group"
+                  >
+                    <ArrowRight className="h-3 w-3 opacity-0 -ml-4 group-hover:opacity-100 group-hover:ml-0 transition-all" />
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
           {/* Contact */}
           <div>
-            <h4 className="font-semibold mb-4">Contact</h4>
-            <ul className="space-y-3 text-sm">
+            <h4 className="font-display font-semibold mb-5 text-lg">Contact</h4>
+            <ul className="space-y-4 text-sm">
               <li className="flex items-start gap-3">
-                <MapPin className="h-4 w-4 mt-0.5 text-accent shrink-0" />
-                <span className="text-background/70">{CONTACT_INFO.address}</span>
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <MapPin className="h-4 w-4 text-accent" />
+                </div>
+                <span className="text-white/70 leading-relaxed">{COMPANY_INFO.fullAddress}</span>
               </li>
               <li className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-accent shrink-0" />
-                <a href={`tel:${CONTACT_INFO.phone}`} className="text-background/70 hover:text-accent transition-colors">
-                  {CONTACT_INFO.phone}
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                  <Phone className="h-4 w-4 text-accent" />
+                </div>
+                <a 
+                  href={`tel:${COMPANY_INFO.phoneLink}`} 
+                  className="text-white/70 hover:text-accent transition-colors font-medium"
+                >
+                  {COMPANY_INFO.phone}
                 </a>
               </li>
               <li className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-accent shrink-0" />
-                <a href={`mailto:${CONTACT_INFO.email}`} className="text-background/70 hover:text-accent transition-colors">
-                  {CONTACT_INFO.email}
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                  <Mail className="h-4 w-4 text-accent" />
+                </div>
+                <a 
+                  href={`mailto:${COMPANY_INFO.email}`} 
+                  className="text-white/70 hover:text-accent transition-colors"
+                >
+                  {COMPANY_INFO.email}
                 </a>
+              </li>
+              <li className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                  <Clock className="h-4 w-4 text-accent" />
+                </div>
+                <span className="text-white/70">{COMPANY_INFO.hours}</span>
               </li>
             </ul>
           </div>
 
           {/* Legal */}
           <div>
-            <h4 className="font-semibold mb-4">Informations</h4>
-            <ul className="space-y-3 text-sm">
-              <li>
-                <Link to="/mentions-legales" className="text-background/70 hover:text-accent transition-colors">
-                  Mentions légales
-                </Link>
-              </li>
-              <li>
-                <Link to="/confidentialite" className="text-background/70 hover:text-accent transition-colors">
-                  Politique de confidentialité
-                </Link>
-              </li>
-              <li>
-                <Link to="/cgv" className="text-background/70 hover:text-accent transition-colors">
-                  Conditions générales
-                </Link>
-              </li>
+            <h4 className="font-display font-semibold mb-5 text-lg">Informations</h4>
+            <ul className="space-y-3 text-sm mb-6">
+              {[
+                { href: '/mentions-legales', label: 'Mentions légales' },
+                { href: '/confidentialite', label: 'Politique de confidentialité' },
+                { href: '/cgv', label: 'Conditions générales' },
+              ].map((link) => (
+                <li key={link.href}>
+                  <Link 
+                    to={link.href} 
+                    className="text-white/70 hover:text-accent transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
+            
+            <div className="text-xs text-white/50 space-y-1">
+              <p>SIRET : {COMPANY_INFO.siret}</p>
+              <p>TVA : {COMPANY_INFO.tva}</p>
+            </div>
           </div>
         </div>
 
         {/* Bottom */}
-        <div className="mt-12 pt-8 border-t border-background/10">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-background/50">
-            <p>© {new Date().getFullYear()} J2LTextiles. Tous droits réservés.</p>
-            <p>
-              Une marque de{' '}
-              <span className="text-background/70">J2L Publicité</span>
-            </p>
+        <div className="mt-12 pt-8 border-t border-white/10">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-white/50">
+            <p>© {new Date().getFullYear()} {COMPANY_INFO.name}. Tous droits réservés.</p>
+            <div className="flex items-center gap-4">
+              <a 
+                href={COMPANY_INFO.social.facebook} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-white transition-colors"
+              >
+                <Facebook className="h-4 w-4" />
+              </a>
+              <a 
+                href={COMPANY_INFO.social.instagram} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-white transition-colors"
+              >
+                <Instagram className="h-4 w-4" />
+              </a>
+              <a 
+                href={COMPANY_INFO.social.linkedin} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-white transition-colors"
+              >
+                <Linkedin className="h-4 w-4" />
+              </a>
+            </div>
           </div>
         </div>
       </div>
