@@ -1,18 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Filter, X, Loader2, ShoppingBag } from 'lucide-react';
+import { Search, Filter, X, Loader2, ShoppingBag, AlertCircle } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Sheet,
   SheetContent,
@@ -21,95 +15,150 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { useCatalog } from '@/hooks/useTopTex';
+import { Product } from '@/lib/toptex-api';
 
-// Mock products for demo (will be replaced by TopTex API)
+// Fallback mock products when API is unavailable
 const mockProducts = [
   {
     sku: 'STTU755',
     name: 'T-shirt Creator unisexe',
     brand: 'Stanley/Stella',
     category: 'T-shirts',
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop',
-    colors: ['Blanc', 'Noir', 'Marine', 'Gris'],
-    priceRange: '8-12€',
+    images: ['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop'],
+    colors: [{ name: 'Blanc', code: '#ffffff' }, { name: 'Noir', code: '#000000' }, { name: 'Marine', code: '#1e3a5f' }],
+    sizes: ['S', 'M', 'L', 'XL'],
+    priceHT: 8.50,
   },
   {
     sku: 'STPM563',
     name: 'Polo Dedicator homme',
     brand: 'Stanley/Stella',
     category: 'Polos',
-    image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400&h=400&fit=crop',
-    colors: ['Blanc', 'Noir', 'Navy'],
-    priceRange: '18-25€',
+    images: ['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400&h=400&fit=crop'],
+    colors: [{ name: 'Blanc', code: '#ffffff' }, { name: 'Noir', code: '#000000' }],
+    sizes: ['S', 'M', 'L', 'XL'],
+    priceHT: 18.00,
   },
   {
     sku: 'STSU811',
     name: 'Sweat Changer unisexe',
     brand: 'Stanley/Stella',
     category: 'Sweats',
-    image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop',
-    colors: ['Noir', 'Gris chiné', 'Bordeaux'],
-    priceRange: '28-38€',
+    images: ['https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop'],
+    colors: [{ name: 'Noir', code: '#000000' }, { name: 'Gris chiné', code: '#9ca3af' }],
+    sizes: ['S', 'M', 'L', 'XL'],
+    priceHT: 28.00,
   },
   {
     sku: 'JN831',
     name: 'Softshell homme',
     brand: 'James & Nicholson',
     category: 'Vestes',
-    image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&h=400&fit=crop',
-    colors: ['Noir', 'Marine', 'Anthracite'],
-    priceRange: '45-60€',
+    images: ['https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&h=400&fit=crop'],
+    colors: [{ name: 'Noir', code: '#000000' }, { name: 'Marine', code: '#1e3a5f' }],
+    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    priceHT: 45.00,
   },
   {
     sku: 'KP011',
     name: 'Casquette Orlando',
     brand: 'K-Up',
     category: 'Accessoires',
-    image: 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=400&h=400&fit=crop',
-    colors: ['Noir', 'Blanc', 'Rouge', 'Bleu'],
-    priceRange: '5-8€',
+    images: ['https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=400&h=400&fit=crop'],
+    colors: [{ name: 'Noir', code: '#000000' }, { name: 'Blanc', code: '#ffffff' }],
+    sizes: ['Unique'],
+    priceHT: 5.50,
   },
   {
     sku: 'KI0104',
     name: 'Sac shopping',
     brand: 'Kimood',
     category: 'Bagagerie',
-    image: 'https://images.unsplash.com/photo-1597633125097-5a9ae3a47c84?w=400&h=400&fit=crop',
-    colors: ['Naturel', 'Noir', 'Marine'],
-    priceRange: '3-6€',
+    images: ['https://images.unsplash.com/photo-1597633125097-5a9ae3a47c84?w=400&h=400&fit=crop'],
+    colors: [{ name: 'Naturel', code: '#fef3c7' }, { name: 'Noir', code: '#000000' }],
+    sizes: ['Unique'],
+    priceHT: 3.50,
   },
   {
-    sku: 'B&C123',
+    sku: 'BC123',
     name: 'Polo ID.001',
     brand: 'B&C',
     category: 'Polos',
-    image: 'https://images.unsplash.com/photo-1625910513413-5fc5c3ebe11e?w=400&h=400&fit=crop',
-    colors: ['Blanc', 'Noir', 'Royal', 'Rouge'],
-    priceRange: '12-18€',
+    images: ['https://images.unsplash.com/photo-1625910513413-5fc5c3ebe11e?w=400&h=400&fit=crop'],
+    colors: [{ name: 'Blanc', code: '#ffffff' }, { name: 'Noir', code: '#000000' }, { name: 'Royal', code: '#2563eb' }],
+    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    priceHT: 12.00,
   },
   {
     sku: 'GI18000',
     name: 'Sweat capuche Heavy Blend',
     brand: 'Gildan',
     category: 'Sweats',
-    image: 'https://images.unsplash.com/photo-1509942774463-acf339cf87d5?w=400&h=400&fit=crop',
-    colors: ['Noir', 'Gris', 'Marine', 'Bordeaux'],
-    priceRange: '15-22€',
+    images: ['https://images.unsplash.com/photo-1509942774463-acf339cf87d5?w=400&h=400&fit=crop'],
+    colors: [{ name: 'Noir', code: '#000000' }, { name: 'Gris', code: '#9ca3af' }, { name: 'Marine', code: '#1e3a5f' }],
+    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    priceHT: 15.00,
   },
 ];
 
 const categories = ['Tous', 'T-shirts', 'Polos', 'Sweats', 'Vestes', 'Accessoires', 'Bagagerie'];
 const brands = ['Toutes', 'Stanley/Stella', 'James & Nicholson', 'B&C', 'Gildan', 'K-Up', 'Kimood'];
 
-function ProductCard({ product }: { product: typeof mockProducts[0] }) {
+function getColorStyle(colorName: string, colorCode?: string): string {
+  if (colorCode && colorCode.startsWith('#')) return colorCode;
+  
+  const colorMap: Record<string, string> = {
+    'blanc': '#ffffff',
+    'white': '#ffffff',
+    'noir': '#000000',
+    'black': '#000000',
+    'marine': '#1e3a5f',
+    'navy': '#1e3a5f',
+    'gris': '#9ca3af',
+    'gris chiné': '#9ca3af',
+    'grey': '#9ca3af',
+    'gray': '#9ca3af',
+    'rouge': '#dc2626',
+    'red': '#dc2626',
+    'bleu': '#2563eb',
+    'blue': '#2563eb',
+    'royal': '#2563eb',
+    'bordeaux': '#7f1d1d',
+    'anthracite': '#374151',
+    'naturel': '#fef3c7',
+    'natural': '#fef3c7',
+    'beige': '#fef3c7',
+  };
+  
+  return colorMap[colorName.toLowerCase()] || '#e5e7eb';
+}
+
+interface DisplayProduct {
+  sku: string;
+  name: string;
+  brand: string;
+  category: string;
+  images: string[];
+  colors: Array<{ name: string; code?: string }>;
+  priceHT: number | null;
+}
+
+function ProductCard({ product }: { product: DisplayProduct }) {
+  const image = product.images?.[0] || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
+  const displayColors = product.colors?.slice(0, 4) || [];
+  
   return (
     <Link to={`/produit/${product.sku}`} className="group">
       <div className="surface-elevated rounded-xl overflow-hidden hover-lift">
         <div className="aspect-square bg-secondary/50 overflow-hidden">
           <img
-            src={product.image}
+            src={image}
             alt={product.name}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
+            }}
           />
         </div>
         <div className="p-4">
@@ -118,28 +167,19 @@ function ProductCard({ product }: { product: typeof mockProducts[0] }) {
             {product.name}
           </h3>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-primary">{product.priceRange}</span>
+            <span className="text-sm font-semibold text-primary">
+              {product.priceHT ? `${product.priceHT.toFixed(2)} €` : 'Sur devis'}
+            </span>
             <div className="flex gap-1">
-              {product.colors.slice(0, 4).map((color, i) => (
+              {displayColors.map((color, i) => (
                 <span
                   key={i}
                   className="w-3 h-3 rounded-full border border-border"
-                  style={{
-                    backgroundColor:
-                      color === 'Blanc' ? '#fff' :
-                      color === 'Noir' ? '#000' :
-                      color === 'Marine' || color === 'Navy' ? '#1e3a5f' :
-                      color === 'Gris' || color === 'Gris chiné' ? '#9ca3af' :
-                      color === 'Rouge' ? '#dc2626' :
-                      color === 'Bleu' || color === 'Royal' ? '#2563eb' :
-                      color === 'Bordeaux' ? '#7f1d1d' :
-                      color === 'Anthracite' ? '#374151' :
-                      color === 'Naturel' ? '#fef3c7' :
-                      '#e5e7eb',
-                  }}
+                  style={{ backgroundColor: getColorStyle(color.name, color.code) }}
+                  title={color.name}
                 />
               ))}
-              {product.colors.length > 4 && (
+              {(product.colors?.length || 0) > 4 && (
                 <span className="text-xs text-muted-foreground">+{product.colors.length - 4}</span>
               )}
             </div>
@@ -211,25 +251,41 @@ export default function Catalogue() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState('Tous');
   const [selectedBrand, setSelectedBrand] = useState('Toutes');
-  const [isLoading, setIsLoading] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
-  // Filter products
-  const filteredProducts = mockProducts.filter((product) => {
-    const matchesSearch = !searchQuery || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = selectedCategory === 'Tous' || product.category === selectedCategory;
-    const matchesBrand = selectedBrand === 'Toutes' || product.brand === selectedBrand;
-
-    return matchesSearch && matchesCategory && matchesBrand;
+  // Fetch from TopTex API
+  const { data: catalogData, isLoading, error } = useCatalog({
+    query: searchQuery,
+    category: selectedCategory !== 'Tous' ? selectedCategory : undefined,
+    brand: selectedBrand !== 'Toutes' ? selectedBrand : undefined,
+    page,
+    limit: 24,
   });
+
+  // Use API data or fallback to mock products
+  const products: DisplayProduct[] = catalogData?.products || mockProducts;
+  const isUsingMock = !catalogData?.products;
+
+  // Client-side filter for mock products
+  const displayProducts = isUsingMock
+    ? products.filter((product) => {
+        const matchesSearch = !searchQuery || 
+          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          product.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        const matchesCategory = selectedCategory === 'Tous' || product.category === selectedCategory;
+        const matchesBrand = selectedBrand === 'Toutes' || product.brand === selectedBrand;
+
+        return matchesSearch && matchesCategory && matchesBrand;
+      })
+    : products;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSearchParams(searchQuery ? { q: searchQuery } : {});
+    setPage(1);
   };
 
   const clearFilters = () => {
@@ -237,6 +293,7 @@ export default function Catalogue() {
     setSelectedCategory('Tous');
     setSelectedBrand('Toutes');
     setSearchParams({});
+    setPage(1);
   };
 
   const hasActiveFilters = searchQuery || selectedCategory !== 'Tous' || selectedBrand !== 'Toutes';
@@ -250,6 +307,16 @@ export default function Catalogue() {
             title="Nos produits textiles"
             description="Explorez notre sélection de vêtements et accessoires personnalisables"
           />
+
+          {/* API Error Notice */}
+          {error && (
+            <Alert className="mt-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Connexion à l'API en cours... Affichage des produits de démonstration.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Search & Filter Bar */}
           <div className="mt-10 flex flex-col sm:flex-row gap-4">
@@ -281,11 +348,13 @@ export default function Catalogue() {
                       selectedCategory={selectedCategory}
                       setSelectedCategory={(v) => {
                         setSelectedCategory(v);
+                        setPage(1);
                         setIsFilterOpen(false);
                       }}
                       selectedBrand={selectedBrand}
                       setSelectedBrand={(v) => {
                         setSelectedBrand(v);
+                        setPage(1);
                         setIsFilterOpen(false);
                       }}
                     />
@@ -308,7 +377,7 @@ export default function Catalogue() {
               {searchQuery && (
                 <Badge variant="secondary" className="gap-1">
                   Recherche: {searchQuery}
-                  <button onClick={() => setSearchQuery('')}>
+                  <button onClick={() => { setSearchQuery(''); setPage(1); }}>
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
@@ -316,7 +385,7 @@ export default function Catalogue() {
               {selectedCategory !== 'Tous' && (
                 <Badge variant="secondary" className="gap-1">
                   {selectedCategory}
-                  <button onClick={() => setSelectedCategory('Tous')}>
+                  <button onClick={() => { setSelectedCategory('Tous'); setPage(1); }}>
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
@@ -324,7 +393,7 @@ export default function Catalogue() {
               {selectedBrand !== 'Toutes' && (
                 <Badge variant="secondary" className="gap-1">
                   {selectedBrand}
-                  <button onClick={() => setSelectedBrand('Toutes')}>
+                  <button onClick={() => { setSelectedBrand('Toutes'); setPage(1); }}>
                     <X className="h-3 w-3" />
                   </button>
                 </Badge>
@@ -339,9 +408,9 @@ export default function Catalogue() {
               <div className="sticky top-24">
                 <FilterSidebar
                   selectedCategory={selectedCategory}
-                  setSelectedCategory={setSelectedCategory}
+                  setSelectedCategory={(v) => { setSelectedCategory(v); setPage(1); }}
                   selectedBrand={selectedBrand}
-                  setSelectedBrand={setSelectedBrand}
+                  setSelectedBrand={(v) => { setSelectedBrand(v); setPage(1); }}
                 />
               </div>
             </aside>
@@ -352,7 +421,7 @@ export default function Catalogue() {
                 <div className="flex items-center justify-center py-20">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-              ) : filteredProducts.length === 0 ? (
+              ) : displayProducts.length === 0 ? (
                 <div className="text-center py-20">
                   <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Aucun produit trouvé</h3>
@@ -366,13 +435,37 @@ export default function Catalogue() {
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground mb-6">
-                    {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''} trouvé{filteredProducts.length > 1 ? 's' : ''}
+                    {catalogData?.pagination?.total || displayProducts.length} produit{(catalogData?.pagination?.total || displayProducts.length) > 1 ? 's' : ''} trouvé{(catalogData?.pagination?.total || displayProducts.length) > 1 ? 's' : ''}
+                    {isUsingMock && ' (démo)'}
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                    {filteredProducts.map((product) => (
+                    {displayProducts.map((product) => (
                       <ProductCard key={product.sku} product={product} />
                     ))}
                   </div>
+
+                  {/* Pagination */}
+                  {catalogData?.pagination && catalogData.pagination.totalPages > 1 && (
+                    <div className="mt-10 flex justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        disabled={page <= 1}
+                        onClick={() => setPage(page - 1)}
+                      >
+                        Précédent
+                      </Button>
+                      <span className="flex items-center px-4 text-sm text-muted-foreground">
+                        Page {page} sur {catalogData.pagination.totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        disabled={page >= catalogData.pagination.totalPages}
+                        onClick={() => setPage(page + 1)}
+                      >
+                        Suivant
+                      </Button>
+                    </div>
+                  )}
                 </>
               )}
             </div>

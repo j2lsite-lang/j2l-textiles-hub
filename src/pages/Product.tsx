@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Plus, Minus, ShoppingBag, Ruler, Check, Info } from 'lucide-react';
+import { ChevronLeft, Plus, Minus, ShoppingBag, Ruler, Check, Info, Loader2, AlertCircle } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useProduct } from '@/hooks/useTopTex';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +17,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
-// Mock product data (will come from TopTex API)
+// Fallback mock product
 const mockProduct = {
   sku: 'STTU755',
   name: 'T-shirt Creator unisexe',
@@ -24,7 +26,6 @@ const mockProduct = {
   description: 'Le T-shirt Creator est un incontournable. Coupe unisexe moderne, coton biologique certifié GOTS, et une qualité de fabrication irréprochable. Idéal pour la personnalisation grâce à sa surface lisse.',
   composition: '100% coton biologique',
   weight: '180 g/m²',
-  certification: 'GOTS, OEKO-TEX, Fair Wear',
   images: [
     'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop',
     'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&h=800&fit=crop',
@@ -39,36 +40,79 @@ const mockProduct = {
     { name: 'Bleu royal', code: '#2563eb' },
   ],
   sizes: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
-  priceRanges: [
-    { min: 1, max: 24, price: '12,50 €' },
-    { min: 25, max: 49, price: '10,80 €' },
-    { min: 50, max: 99, price: '9,20 €' },
-    { min: 100, max: null, price: 'Sur devis' },
-  ],
-  sizeGuide: {
-    headers: ['Taille', 'Largeur (cm)', 'Longueur (cm)'],
-    rows: [
-      ['XXS', '46', '66'],
-      ['XS', '48', '68'],
-      ['S', '50', '70'],
-      ['M', '52', '72'],
-      ['L', '55', '74'],
-      ['XL', '58', '76'],
-      ['XXL', '61', '78'],
-      ['3XL', '64', '80'],
-    ],
-  },
+  variants: [],
+  priceHT: 8.50,
+  stock: null,
 };
+
+const priceRanges = [
+  { min: 1, max: 24, price: '12,50 €' },
+  { min: 25, max: 49, price: '10,80 €' },
+  { min: 50, max: 99, price: '9,20 €' },
+  { min: 100, max: null, price: 'Sur devis' },
+];
+
+const sizeGuide = {
+  headers: ['Taille', 'Largeur (cm)', 'Longueur (cm)'],
+  rows: [
+    ['XXS', '46', '66'],
+    ['XS', '48', '68'],
+    ['S', '50', '70'],
+    ['M', '52', '72'],
+    ['L', '55', '74'],
+    ['XL', '58', '76'],
+    ['XXL', '61', '78'],
+    ['3XL', '64', '80'],
+  ],
+};
+
+function getColorStyle(colorName: string, colorCode?: string): string {
+  if (colorCode && colorCode.startsWith('#')) return colorCode;
+  
+  const colorMap: Record<string, string> = {
+    'blanc': '#ffffff',
+    'white': '#ffffff',
+    'noir': '#000000',
+    'black': '#000000',
+    'marine': '#1e3a5f',
+    'navy': '#1e3a5f',
+    'gris': '#9ca3af',
+    'gris chiné': '#9ca3af',
+    'rouge': '#dc2626',
+    'red': '#dc2626',
+    'bleu': '#2563eb',
+    'bleu royal': '#2563eb',
+    'royal': '#2563eb',
+    'bordeaux': '#7f1d1d',
+    'anthracite': '#374151',
+  };
+  
+  return colorMap[colorName.toLowerCase()] || '#e5e7eb';
+}
 
 export default function Product() {
   const { sku } = useParams();
   const { addItem } = useQuoteCart();
   const { toast } = useToast();
   
+  // Fetch from API
+  const { data: apiProduct, isLoading, error } = useProduct(sku);
+  
+  // Use API data or fallback
+  const product = apiProduct || mockProduct;
+  const isUsingMock = !apiProduct;
+  
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedColor, setSelectedColor] = useState(mockProduct.colors[0]);
+  const [selectedColor, setSelectedColor] = useState<{ name: string; code?: string } | null>(null);
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(25);
+
+  // Set default color when product loads
+  useEffect(() => {
+    if (product.colors?.length > 0 && !selectedColor) {
+      setSelectedColor(product.colors[0]);
+    }
+  }, [product, selectedColor]);
 
   const handleAddToQuote = () => {
     if (!selectedSize) {
@@ -80,11 +124,20 @@ export default function Product() {
       return;
     }
 
+    if (!selectedColor) {
+      toast({
+        title: 'Sélectionnez une couleur',
+        description: 'Veuillez choisir une couleur avant d\'ajouter au devis.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     addItem({
-      sku: mockProduct.sku,
-      name: mockProduct.name,
-      brand: mockProduct.brand,
-      image: mockProduct.images[0],
+      sku: product.sku,
+      name: product.name,
+      brand: product.brand,
+      image: product.images?.[0] || '',
       color: selectedColor.name,
       colorCode: selectedColor.code,
       size: selectedSize,
@@ -93,9 +146,26 @@ export default function Product() {
 
     toast({
       title: 'Ajouté au devis',
-      description: `${quantity}x ${mockProduct.name} (${selectedColor.name}, ${selectedSize})`,
+      description: `${quantity}x ${product.name} (${selectedColor.name}, ${selectedSize})`,
     });
   };
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </Layout>
+    );
+  }
+
+  const displayImages = product.images?.length > 0 
+    ? product.images 
+    : ['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop'];
+
+  const displayColors = product.colors?.length > 0 ? product.colors : mockProduct.colors;
+  const displaySizes = product.sizes?.length > 0 ? product.sizes : mockProduct.sizes;
 
   return (
     <Layout>
@@ -112,46 +182,68 @@ export default function Product() {
             </Link>
           </div>
 
+          {/* API Notice */}
+          {error && (
+            <Alert className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Affichage des données de démonstration. L'API sera connectée prochainement.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid lg:grid-cols-2 gap-12">
             {/* Images */}
             <div className="space-y-4">
               <div className="aspect-square rounded-2xl overflow-hidden bg-secondary/50">
                 <img
-                  src={mockProduct.images[selectedImage]}
-                  alt={mockProduct.name}
+                  src={displayImages[selectedImage]}
+                  alt={product.name}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop';
+                  }}
                 />
               </div>
-              <div className="flex gap-3">
-                {mockProduct.images.map((img, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setSelectedImage(i)}
-                    className={cn(
-                      'w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors',
-                      selectedImage === i ? 'border-primary' : 'border-transparent'
-                    )}
-                  >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
+              {displayImages.length > 1 && (
+                <div className="flex gap-3">
+                  {displayImages.map((img, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedImage(i)}
+                      className={cn(
+                        'w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors',
+                        selectedImage === i ? 'border-primary' : 'border-transparent'
+                      )}
+                    >
+                      <img 
+                        src={img} 
+                        alt="" 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Details */}
             <div className="space-y-6">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">{mockProduct.brand}</p>
+                <p className="text-sm text-muted-foreground mb-1">{product.brand}</p>
                 <h1 className="text-3xl font-display font-bold text-foreground mb-2">
-                  {mockProduct.name}
+                  {product.name}
                 </h1>
                 <Badge variant="outline" className="text-xs">
-                  Réf: {mockProduct.sku}
+                  Réf: {product.sku}
                 </Badge>
               </div>
 
               <p className="text-muted-foreground leading-relaxed">
-                {mockProduct.description}
+                {product.description || 'Produit textile de qualité professionnelle, idéal pour la personnalisation. Contactez-nous pour plus de détails.'}
               </p>
 
               {/* Price Ranges */}
@@ -161,7 +253,7 @@ export default function Product() {
                   Tarifs indicatifs (HT)
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {mockProduct.priceRanges.map((range, i) => (
+                  {priceRanges.map((range, i) => (
                     <div key={i} className="text-center p-2 rounded-lg bg-secondary/50">
                       <p className="text-xs text-muted-foreground">
                         {range.max ? `${range.min}-${range.max}` : `${range.min}+`} pcs
@@ -175,29 +267,27 @@ export default function Product() {
               {/* Color Selection */}
               <div>
                 <h3 className="font-semibold mb-3">
-                  Couleur : <span className="font-normal text-muted-foreground">{selectedColor.name}</span>
+                  Couleur : <span className="font-normal text-muted-foreground">{selectedColor?.name || 'Sélectionnez'}</span>
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {mockProduct.colors.map((color) => (
+                  {displayColors.map((color) => (
                     <button
                       key={color.name}
                       onClick={() => setSelectedColor(color)}
                       className={cn(
                         'w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all',
-                        selectedColor.name === color.name
+                        selectedColor?.name === color.name
                           ? 'border-primary ring-2 ring-primary/20'
                           : 'border-border hover:border-muted-foreground'
                       )}
-                      style={{ backgroundColor: color.code }}
+                      style={{ backgroundColor: getColorStyle(color.name, color.code) }}
                       title={color.name}
                     >
-                      {selectedColor.name === color.name && (
+                      {selectedColor?.name === color.name && (
                         <Check
                           className={cn(
                             'h-5 w-5',
-                            color.code === '#ffffff' || color.code === '#fef3c7'
-                              ? 'text-foreground'
-                              : 'text-white'
+                            getColorStyle(color.name, color.code) === '#ffffff' ? 'text-foreground' : 'text-white'
                           )}
                         />
                       )}
@@ -225,7 +315,7 @@ export default function Product() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b">
-                              {mockProduct.sizeGuide.headers.map((h) => (
+                              {sizeGuide.headers.map((h) => (
                                 <th key={h} className="text-left py-2 px-3 font-semibold">
                                   {h}
                                 </th>
@@ -233,7 +323,7 @@ export default function Product() {
                             </tr>
                           </thead>
                           <tbody>
-                            {mockProduct.sizeGuide.rows.map((row, i) => (
+                            {sizeGuide.rows.map((row, i) => (
                               <tr key={i} className="border-b last:border-0">
                                 {row.map((cell, j) => (
                                   <td key={j} className="py-2 px-3 text-muted-foreground">
@@ -249,7 +339,7 @@ export default function Product() {
                   </Dialog>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {mockProduct.sizes.map((size) => (
+                  {displaySizes.map((size) => (
                     <button
                       key={size}
                       onClick={() => setSelectedSize(size)}
@@ -310,12 +400,20 @@ export default function Product() {
               <div className="border-t pt-6 space-y-3">
                 <h3 className="font-semibold">Caractéristiques</h3>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-muted-foreground">Composition</dt>
-                  <dd className="font-medium">{mockProduct.composition}</dd>
-                  <dt className="text-muted-foreground">Grammage</dt>
-                  <dd className="font-medium">{mockProduct.weight}</dd>
-                  <dt className="text-muted-foreground">Certifications</dt>
-                  <dd className="font-medium">{mockProduct.certification}</dd>
+                  {product.composition && (
+                    <>
+                      <dt className="text-muted-foreground">Composition</dt>
+                      <dd className="font-medium">{product.composition}</dd>
+                    </>
+                  )}
+                  {product.weight && (
+                    <>
+                      <dt className="text-muted-foreground">Grammage</dt>
+                      <dd className="font-medium">{product.weight}</dd>
+                    </>
+                  )}
+                  <dt className="text-muted-foreground">Catégorie</dt>
+                  <dd className="font-medium">{product.category || 'Textile'}</dd>
                 </dl>
               </div>
             </div>
