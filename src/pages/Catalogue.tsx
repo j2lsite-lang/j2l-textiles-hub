@@ -144,49 +144,86 @@ interface DisplayProduct {
   priceHT: number | null;
 }
 
+// Liste des marques avec leurs logos
+const brandLogos: Record<string, string> = {
+  'Stanley/Stella': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Stanley_Stella_logo.svg/200px-Stanley_Stella_logo.svg.png',
+  'James & Nicholson': 'https://www.jamesandnicholson.de/media/image/94/cd/e6/jn-logo.png',
+  'B&C': 'https://www.bc-collection.com/media/logo/default/bc-collection-logo.png',
+  'Gildan': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Gildan_logo.svg/200px-Gildan_logo.svg.png',
+  'K-Up': 'https://www.kariban.com/media/wysiwyg/k-up-logo.png',
+  'Kimood': 'https://www.kariban.com/media/wysiwyg/kimood-logo.png',
+  'Fruit of the Loom': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Fruit_of_the_Loom_logo.svg/200px-Fruit_of_the_Loom_logo.svg.png',
+  'Kariban': 'https://www.kariban.com/media/wysiwyg/kariban-logo.png',
+  'Promodoro': 'https://www.promodoro.de/media/logo/stores/1/promodoro-logo.png',
+  'Result': 'https://www.resultclothing.com/media/logo/default/Result_logo.png',
+};
+
 function ProductCard({ product }: { product: DisplayProduct }) {
   const image = product.images?.[0] || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
   const displayColors = product.colors?.slice(0, 4) || [];
   
   return (
     <Link to={`/produit/${product.sku}`} className="group">
-      <div className="surface-elevated rounded-xl overflow-hidden hover-lift">
-        <div className="aspect-square bg-secondary/50 overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-300">
+        {/* Image sur fond blanc */}
+        <div className="aspect-square bg-white p-4 flex items-center justify-center overflow-hidden">
           <img
             src={image}
             alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-110"
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
             }}
           />
         </div>
-        <div className="p-4">
-          <p className="text-xs text-muted-foreground mb-1">{product.brand}</p>
-          <h3 className="font-medium text-foreground mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+        {/* Infos produit */}
+        <div className="p-4 border-t border-gray-100">
+          <p className="text-xs font-medium text-primary mb-1">{product.brand}</p>
+          <h3 className="font-semibold text-foreground mb-2 line-clamp-2 group-hover:text-primary transition-colors text-sm">
             {product.name}
           </h3>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-primary">
-              {product.priceHT ? `${product.priceHT.toFixed(2)} €` : 'Sur devis'}
+            <span className="text-base font-bold text-primary">
+              {product.priceHT ? `${product.priceHT.toFixed(2)} € HT` : 'Sur devis'}
             </span>
             <div className="flex gap-1">
               {displayColors.map((color, i) => (
                 <span
                   key={i}
-                  className="w-3 h-3 rounded-full border border-border"
+                  className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
                   style={{ backgroundColor: getColorStyle(color.name, color.code) }}
                   title={color.name}
                 />
               ))}
               {(product.colors?.length || 0) > 4 && (
-                <span className="text-xs text-muted-foreground">+{product.colors.length - 4}</span>
+                <span className="text-xs text-muted-foreground ml-1">+{product.colors.length - 4}</span>
               )}
             </div>
           </div>
         </div>
       </div>
     </Link>
+  );
+}
+
+function BrandCard({ brand }: { brand: string }) {
+  const logoUrl = brandLogos[brand];
+  
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6 flex items-center justify-center h-24 hover:shadow-md hover:border-primary/30 transition-all duration-300 cursor-pointer">
+      {logoUrl ? (
+        <img 
+          src={logoUrl} 
+          alt={brand} 
+          className="max-h-12 max-w-full object-contain grayscale hover:grayscale-0 transition-all duration-300"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+          }}
+        />
+      ) : null}
+      <span className={cn("text-lg font-bold text-gray-700", logoUrl && "hidden")}>{brand}</span>
+    </div>
   );
 }
 
@@ -438,6 +475,27 @@ export default function Catalogue() {
                     {catalogData?.pagination?.total || displayProducts.length} produit{(catalogData?.pagination?.total || displayProducts.length) > 1 ? 's' : ''} trouvé{(catalogData?.pagination?.total || displayProducts.length) > 1 ? 's' : ''}
                     {isUsingMock && ' (démo)'}
                   </p>
+                  
+                  {/* Section Marques */}
+                  {selectedBrand === 'Toutes' && !searchQuery && selectedCategory === 'Tous' && (
+                    <div className="mb-10">
+                      <h3 className="text-xl font-bold mb-4 text-foreground">Nos marques partenaires</h3>
+                      <div className="w-12 h-1 bg-primary mb-6"></div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {brands.filter(b => b !== 'Toutes').map((brand) => (
+                          <div
+                            key={brand}
+                            onClick={() => setSelectedBrand(brand)}
+                            className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-center h-20 hover:shadow-md hover:border-primary/30 transition-all duration-300 cursor-pointer"
+                          >
+                            <span className="text-sm font-bold text-gray-700 text-center">{brand}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Grille Produits */}
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                     {displayProducts.map((product) => (
                       <ProductCard key={product.sku} product={product} />
