@@ -1,50 +1,44 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import { SectionHeader } from '@/components/ui/section-header';
+import { Button } from '@/components/ui/button';
 
 // Import product images
-import tshirtImg from '@/assets/categories/tshirt.png';
-import workwearImg from '@/assets/categories/workwear.png';
-import goodiesImg from '@/assets/categories/goodies.png';
-import bagImg from '@/assets/categories/bag.png';
-import umbrellaImg from '@/assets/categories/umbrella.png';
-import safetyImg from '@/assets/categories/safety.png';
+import poloImg from '@/assets/categories/polo-pro.jpg';
+import workwearImg from '@/assets/categories/workwear-pro.jpg';
+import gastroImg from '@/assets/categories/gastro-pro.jpg';
+import sportImg from '@/assets/categories/sport-pro.jpg';
+import corporateImg from '@/assets/categories/corporate-pro.jpg';
+import hivisImg from '@/assets/categories/hivis-pro.jpg';
 
 const categories = [
   {
-    image: tshirtImg,
-    name: 'T-shirts & Polos',
-    description: 'Coton, polyester, bio',
+    image: poloImg,
+    name: 'Polos & T-shirts',
     query: 't-shirt',
   },
   {
+    image: gastroImg,
+    name: 'Gastro & Hôtellerie',
+    query: 'cuisine',
+  },
+  {
+    image: corporateImg,
+    name: 'Corporate',
+    query: 'corporate',
+  },
+  {
+    image: sportImg,
+    name: 'Sport & Loisirs',
+    query: 'sport',
+  },
+  {
     image: workwearImg,
-    name: 'Vêtements de travail',
-    description: 'Vestes, pantalons, blouses',
+    name: 'EPI & Chantier',
     query: 'travail',
   },
   {
-    image: goodiesImg,
-    name: 'Objets publicitaires',
-    description: 'Goodies et accessoires',
-    query: 'objet',
-  },
-  {
-    image: bagImg,
-    name: 'Bagagerie',
-    description: 'Sacs, sacoches, valises',
-    query: 'sac',
-  },
-  {
-    image: umbrellaImg,
-    name: 'Pluie & Vent',
-    description: 'Parapluies, coupe-vent',
-    query: 'parapluie',
-  },
-  {
-    image: safetyImg,
+    image: hivisImg,
     name: 'Haute visibilité',
-    description: 'Vêtements normés',
     query: 'visibilite',
   },
 ];
@@ -56,10 +50,10 @@ export function Categories() {
         <SectionHeader
           eyebrow="Catégories"
           title="Explorez notre gamme"
-          description="Des milliers de produits textiles et objets promotionnels à personnaliser"
+          description="Des textiles professionnels pour tous les secteurs d'activité"
         />
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-5 mt-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mt-12">
           {categories.map((category, index) => (
             <Link
               key={category.name}
@@ -67,28 +61,29 @@ export function Categories() {
               className="group animate-slide-up"
               style={{ animationDelay: `${index * 0.05}s` }}
             >
-              <div className="bg-white rounded-2xl overflow-hidden text-center hover-lift h-full flex flex-col border border-border/50 hover:border-accent/40 hover:shadow-lg transition-all duration-300">
-                {/* Product image */}
-                <div className="aspect-square bg-gradient-to-br from-secondary/50 to-muted/30 p-4 overflow-hidden">
-                  <img 
-                    src={category.image} 
-                    alt={category.name}
-                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
-                  />
-                </div>
+              <div className="relative aspect-[3/4] rounded-2xl overflow-hidden">
+                {/* Background image */}
+                <img 
+                  src={category.image} 
+                  alt={category.name}
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                
+                {/* Overlay gradient */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                 
                 {/* Content */}
-                <div className="p-4 flex-1 flex flex-col justify-center">
-                  <h3 className="font-semibold text-foreground text-sm mb-1 group-hover:text-primary transition-colors">
+                <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
+                  <h3 className="font-display font-bold text-white text-lg md:text-xl mb-3">
                     {category.name}
                   </h3>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    {category.description}
-                  </p>
-                  <div className="flex items-center justify-center gap-1 text-accent opacity-0 group-hover:opacity-100 transition-all text-xs font-medium">
-                    <span>Voir</span>
-                    <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
-                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white hover:text-primary font-semibold text-xs uppercase tracking-wide"
+                  >
+                    Voir le catalogue
+                  </Button>
                 </div>
               </div>
             </Link>
