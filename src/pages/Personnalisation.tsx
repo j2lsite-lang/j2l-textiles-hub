@@ -113,7 +113,7 @@ export default function Personnalisation() {
                 </Button>
               </Link>
               <Link to="/contact">
-                <Button size="lg" variant="outline" className="font-semibold border-white/30 text-white hover:bg-white/10">
+                <Button size="lg" className="font-semibold bg-white/10 backdrop-blur-sm text-white border border-white/30 hover:bg-white/20">
                   Nous contacter
                 </Button>
               </Link>

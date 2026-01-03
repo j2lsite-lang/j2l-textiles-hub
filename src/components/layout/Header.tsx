@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingBag, Search, Phone } from 'lucide-react';
+import { Menu, X, ShoppingBag, Search, Phone, Mail, MapPin, Clock, PhoneCall } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { cn } from '@/lib/utils';
 import { COMPANY_INFO } from '@/lib/company-info';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 const navLinks = [
   { href: '/', label: 'Accueil' },
@@ -60,11 +65,22 @@ export function Header() {
       >
         <div className="container-page">
           <div className="flex items-center justify-between h-16 md:h-20">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 group">
-              <span className="text-xl md:text-2xl font-display font-bold text-foreground">
-                J2L<span className="text-accent group-hover:text-primary transition-colors">Textiles</span>
-              </span>
+            {/* Logo Premium */}
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="relative">
+                <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-primary flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                  <span className="text-lg md:text-xl font-display font-black text-white tracking-tight">J2L</span>
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-md bg-accent shadow-sm" />
+              </div>
+              <div className="hidden sm:block">
+                <span className="text-lg md:text-xl font-display font-bold text-foreground leading-none">
+                  Textiles
+                </span>
+                <span className="block text-[10px] text-muted-foreground font-medium tracking-wider uppercase">
+                  Personnalisation pro
+                </span>
+              </div>
             </Link>
 
             {/* Desktop Navigation */}
@@ -103,6 +119,67 @@ export function Header() {
                   )}
                 </Button>
               </Link>
+
+              {/* Contact Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="hidden md:flex items-center gap-2 font-semibold border-primary/20 hover:border-primary hover:bg-primary/5">
+                    <PhoneCall className="h-4 w-4 text-accent" />
+                    Être rappelé
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0" align="end">
+                  <div className="p-4 border-b border-border bg-primary/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                        <Phone className="h-6 w-6 text-accent" />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-bold text-foreground">Contactez-nous</h4>
+                        <p className="text-sm text-muted-foreground">J2L Textiles</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    <a 
+                      href={`tel:${COMPANY_INFO.phoneLink}`}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-accent/10 hover:bg-accent/20 transition-colors group"
+                    >
+                      <Phone className="h-5 w-5 text-accent" />
+                      <div>
+                        <p className="font-semibold text-foreground group-hover:text-accent transition-colors">{COMPANY_INFO.phone}</p>
+                        <p className="text-xs text-muted-foreground">Appel direct</p>
+                      </div>
+                    </a>
+                    <a 
+                      href={`mailto:${COMPANY_INFO.email}`}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary transition-colors"
+                    >
+                      <Mail className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium text-foreground">{COMPANY_INFO.email}</p>
+                        <p className="text-xs text-muted-foreground">Réponse sous 24h</p>
+                      </div>
+                    </a>
+                    <div className="flex items-start gap-3 p-3">
+                      <MapPin className="h-5 w-5 text-primary shrink-0" />
+                      <div>
+                        <p className="font-medium text-foreground">{COMPANY_INFO.address}</p>
+                        <p className="text-sm text-muted-foreground">{COMPANY_INFO.postalCode} {COMPANY_INFO.city}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 border-t border-border">
+                      <Clock className="h-5 w-5 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">{COMPANY_INFO.hours}</p>
+                    </div>
+                    <Link to="/contact" className="block">
+                      <Button className="w-full accent-gradient text-white font-semibold">
+                        Demander un rappel
+                      </Button>
+                    </Link>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               <Link to="/devis" className="hidden sm:block">
                 <Button className="font-semibold accent-gradient text-white border-0 shadow-accent hover:shadow-lg hover:-translate-y-0.5 transition-all">
