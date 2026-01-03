@@ -12,97 +12,49 @@ const TOPTEX_API_KEY = Deno.env.get('TOPTEX_API_KEY');
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
-async function getAuthToken(): Promise<string> {
-  const cacheKey = 'toptex_token';
-  const cached = cache.get(cacheKey);
-  
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    console.log('Using cached auth token');
-    return cached.data;
+// Helper to convert ArrayBuffer to base64
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
-
-  console.log('Fetching new auth token from TopTex');
-  console.log('API Key present:', !!TOPTEX_API_KEY);
-  console.log('API Key length:', TOPTEX_API_KEY?.length || 0);
-
-  // Try different authentication formats that TopTex might expect
-  // Format 1: api_key in body (common format)
-  let response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({
-      api_key: TOPTEX_API_KEY,
-    }),
-  });
-
-  // If format 1 fails, try format 2: apiKey in body
-  if (!response.ok) {
-    console.log('Format api_key failed, trying apiKey...');
-    response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({
-        apiKey: TOPTEX_API_KEY,
-      }),
-    });
-  }
-
-  // If format 2 fails, try format 3: key in header
-  if (!response.ok) {
-    console.log('Format apiKey failed, trying X-API-Key header...');
-    response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-API-Key': TOPTEX_API_KEY || '',
-      },
-      body: JSON.stringify({}),
-    });
-  }
-
-  // If format 3 fails, try format 4: Authorization header with API key
-  if (!response.ok) {
-    console.log('Format X-API-Key header failed, trying Authorization header...');
-    response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${TOPTEX_API_KEY}`,
-      },
-      body: JSON.stringify({}),
-    });
-  }
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Auth error:', response.status, errorText);
-    console.error('All authentication formats failed');
-    throw new Error(`Authentication failed: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
-  console.log('Auth response keys:', Object.keys(data));
-  
-  const token = data.token || data.accessToken || data.access_token || data.jwt || data;
-  
-  if (typeof token === 'string') {
-    cache.set(cacheKey, { data: token, timestamp: Date.now() });
-    console.log('Token obtained successfully');
-    return token;
-  }
-  
-  throw new Error('No valid token in response');
+  return btoa(binary);
 }
 
-async function fetchFromTopTex(endpoint: string, token: string): Promise<any> {
+// Generate HMAC-SHA256 signature
+async function generateSignature(secret: string, message: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(message);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  return arrayBufferToBase64(signature);
+}
+
+// Create Authorization header with HMAC signature
+async function createAuthHeader(method: string, path: string, date: string): Promise<string> {
+  if (!TOPTEX_API_KEY) {
+    throw new Error('TOPTEX_API_KEY is not configured');
+  }
+
+  // The string to sign typically includes method, path and date
+  const stringToSign = `${method.toLowerCase()} ${path}\ndate: ${date}`;
+  const signature = await generateSignature(TOPTEX_API_KEY, stringToSign);
+  
+  // TopTex expects the Signature format
+  return `Signature keyId="${TOPTEX_API_KEY}",algorithm="hmac-sha256",headers="date",signature="${signature}"`;
+}
+
+async function fetchFromTopTex(endpoint: string, method: string = 'GET'): Promise<any> {
   const cacheKey = `toptex_${endpoint}`;
   const cached = cache.get(cacheKey);
   
@@ -113,9 +65,17 @@ async function fetchFromTopTex(endpoint: string, token: string): Promise<any> {
 
   console.log(`Fetching from TopTex: ${endpoint}`);
   
+  const date = new Date().toUTCString();
+  const authHeader = await createAuthHeader(method, endpoint, date);
+  
+  console.log('Request date:', date);
+  console.log('Auth header created');
+
   const response = await fetch(`${TOPTEX_API_URL}${endpoint}`, {
+    method,
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': authHeader,
+      'Date': date,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
@@ -124,7 +84,7 @@ async function fetchFromTopTex(endpoint: string, token: string): Promise<any> {
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`TopTex API error for ${endpoint}:`, response.status, errorText);
-    throw new Error(`TopTex API error: ${response.status}`);
+    throw new Error(`TopTex API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
@@ -134,7 +94,6 @@ async function fetchFromTopTex(endpoint: string, token: string): Promise<any> {
 }
 
 function normalizeProduct(product: any): any {
-  // Normalize TopTex product data to our internal format
   return {
     sku: product.reference || product.sku || product.id,
     name: product.designation || product.name || product.titre,
@@ -156,12 +115,8 @@ function extractImages(product: any): string[] {
   if (product.images && Array.isArray(product.images)) {
     return product.images.map((img: any) => typeof img === 'string' ? img : img.url || img.src);
   }
-  if (product.image) {
-    return [product.image];
-  }
-  if (product.photo) {
-    return [product.photo];
-  }
+  if (product.image) return [product.image];
+  if (product.photo) return [product.photo];
   return [];
 }
 
@@ -208,19 +163,17 @@ function extractVariants(product: any): any[] {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Check if API key is configured
     if (!TOPTEX_API_KEY) {
       console.error('TOPTEX_API_KEY is not configured');
       return new Response(
         JSON.stringify({ 
           error: 'Configuration manquante',
-          message: 'La clé API TopTex n\'est pas configurée. Veuillez ajouter TOPTEX_API_KEY dans les secrets.',
+          message: 'La clé API TopTex n\'est pas configurée.',
           needsSetup: true,
         }),
         {
@@ -230,7 +183,6 @@ serve(async (req) => {
       );
     }
 
-    // Parse request body if present
     let body: any = {};
     if (req.method === 'POST') {
       try {
@@ -251,8 +203,6 @@ serve(async (req) => {
 
     console.log(`TopTex API request: action=${action}, query=${query}, page=${page}`);
 
-    const token = await getAuthToken();
-
     let result: any;
 
     switch (action) {
@@ -260,13 +210,13 @@ serve(async (req) => {
         if (!sku) {
           throw new Error('SKU is required for product action');
         }
-        const data = await fetchFromTopTex(`/v3/produits/${sku}`, token);
+        const data = await fetchFromTopTex(`/v3/produits/${sku}`);
         result = normalizeProduct(data);
         break;
       }
 
       case 'attributes': {
-        const data = await fetchFromTopTex('/v3/attributs', token);
+        const data = await fetchFromTopTex('/v3/attributs');
         result = data;
         break;
       }
@@ -274,7 +224,6 @@ serve(async (req) => {
       case 'search':
       case 'catalog':
       default: {
-        // Build query params for TopTex API
         const params = new URLSearchParams();
         if (query) params.append('recherche', query);
         if (category && category !== 'Tous') params.append('categorie', category);
@@ -283,9 +232,8 @@ serve(async (req) => {
         params.append('limit', limit.toString());
 
         const endpoint = `/v3/produits${params.toString() ? `?${params.toString()}` : ''}`;
-        const data = await fetchFromTopTex(endpoint, token);
+        const data = await fetchFromTopTex(endpoint);
 
-        // Handle different response formats
         let products = [];
         let total = 0;
 
@@ -324,15 +272,14 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error in toptex-api function:', errorMessage);
     
-    // Check if it's an auth error
-    const isAuthError = errorMessage.includes('Authentication failed');
+    const isAuthError = errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.includes('Authentication');
     
     return new Response(
       JSON.stringify({ 
         error: errorMessage,
         message: isAuthError 
           ? 'Échec de l\'authentification TopTex. Vérifiez que votre clé API est valide.'
-          : 'Une erreur est survenue lors de la récupération des produits. Veuillez réessayer.',
+          : 'Une erreur est survenue lors de la récupération des produits.',
         isAuthError,
       }),
       {
