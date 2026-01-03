@@ -24,11 +24,12 @@ export function SectionHeader({
       )}
     >
       {eyebrow && (
-        <p className="text-sm font-medium text-accent uppercase tracking-wider mb-3">
+        <p className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 text-accent text-sm font-semibold uppercase tracking-wider mb-4">
+          <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
           {eyebrow}
         </p>
       )}
-      <h2 className="text-3xl md:text-4xl font-display font-semibold text-foreground">
+      <h2 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-foreground leading-tight">
         {title}
       </h2>
       {description && (

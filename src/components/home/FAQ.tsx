@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, HelpCircle } from 'lucide-react';
 import { SectionHeader } from '@/components/ui/section-header';
 import {
   Accordion,
@@ -30,7 +30,7 @@ const faqs = [
 
 export function FAQ() {
   return (
-    <section className="section-padding bg-secondary/30">
+    <section className="section-padding section-gray">
       <div className="container-page">
         <SectionHeader
           eyebrow="FAQ"
@@ -44,12 +44,16 @@ export function FAQ() {
               <AccordionItem
                 key={index}
                 value={`item-${index}`}
-                className="surface-elevated rounded-xl px-6 border-0"
+                className="surface-elevated px-6 border-0 animate-slide-up"
+                style={{ animationDelay: `${index * 0.1}s` }}
               >
-                <AccordionTrigger className="text-left font-medium hover:no-underline py-5">
-                  {faq.question}
+                <AccordionTrigger className="text-left font-semibold hover:no-underline py-5 gap-4">
+                  <div className="flex items-start gap-3">
+                    <HelpCircle className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+                    <span>{faq.question}</span>
+                  </div>
                 </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground pb-5">
+                <AccordionContent className="text-muted-foreground pb-5 pl-8">
                   {faq.answer}
                 </AccordionContent>
               </AccordionItem>
@@ -58,7 +62,7 @@ export function FAQ() {
 
           <div className="text-center mt-10">
             <Link to="/faq">
-              <Button variant="outline" className="group">
+              <Button variant="outline" className="group border-2 font-semibold">
                 Voir toutes les questions
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>

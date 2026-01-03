@@ -15,7 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Playfair Display", "Georgia", "serif"],
+        display: ["Plus Jakarta Sans", "Inter", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -61,11 +61,44 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Custom brand colors for direct use
+        navy: {
+          DEFAULT: "#0B1F3A",
+          50: "#E8EDF4",
+          100: "#C5D1E3",
+          200: "#9EB3D0",
+          300: "#7795BD",
+          400: "#5A7DAE",
+          500: "#3D659F",
+          600: "#2D4F7A",
+          700: "#1D3A55",
+          800: "#0B1F3A",
+          900: "#051020",
+        },
+        orange: {
+          DEFAULT: "#FF6A00",
+          50: "#FFF4EB",
+          100: "#FFE4CC",
+          200: "#FFD0A8",
+          300: "#FFBC84",
+          400: "#FFA861",
+          500: "#FF6A00",
+          600: "#CC5500",
+          700: "#994000",
+          800: "#662B00",
+          900: "#331500",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        'soft': '0 2px 8px rgba(11, 31, 58, 0.06), 0 8px 24px rgba(11, 31, 58, 0.08)',
+        'medium': '0 4px 12px rgba(11, 31, 58, 0.08), 0 12px 32px rgba(11, 31, 58, 0.12)',
+        'strong': '0 8px 24px rgba(11, 31, 58, 0.12), 0 16px 48px rgba(11, 31, 58, 0.16)',
+        'accent': '0 4px 16px rgba(255, 106, 0, 0.3)',
       },
       keyframes: {
         "accordion-down": {
@@ -81,8 +114,12 @@ export default {
           to: { opacity: "1" },
         },
         "slide-up": {
-          from: { opacity: "0", transform: "translateY(20px)" },
+          from: { opacity: "0", transform: "translateY(24px)" },
           to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "pulse-accent": {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(255, 106, 0, 0.4)" },
+          "50%": { boxShadow: "0 0 0 12px rgba(255, 106, 0, 0)" },
         },
       },
       animation: {
@@ -90,6 +127,7 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.6s ease-out forwards",
         "slide-up": "slide-up 0.6s ease-out forwards",
+        "pulse-accent": "pulse-accent 2s ease-in-out infinite",
       },
     },
   },
