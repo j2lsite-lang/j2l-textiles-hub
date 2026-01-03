@@ -2,7 +2,7 @@ import emailjs from '@emailjs/browser';
 
 // Configuration EmailJS
 const SERVICE_ID = 'service_j2l_devis';
-const TEMPLATE_ID = 'TEMPLATE_ID_ICI'; // À remplacer par votre vrai Template ID
+const TEMPLATE_ID = 'template_8lhh6ym';
 const PUBLIC_KEY = 'cZVFagbJEdc5bF6E_';
 
 // Variables du template EmailJS:
