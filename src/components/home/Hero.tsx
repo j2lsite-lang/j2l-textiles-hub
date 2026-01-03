@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Palette, Truck, BadgeCheck, Star, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import heroBg from '@/assets/hero-bg.png';
 
 const features = [
   { icon: Palette, label: 'Personnalisation sur-mesure' },
@@ -9,22 +10,28 @@ const features = [
 ];
 
 const stats = [
-  { value: '5000+', label: 'Produits' },
   { value: '24h', label: 'Devis gratuit' },
   { value: '100%', label: 'Satisfaction' },
+  { value: '15 ans', label: 'Expérience' },
 ];
 
 export function Hero() {
   return (
     <section className="relative overflow-hidden">
-      {/* Background with gradient */}
-      <div className="absolute inset-0 hero-gradient" />
+      {/* Background with image */}
+      <div className="absolute inset-0">
+        <img 
+          src={heroBg} 
+          alt="" 
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-primary/85" />
+      </div>
       
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 -right-32 w-96 h-96 bg-accent/20 rounded-full blur-3xl" />
         <div className="absolute bottom-0 -left-32 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNiIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjIiLz48L2c+PC9zdmc+')] opacity-40" />
       </div>
       
       <div className="relative container-page">
@@ -52,7 +59,7 @@ export function Hero() {
 
               {/* Description */}
               <p className="text-lg sm:text-xl text-white/80 leading-relaxed max-w-xl animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                Vêtements de travail, objets promotionnels, accessoires... 
+                Vêtements de travail, accessoires textiles personnalisés... 
                 Découvrez notre catalogue et personnalisez vos textiles avec votre logo.
               </p>
 
