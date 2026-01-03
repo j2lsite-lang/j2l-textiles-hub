@@ -41,21 +41,7 @@ export interface CatalogFilters {
 }
 
 export async function fetchCatalog(filters: CatalogFilters = {}): Promise<CatalogResponse> {
-  const params = new URLSearchParams();
-  params.append('action', 'catalog');
-  
-  if (filters.query) params.append('query', filters.query);
-  if (filters.category) params.append('category', filters.category);
-  if (filters.brand) params.append('brand', filters.brand);
-  if (filters.page) params.append('page', filters.page.toString());
-  if (filters.limit) params.append('limit', filters.limit.toString());
-
-  const { data, error } = await supabase.functions.invoke('toptex-api', {
-    body: null,
-    method: 'GET',
-  });
-
-  // Since invoke doesn't support query params directly, we'll use POST
+  // Invoke via POST (invoke doesn't support query params directly)
   const response = await supabase.functions.invoke('toptex-api', {
     body: { ...filters, action: 'catalog' },
   });
