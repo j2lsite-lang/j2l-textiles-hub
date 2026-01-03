@@ -4,6 +4,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
+import Catalogue from "./pages/Catalogue";
+import Product from "./pages/Product";
+import Personnalisation from "./pages/Personnalisation";
+import Devis from "./pages/Devis";
+import FAQ from "./pages/FAQ";
+import Contact from "./pages/Contact";
+import MentionsLegales from "./pages/MentionsLegales";
+import Confidentialite from "./pages/Confidentialite";
+import CGV from "./pages/CGV";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -16,7 +25,15 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/catalogue" element={<Catalogue />} />
+          <Route path="/produit/:sku" element={<Product />} />
+          <Route path="/personnalisation" element={<Personnalisation />} />
+          <Route path="/devis" element={<Devis />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/mentions-legales" element={<MentionsLegales />} />
+          <Route path="/confidentialite" element={<Confidentialite />} />
+          <Route path="/cgv" element={<CGV />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
