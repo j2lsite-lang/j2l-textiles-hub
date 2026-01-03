@@ -144,32 +144,38 @@ interface DisplayProduct {
   priceHT: number | null;
 }
 
-// Import des logos de marques
-import bcLogo from '@/assets/brands/bc-collection.svg';
-import gildanLogo from '@/assets/brands/gildan.svg';
-import stanleyLogo from '@/assets/brands/stanley-stella.svg';
-import karibanLogo from '@/assets/brands/kariban.svg';
-import jamesLogo from '@/assets/brands/james-nicholson.svg';
-import kupLogo from '@/assets/brands/k-up.svg';
-import kimoodLogo from '@/assets/brands/kimood.svg';
-import promodoroLogo from '@/assets/brands/promodoro.svg';
-import resultLogo from '@/assets/brands/result.svg';
-import solsLogo from '@/assets/brands/sol-s.svg';
-import fruitLogo from '@/assets/brands/fruit-of-the-loom.svg';
+// Import des logos de marques (vrais logos TopTex)
+import bagbaseLogo from '@/assets/brands/bagbase.jpg';
+import bcLogo from '@/assets/brands/bc.jpg';
+import fruitLogo from '@/assets/brands/fruit-of-the-loom.jpg';
+import gildanLogo from '@/assets/brands/gildan.jpg';
+import jamesLogo from '@/assets/brands/james-nicholson.jpg';
+import karibanLogo from '@/assets/brands/kariban.jpg';
+import kimoodLogo from '@/assets/brands/kimood.jpg';
+import kupLogo from '@/assets/brands/k-up.jpg';
+import nativeSpiritLogo from '@/assets/brands/native-spirit.jpg';
+import proactLogo from '@/assets/brands/proact.jpg';
+import resultLogo from '@/assets/brands/result.jpg';
+import russellLogo from '@/assets/brands/russell.jpg';
+import solsLogo from '@/assets/brands/sols.jpg';
+import stanleyLogo from '@/assets/brands/stanley-stella.jpg';
 
-// Liste des marques avec leurs logos
+// Liste des marques avec leurs logos (ordre alphabétique)
 const brandLogos: Record<string, string> = {
-  'Stanley/Stella': stanleyLogo,
-  'James & Nicholson': jamesLogo,
   'B&C': bcLogo,
-  'Gildan': gildanLogo,
-  'K-Up': kupLogo,
-  'Kimood': kimoodLogo,
+  'BagBase': bagbaseLogo,
   'Fruit of the Loom': fruitLogo,
+  'Gildan': gildanLogo,
+  'James & Nicholson': jamesLogo,
   'Kariban': karibanLogo,
-  'Promodoro': promodoroLogo,
+  'Kimood': kimoodLogo,
+  'K-Up': kupLogo,
+  'Native Spirit': nativeSpiritLogo,
+  'Proact': proactLogo,
   'Result': resultLogo,
+  'Russell': russellLogo,
   "Sol's": solsLogo,
+  'Stanley/Stella': stanleyLogo,
 };
 
 function ProductCard({ product }: { product: DisplayProduct }) {
