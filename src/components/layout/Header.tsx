@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { cn } from '@/lib/utils';
 import { COMPANY_INFO } from '@/lib/company-info';
+import logoJ2L from '@/assets/logo-j2l.png';
 import {
   Popover,
   PopoverContent,
@@ -66,11 +67,12 @@ export function Header() {
         <div className="container-page">
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo Premium */}
-            <Link to="/" className="flex items-center gap-2 group">
-              <span className="text-2xl md:text-3xl font-display font-black tracking-tight">
-                <span className="text-primary">J2L</span>
-                <span className="text-accent">Textiles</span>
-              </span>
+            <Link to="/" className="flex items-center group">
+              <img 
+                src={logoJ2L} 
+                alt="J2L Textiles" 
+                className="h-12 md:h-14 w-auto object-contain"
+              />
             </Link>
 
             {/* Desktop Navigation */}
