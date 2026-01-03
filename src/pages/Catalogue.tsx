@@ -144,18 +144,32 @@ interface DisplayProduct {
   priceHT: number | null;
 }
 
+// Import des logos de marques
+import bcLogo from '@/assets/brands/bc-collection.svg';
+import gildanLogo from '@/assets/brands/gildan.svg';
+import stanleyLogo from '@/assets/brands/stanley-stella.svg';
+import karibanLogo from '@/assets/brands/kariban.svg';
+import jamesLogo from '@/assets/brands/james-nicholson.svg';
+import kupLogo from '@/assets/brands/k-up.svg';
+import kimoodLogo from '@/assets/brands/kimood.svg';
+import promodoroLogo from '@/assets/brands/promodoro.svg';
+import resultLogo from '@/assets/brands/result.svg';
+import solsLogo from '@/assets/brands/sol-s.svg';
+import fruitLogo from '@/assets/brands/fruit-of-the-loom.svg';
+
 // Liste des marques avec leurs logos
 const brandLogos: Record<string, string> = {
-  'Stanley/Stella': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Stanley_Stella_logo.svg/200px-Stanley_Stella_logo.svg.png',
-  'James & Nicholson': 'https://www.jamesandnicholson.de/media/image/94/cd/e6/jn-logo.png',
-  'B&C': 'https://www.bc-collection.com/media/logo/default/bc-collection-logo.png',
-  'Gildan': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Gildan_logo.svg/200px-Gildan_logo.svg.png',
-  'K-Up': 'https://www.kariban.com/media/wysiwyg/k-up-logo.png',
-  'Kimood': 'https://www.kariban.com/media/wysiwyg/kimood-logo.png',
-  'Fruit of the Loom': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Fruit_of_the_Loom_logo.svg/200px-Fruit_of_the_Loom_logo.svg.png',
-  'Kariban': 'https://www.kariban.com/media/wysiwyg/kariban-logo.png',
-  'Promodoro': 'https://www.promodoro.de/media/logo/stores/1/promodoro-logo.png',
-  'Result': 'https://www.resultclothing.com/media/logo/default/Result_logo.png',
+  'Stanley/Stella': stanleyLogo,
+  'James & Nicholson': jamesLogo,
+  'B&C': bcLogo,
+  'Gildan': gildanLogo,
+  'K-Up': kupLogo,
+  'Kimood': kimoodLogo,
+  'Fruit of the Loom': fruitLogo,
+  'Kariban': karibanLogo,
+  'Promodoro': promodoroLogo,
+  'Result': resultLogo,
+  "Sol's": solsLogo,
 };
 
 function ProductCard({ product }: { product: DisplayProduct }) {

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60">
+  <rect width="200" height="60" fill="white"/>
+  <text x="100" y="28" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1a1a1a" text-anchor="middle">STANLEY</text>
+  <text x="100" y="48" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1a1a1a" text-anchor="middle">STELLA</text>
+</svg>
