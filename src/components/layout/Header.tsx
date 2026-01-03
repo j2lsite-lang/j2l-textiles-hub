@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingBag, Search, Phone, Mail, MapPin, Clock, PhoneCall, ChevronDown } from 'lucide-react';
+import { Menu, X, ShoppingBag, Search, Phone, PhoneCall, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { cn } from '@/lib/utils';
@@ -282,66 +282,13 @@ export function Header() {
                 </Button>
               </Link>
 
-              {/* Contact Popover */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="hidden md:flex items-center gap-2 font-semibold border-primary/20 hover:border-primary hover:bg-primary/5">
-                    <PhoneCall className="h-4 w-4 text-accent" />
-                    Être rappelé
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-0" align="end">
-                  <div className="p-4 border-b border-border bg-primary/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                        <Phone className="h-6 w-6 text-accent" />
-                      </div>
-                      <div>
-                        <h4 className="font-display font-bold text-foreground">Contactez-nous</h4>
-                        <p className="text-sm text-muted-foreground">J2L Textiles</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-4 space-y-4">
-                    <a 
-                      href={`tel:${COMPANY_INFO.phoneLink}`}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-accent/10 hover:bg-accent/20 transition-colors group"
-                    >
-                      <Phone className="h-5 w-5 text-accent" />
-                      <div>
-                        <p className="font-semibold text-foreground group-hover:text-accent transition-colors">{COMPANY_INFO.phone}</p>
-                        <p className="text-xs text-muted-foreground">Appel direct</p>
-                      </div>
-                    </a>
-                    <a 
-                      href={`mailto:${COMPANY_INFO.email}`}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary transition-colors"
-                    >
-                      <Mail className="h-5 w-5 text-primary" />
-                      <div>
-                        <p className="font-medium text-foreground">{COMPANY_INFO.email}</p>
-                        <p className="text-xs text-muted-foreground">Réponse sous 24h</p>
-                      </div>
-                    </a>
-                    <div className="flex items-start gap-3 p-3">
-                      <MapPin className="h-5 w-5 text-primary shrink-0" />
-                      <div>
-                        <p className="font-medium text-foreground">{COMPANY_INFO.address}</p>
-                        <p className="text-sm text-muted-foreground">{COMPANY_INFO.postalCode} {COMPANY_INFO.city}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 border-t border-border">
-                      <Clock className="h-5 w-5 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">{COMPANY_INFO.hours}</p>
-                    </div>
-                    <Link to="/contact" className="block">
-                      <Button className="w-full accent-gradient text-white font-semibold">
-                        Demander un rappel
-                      </Button>
-                    </Link>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {/* Call button */}
+              <a href={`tel:${COMPANY_INFO.phoneLink}`} className="hidden md:block">
+                <Button variant="outline" size="sm" className="flex items-center gap-2 font-semibold border-primary/20 hover:border-primary hover:bg-primary/5">
+                  <PhoneCall className="h-4 w-4 text-accent" />
+                  {COMPANY_INFO.phone}
+                </Button>
+              </a>
 
               <Link to="/devis" className="hidden sm:block">
                 <Button className="font-semibold accent-gradient text-white border-0 shadow-accent hover:shadow-lg hover:-translate-y-0.5 transition-all">
