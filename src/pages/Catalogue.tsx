@@ -141,7 +141,8 @@ interface DisplayProduct {
   category: string;
   images: string[];
   colors: Array<{ name: string; code?: string }>;
-  priceHT: number | null;
+  priceHT?: number | null;
+  price?: number;
 }
 
 // Import des logos de marques (vrais logos TopTex)
