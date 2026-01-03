@@ -18,9 +18,10 @@ export function Hero() {
         <img 
           src={heroBg} 
           alt="" 
-          className="w-full h-full object-cover object-right"
+          className="w-full h-full object-cover"
+          style={{ objectPosition: '75% center' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/90 via-primary/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/70 to-transparent" />
       </div>
       
       {/* Decorative elements */}
