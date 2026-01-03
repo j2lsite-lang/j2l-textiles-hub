@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingBag, Search, Phone, Mail, MapPin, Clock, PhoneCall } from 'lucide-react';
+import { Menu, X, ShoppingBag, Search, Phone, Mail, MapPin, Clock, PhoneCall, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { cn } from '@/lib/utils';
@@ -12,9 +12,67 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
+// Import category images
+import workwearImg from '@/assets/categories/workwear-pro.jpg';
+import gastroImg from '@/assets/categories/gastro-pro.jpg';
+import sportImg from '@/assets/categories/sport-pro.jpg';
+import corporateImg from '@/assets/categories/corporate-pro.jpg';
+import hivisImg from '@/assets/categories/hivis-pro.jpg';
+
+const universList = [
+  {
+    name: 'Workwear',
+    image: workwearImg,
+    subcategories: [
+      { label: 'Distribution - Logistique', query: 'workwear' },
+      { label: 'Industrie - Sécurité - BTP', query: 'workwear' },
+      { label: 'Jardinerie - Bricolage', query: 'workwear' },
+      { label: 'EPI', query: 'workwear' },
+    ]
+  },
+  {
+    name: 'Hospitality',
+    image: gastroImg,
+    subcategories: [
+      { label: 'CHR Métiers de bouche', query: 'hospitality' },
+      { label: 'Santé - Beauté - Hygiène', query: 'hospitality' },
+      { label: 'Accueil', query: 'hospitality' },
+      { label: 'Artisanat - Commerce', query: 'hospitality' },
+    ]
+  },
+  {
+    name: 'Création / Événementiel',
+    image: corporateImg,
+    subcategories: [
+      { label: 'Créateur de marques', query: 'evenementiel' },
+      { label: 'Université - BDE - écoles', query: 'evenementiel' },
+      { label: 'Media Merchandising', query: 'evenementiel' },
+      { label: 'Tourisme - Culture', query: 'evenementiel' },
+    ]
+  },
+  {
+    name: 'Sport',
+    image: sportImg,
+    subcategories: [
+      { label: 'Sports collectifs', query: 'sport' },
+      { label: 'Sports individuels', query: 'sport' },
+      { label: 'Matériel de sport', query: 'sport' },
+    ]
+  },
+  {
+    name: 'Haute Visibilité',
+    image: hivisImg,
+    subcategories: [
+      { label: 'Vestes haute visibilité', query: 'hivis' },
+      { label: 'Pantalons', query: 'hivis' },
+      { label: 'Accessoires', query: 'hivis' },
+    ]
+  },
+];
+
 const navLinks = [
   { href: '/', label: 'Accueil' },
-  { href: '/catalogue', label: 'Catalogue' },
+  { href: '/catalogue', label: 'Produits' },
   { href: '/personnalisation', label: 'Personnalisation' },
   { href: '/faq', label: 'FAQ' },
   { href: '/contact', label: 'Contact' },
@@ -77,20 +135,132 @@ export function Header() {
 
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center gap-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  to={link.href}
-                  className={cn(
-                    'px-5 py-2.5 rounded-lg text-base font-semibold transition-all',
-                    location.pathname === link.href
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-foreground hover:text-primary hover:bg-secondary'
-                  )}
+              <Link
+                to="/"
+                className={cn(
+                  'px-5 py-2.5 rounded-lg text-base font-semibold transition-all',
+                  location.pathname === '/'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-foreground hover:text-primary hover:bg-secondary'
+                )}
+              >
+                Accueil
+              </Link>
+
+              {/* Mega Menu Univers */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      'px-5 py-2.5 rounded-lg text-base font-semibold transition-all flex items-center gap-1.5',
+                      'text-foreground hover:text-primary hover:bg-secondary'
+                    )}
+                  >
+                    Univers
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="w-auto p-0 border-t-4 border-t-primary shadow-xl" 
+                  align="center"
+                  sideOffset={8}
                 >
-                  {link.label}
-                </Link>
-              ))}
+                  <div className="bg-white">
+                    <div className="flex gap-0">
+                      {universList.map((univers) => (
+                        <div key={univers.name} className="w-48 p-4 border-r last:border-r-0 border-border">
+                          {/* Category Image */}
+                          <Link 
+                            to={`/catalogue?category=${univers.subcategories[0]?.query || ''}`}
+                            className="block mb-3 overflow-hidden rounded-lg border-2 border-primary/20 hover:border-primary transition-colors"
+                          >
+                            <img 
+                              src={univers.image} 
+                              alt={univers.name}
+                              className="w-full h-32 object-cover hover:scale-105 transition-transform duration-300"
+                            />
+                          </Link>
+                          
+                          {/* Category Name */}
+                          <h3 className="font-bold text-foreground text-sm mb-2">{univers.name}</h3>
+                          
+                          {/* Subcategories */}
+                          <ul className="space-y-1.5">
+                            {univers.subcategories.map((sub) => (
+                              <li key={sub.label}>
+                                <Link
+                                  to={`/catalogue?category=${sub.query}`}
+                                  className="text-sm text-primary hover:text-accent transition-colors"
+                                >
+                                  {sub.label}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Footer */}
+                    <div className="border-t border-border p-3 text-center bg-muted/30">
+                      <Link 
+                        to="/catalogue" 
+                        className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                      >
+                        Voir tous les produits
+                      </Link>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Link
+                to="/catalogue"
+                className={cn(
+                  'px-5 py-2.5 rounded-lg text-base font-semibold transition-all',
+                  location.pathname === '/catalogue'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-foreground hover:text-primary hover:bg-secondary'
+                )}
+              >
+                Marques
+              </Link>
+
+              <Link
+                to="/personnalisation"
+                className={cn(
+                  'px-5 py-2.5 rounded-lg text-base font-semibold transition-all',
+                  location.pathname === '/personnalisation'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-foreground hover:text-primary hover:bg-secondary'
+                )}
+              >
+                Personnalisation
+              </Link>
+
+              <Link
+                to="/faq"
+                className={cn(
+                  'px-5 py-2.5 rounded-lg text-base font-semibold transition-all',
+                  location.pathname === '/faq'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-foreground hover:text-primary hover:bg-secondary'
+                )}
+              >
+                FAQ
+              </Link>
+
+              <Link
+                to="/contact"
+                className={cn(
+                  'px-5 py-2.5 rounded-lg text-base font-semibold transition-all',
+                  location.pathname === '/contact'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-foreground hover:text-primary hover:bg-secondary'
+                )}
+              >
+                Contact
+              </Link>
             </nav>
 
             {/* Actions */}
