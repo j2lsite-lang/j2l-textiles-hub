@@ -68,16 +68,16 @@ export function Header() {
             {/* Logo Premium */}
             <Link to="/" className="flex items-center gap-3 group">
               <div className="relative">
-                <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-primary flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
-                  <span className="text-lg md:text-xl font-display font-black text-white tracking-tight">J2L</span>
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105 border-2 border-primary/20">
+                  <span className="text-xl md:text-2xl font-display font-black text-white tracking-tight drop-shadow-sm">J2L</span>
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-md bg-accent shadow-sm" />
+                <div className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-lg bg-accent shadow-md border-2 border-white" />
               </div>
               <div className="hidden sm:block">
-                <span className="text-lg md:text-xl font-display font-bold text-foreground leading-none">
+                <span className="text-xl md:text-2xl font-display font-bold text-primary leading-none">
                   Textiles
                 </span>
-                <span className="block text-[10px] text-muted-foreground font-medium tracking-wider uppercase">
+                <span className="block text-[11px] text-accent font-semibold tracking-wider uppercase mt-0.5">
                   Personnalisation pro
                 </span>
               </div>
