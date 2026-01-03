@@ -1,60 +1,93 @@
 import { Link } from 'react-router-dom';
-import { Printer, Palette, PenTool, FileText, CheckCircle, ArrowRight, Upload, FileImage } from 'lucide-react';
+import { 
+  Layers, 
+  Droplets, 
+  Scissors, 
+  Flame,
+  CheckCircle, 
+  ArrowRight, 
+  Upload,
+  FileCode,
+  Image,
+  Maximize,
+  Sparkles,
+  PenTool
+} from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
+import { FileFormatBadge } from '@/components/ui/premium-icon';
 import { cn } from '@/lib/utils';
 
 const techniques = [
   {
-    icon: Printer,
+    icon: Layers,
     name: 'Sérigraphie',
     description: 'Technique d\'impression par transfert d\'encre à travers un écran de soie. Idéale pour les grandes quantités et les designs avec peu de couleurs.',
     pros: ['Économique en grandes quantités', 'Couleurs vives et durables', 'Excellent rendu sur coton'],
     cons: ['Minimum 20 pièces', 'Limité en nombre de couleurs', 'Pas de dégradés'],
     ideal: 'T-shirts, sweats, sacs en grandes séries',
+    swatch: 'bg-blue-500',
   },
   {
-    icon: Palette,
+    icon: Droplets,
     name: 'Impression numérique',
     description: 'Impression directe sur textile (DTG) permettant des designs photo-réalistes avec des millions de couleurs.',
     pros: ['Détails et dégradés parfaits', 'Idéal petites quantités', 'Photos et designs complexes'],
     cons: ['Coût plus élevé', 'Moins durable au lavage', 'Meilleur sur textile clair'],
     ideal: 'Designs détaillés, photos, petites séries',
+    swatch: 'bg-purple-500',
   },
   {
-    icon: PenTool,
+    icon: Scissors,
     name: 'Broderie',
     description: 'Personnalisation haut de gamme par fil brodé. Aspect premium et durabilité exceptionnelle.',
     pros: ['Aspect professionnel', 'Très durable', 'Relief et texture'],
     cons: ['Coût par pièce plus élevé', 'Designs simplifiés', 'Pas de dégradés'],
     ideal: 'Polos, vestes, casquettes, uniformes',
+    swatch: 'bg-amber-500',
   },
   {
-    icon: FileText,
+    icon: Flame,
     name: 'Flocage & Flex',
     description: 'Découpe de matière thermocollée et appliquée par presse à chaud. Rendu mat ou brillant au choix.',
     pros: ['Noms et numéros faciles', 'Durable', 'Finition mate ou brillante'],
     cons: ['Limité aux aplats', 'Pas de détails fins', 'Toucher "plastique"'],
     ideal: 'Équipes sportives, noms personnalisés',
+    swatch: 'bg-green-500',
   },
+];
+
+const fileFormats = [
+  { format: 'AI', recommended: true },
+  { format: 'EPS', recommended: true },
+  { format: 'PDF', recommended: true },
+  { format: 'SVG', recommended: true },
+  { format: 'PNG', recommended: false },
+  { format: 'JPG', recommended: false },
 ];
 
 const fileGuidelines = [
   {
-    format: 'Vectoriel (recommandé)',
-    extensions: '.AI, .EPS, .PDF, .SVG',
-    description: 'Qualité optimale, redimensionnable sans perte',
+    icon: FileCode,
+    title: 'Formats vectoriels',
+    description: 'Qualité optimale, redimensionnable sans perte. C\'est le format idéal.',
+    extensions: ['AI', 'EPS', 'PDF', 'SVG'],
+    recommended: true,
   },
   {
-    format: 'Haute résolution',
-    extensions: '.PNG, .JPG, .TIFF',
-    description: 'Minimum 300 DPI à la taille d\'impression',
+    icon: Image,
+    title: 'Images haute résolution',
+    description: 'Minimum 300 DPI à la taille d\'impression finale.',
+    extensions: ['PNG', 'JPG', 'TIFF'],
+    recommended: false,
   },
   {
-    format: 'Taille minimale',
-    extensions: 'Logo',
-    description: '1000 x 1000 pixels minimum',
+    icon: Maximize,
+    title: 'Taille minimale',
+    description: '1000 × 1000 pixels minimum pour un rendu optimal.',
+    extensions: [],
+    recommended: false,
   },
 ];
 
@@ -109,8 +142,12 @@ export default function Personnalisation() {
               >
                 <div className="grid lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-1">
-                    <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                      <technique.icon className="h-7 w-7 text-primary" />
+                    {/* Premium icon with swatch */}
+                    <div className="relative inline-block mb-4">
+                      <div className="w-14 h-14 rounded-xl bg-primary/8 flex items-center justify-center">
+                        <technique.icon className="h-7 w-7 text-primary" strokeWidth={1.5} />
+                      </div>
+                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-md ${technique.swatch} border-2 border-background shadow-sm`} />
                     </div>
                     <h3 className="text-2xl font-display font-semibold mb-3">{technique.name}</h3>
                     <p className="text-muted-foreground leading-relaxed">{technique.description}</p>
@@ -122,7 +159,7 @@ export default function Personnalisation() {
                   <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
                     <div>
                       <h4 className="font-semibold text-green-600 mb-3 flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" />
+                        <CheckCircle className="h-4 w-4" strokeWidth={1.75} />
                         Avantages
                       </h4>
                       <ul className="space-y-2">
@@ -153,10 +190,10 @@ export default function Personnalisation() {
         </div>
       </section>
 
-      {/* File Guidelines */}
+      {/* File Guidelines - Premium Studio Look */}
       <section className="section-padding bg-secondary/30">
         <div className="container-page">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid lg:grid-cols-2 gap-12 items-start">
             <div>
               <SectionHeader
                 eyebrow="Fichiers"
@@ -165,15 +202,24 @@ export default function Personnalisation() {
                 align="left"
               />
 
-              <div className="mt-8 space-y-4">
+              {/* Format badges */}
+              <div className="mt-6 mb-8">
+                <p className="text-sm font-medium text-muted-foreground mb-3">Formats acceptés</p>
+                <div className="flex flex-wrap gap-2">
+                  {fileFormats.map((f) => (
+                    <FileFormatBadge key={f.format} format={f.format} recommended={f.recommended} />
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
                 {fileGuidelines.map((guide) => (
-                  <div key={guide.format} className="flex items-start gap-4 p-4 bg-background rounded-xl border border-border">
-                    <FileImage className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                  <div key={guide.title} className="flex items-start gap-4 p-4 bg-background rounded-xl border border-border">
+                    <div className="w-10 h-10 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
+                      <guide.icon className="h-5 w-5 text-primary" strokeWidth={1.5} />
+                    </div>
                     <div>
-                      <div className="flex flex-wrap items-baseline gap-2">
-                        <h4 className="font-semibold">{guide.format}</h4>
-                        <span className="text-xs text-muted-foreground font-mono">{guide.extensions}</span>
-                      </div>
+                      <h4 className="font-semibold text-foreground">{guide.title}</h4>
                       <p className="text-sm text-muted-foreground mt-1">{guide.description}</p>
                     </div>
                   </div>
@@ -182,28 +228,36 @@ export default function Personnalisation() {
 
               <div className="mt-8">
                 <Link to="/devis">
-                  <Button className="group">
-                    <Upload className="h-4 w-4 mr-2" />
+                  <Button className="group accent-gradient text-white font-semibold shadow-lg">
+                    <Upload className="h-4 w-4 mr-2" strokeWidth={1.75} />
                     Envoyer mon logo
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" strokeWidth={1.75} />
                   </Button>
                 </Link>
               </div>
             </div>
 
+            {/* Vectorization offer card */}
             <div className="relative">
-              <div className="aspect-square rounded-2xl bg-gradient-to-br from-primary/5 to-accent/10 flex items-center justify-center p-8">
-                <div className="text-center">
-                  <div className="w-32 h-32 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center">
-                    <Palette className="h-16 w-16 text-primary" />
-                  </div>
-                  <h3 className="text-xl font-display font-semibold mb-2">
-                    Pas de fichier HD ?
-                  </h3>
-                  <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-                    Notre équipe peut vectoriser votre logo moyennant un supplément. Contactez-nous pour en savoir plus.
-                  </p>
+              <div className="surface-elevated p-8 text-center">
+                <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-accent/10 flex items-center justify-center">
+                  <PenTool className="h-8 w-8 text-accent" strokeWidth={1.5} />
                 </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-semibold mb-4">
+                  <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Service pro
+                </div>
+                <h3 className="text-xl font-display font-semibold mb-2">
+                  Pas de fichier HD ?
+                </h3>
+                <p className="text-muted-foreground text-sm max-w-xs mx-auto mb-6">
+                  Notre équipe peut vectoriser votre logo pour un rendu parfait. Service rapide et professionnel.
+                </p>
+                <Link to="/contact">
+                  <Button variant="outline" className="font-semibold border-2">
+                    Demander une vectorisation
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
@@ -222,12 +276,12 @@ export default function Personnalisation() {
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
               <Link to="/contact">
-                <Button size="lg" className="font-semibold">
+                <Button size="lg" className="font-semibold accent-gradient text-white shadow-lg">
                   Nous contacter
                 </Button>
               </Link>
               <Link to="/faq">
-                <Button size="lg" variant="outline" className="font-semibold">
+                <Button size="lg" variant="outline" className="font-semibold border-2">
                   Consulter la FAQ
                 </Button>
               </Link>

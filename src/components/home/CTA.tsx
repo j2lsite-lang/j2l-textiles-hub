@@ -1,13 +1,19 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Send, Upload, CheckCircle } from 'lucide-react';
+import { ArrowRight, Send, Upload, Clock, Eye, Truck, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { COMPANY_INFO } from '@/lib/company-info';
+import { LucideIcon } from 'lucide-react';
 
-const benefits = [
-  'Devis gratuit en 24h',
-  'Sans engagement',
-  'Conseils personnalisés',
-  'Livraison rapide',
+interface BenefitItem {
+  icon: LucideIcon;
+  label: string;
+}
+
+const benefits: BenefitItem[] = [
+  { icon: Clock, label: 'Devis en 24h' },
+  { icon: Eye, label: 'BAT offert' },
+  { icon: Truck, label: 'Livraison rapide' },
+  { icon: Award, label: 'Qualité pro' },
 ];
 
 export function CTA() {
@@ -24,7 +30,7 @@ export function CTA() {
       <div className="container-page relative">
         <div className="max-w-4xl mx-auto text-center">
           <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/90 text-sm font-medium mb-6">
-            <Send className="h-4 w-4 text-accent" />
+            <Send className="h-4 w-4 text-accent" strokeWidth={1.75} />
             Commencez maintenant
           </span>
           
@@ -35,12 +41,14 @@ export function CTA() {
             Obtenez un devis gratuit en quelques clics. Notre équipe vous répond sous 24h avec des conseils personnalisés.
           </p>
 
-          {/* Benefits */}
-          <div className="flex flex-wrap justify-center gap-4 mb-10">
+          {/* Premium trust badges */}
+          <div className="flex flex-wrap justify-center gap-6 mb-10">
             {benefits.map((benefit) => (
-              <div key={benefit} className="flex items-center gap-2 text-white/80 text-sm">
-                <CheckCircle className="h-4 w-4 text-accent" />
-                {benefit}
+              <div key={benefit.label} className="flex items-center gap-2.5 text-white/90">
+                <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center">
+                  <benefit.icon className="h-4.5 w-4.5 text-accent" strokeWidth={1.75} />
+                </div>
+                <span className="text-sm font-medium">{benefit.label}</span>
               </div>
             ))}
           </div>
@@ -49,11 +57,11 @@ export function CTA() {
             <Link to="/devis">
               <Button 
                 size="lg" 
-                className="accent-gradient text-white font-semibold h-14 px-8 shadow-accent hover:shadow-lg hover:-translate-y-1 transition-all group"
+                className="accent-gradient text-white font-semibold h-14 px-8 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all group"
               >
-                <Send className="mr-2 h-5 w-5" />
+                <Send className="mr-2 h-5 w-5" strokeWidth={1.75} />
                 Demander un devis
-                <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" strokeWidth={1.75} />
               </Button>
             </Link>
             <Link to="/personnalisation">
@@ -62,7 +70,7 @@ export function CTA() {
                 variant="outline" 
                 className="border-2 border-white/30 text-white hover:bg-white hover:text-primary font-semibold h-14 px-8 transition-all"
               >
-                <Upload className="mr-2 h-5 w-5" />
+                <Upload className="mr-2 h-5 w-5" strokeWidth={1.75} />
                 Envoyer mon logo
               </Button>
             </Link>

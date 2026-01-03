@@ -1,44 +1,51 @@
 import { Link } from 'react-router-dom';
-import { Printer, Palette, PenTool, FileText, ArrowRight, CheckCircle } from 'lucide-react';
+import { 
+  ArrowRight, 
+  Layers, 
+  Droplets, 
+  Scissors,
+  Flame,
+  Clock,
+  Eye,
+  Truck,
+  Award
+} from 'lucide-react';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
+import { TrustBadge } from '@/components/ui/premium-icon';
 
 const services = [
   {
-    icon: Printer,
+    icon: Layers,
     title: 'Sérigraphie',
     description: 'Idéale pour les grandes quantités. Couleurs vives et durables, parfaites pour les textiles unis.',
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
+    swatch: 'bg-blue-500',
   },
   {
-    icon: Palette,
-    title: 'Impression numérique',
+    icon: Droplets,
+    title: 'Impression DTG',
     description: 'Photo-réaliste et multi-couleurs. Convient aux petites et moyennes séries avec des designs complexes.',
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500/10',
+    swatch: 'bg-purple-500',
   },
   {
-    icon: PenTool,
+    icon: Scissors,
     title: 'Broderie',
     description: 'Aspect premium et durable. Parfaite pour les logos d\'entreprise sur polos et vestes.',
-    color: 'text-amber-500',
-    bgColor: 'bg-amber-500/10',
+    swatch: 'bg-amber-500',
   },
   {
-    icon: FileText,
+    icon: Flame,
     title: 'Flocage & Flex',
     description: 'Rendu mat ou brillant. Idéal pour les noms, numéros et petits textes personnalisés.',
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
+    swatch: 'bg-green-500',
   },
 ];
 
 const guarantees = [
-  'Devis gratuit en 24h',
-  'Conseils personnalisés',
-  'Qualité professionnelle',
-  'Livraison rapide',
+  { icon: Clock, title: 'Devis en 24h', description: 'Réponse rapide garantie' },
+  { icon: Eye, title: 'BAT avant prod', description: 'Validation visuelle offerte' },
+  { icon: Truck, title: 'Livraison express', description: 'Partout en France' },
+  { icon: Award, title: 'Qualité pro', description: 'Satisfaction garantie' },
 ];
 
 export function Services() {
@@ -59,16 +66,25 @@ export function Services() {
               {services.map((service, index) => (
                 <div 
                   key={service.title} 
-                  className="group p-5 rounded-2xl border border-border hover:border-accent/30 hover:shadow-soft transition-all animate-slide-up"
+                  className="group p-5 rounded-2xl border border-border hover:border-accent/30 hover:shadow-soft transition-all animate-slide-up bg-background"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
-                  <div className={`w-12 h-12 rounded-xl ${service.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                    <service.icon className={`h-6 w-6 ${service.color}`} />
+                  <div className="flex items-start gap-4">
+                    {/* Icon with swatch indicator */}
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-xl bg-primary/8 flex items-center justify-center group-hover:bg-accent/10 transition-colors">
+                        <service.icon className="h-6 w-6 text-primary group-hover:text-accent transition-colors" strokeWidth={1.5} />
+                      </div>
+                      {/* Color swatch */}
+                      <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-md ${service.swatch} border-2 border-background shadow-sm`} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground mb-1">{service.title}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {service.description}
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="font-semibold text-foreground mb-2">{service.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {service.description}
-                  </p>
                 </div>
               ))}
             </div>
@@ -77,7 +93,7 @@ export function Services() {
               <Link to="/personnalisation">
                 <Button variant="outline" className="group border-2 font-semibold">
                   En savoir plus sur nos techniques
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" strokeWidth={1.75} />
                 </Button>
               </Link>
             </div>
@@ -86,32 +102,35 @@ export function Services() {
           {/* Visual Card */}
           <div className="relative">
             <div className="absolute -inset-4 bg-gradient-to-br from-primary/5 to-accent/10 rounded-3xl blur-2xl" />
-            <div className="relative surface-elevated p-8 md:p-12">
+            <div className="relative surface-elevated p-8 md:p-10">
               <div className="text-center mb-8">
-                <div className="w-20 h-20 mx-auto mb-6 rounded-2xl accent-gradient flex items-center justify-center shadow-accent">
-                  <Palette className="h-10 w-10 text-white" />
+                <div className="w-16 h-16 mx-auto mb-5 rounded-2xl accent-gradient flex items-center justify-center shadow-lg">
+                  <Droplets className="h-8 w-8 text-white" strokeWidth={1.5} />
                 </div>
-                <h3 className="text-2xl font-display font-bold text-foreground mb-2">
+                <h3 className="text-xl font-display font-bold text-foreground mb-2">
                   Votre logo, notre savoir-faire
                 </h3>
-                <p className="text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Conseils gratuits pour choisir la meilleure technique
                 </p>
               </div>
 
-              <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 {guarantees.map((guarantee) => (
-                  <div key={guarantee} className="flex items-center gap-3 p-3 bg-secondary/50 rounded-xl">
-                    <CheckCircle className="h-5 w-5 text-accent shrink-0" />
-                    <span className="text-sm font-medium">{guarantee}</span>
-                  </div>
+                  <TrustBadge 
+                    key={guarantee.title} 
+                    icon={guarantee.icon} 
+                    title={guarantee.title}
+                    description={guarantee.description}
+                    className="p-3 bg-secondary/50 rounded-xl"
+                  />
                 ))}
               </div>
 
               <Link to="/devis" className="block mt-8">
-                <Button className="w-full accent-gradient text-white font-semibold h-12 shadow-accent hover:shadow-lg transition-all group">
+                <Button className="w-full accent-gradient text-white font-semibold h-12 shadow-lg hover:shadow-xl transition-all group">
                   Demander un devis gratuit
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" strokeWidth={1.75} />
                 </Button>
               </Link>
             </div>
