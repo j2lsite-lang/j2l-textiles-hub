@@ -22,7 +22,7 @@ const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 /**
  * Get OIDC token from TopTex API
- * Tries 'api_key' header first, falls back to 'x-api-key' if 403
+ * Tries multiple authentication approaches
  */
 async function getToken(forceRefresh = false): Promise<string> {
   // Return cached token if valid
@@ -37,28 +37,66 @@ async function getToken(forceRefresh = false): Promise<string> {
     throw new Error('TOPTEX_CONFIG_MISSING: API_KEY, USERNAME ou PASSWORD non configuré');
   }
 
-  // Try with 'api_key' header first
-  const apiKeyHeaders = ['api_key', 'x-api-key'];
+  // Try different authentication approaches
+  const authAttempts: Array<{
+    name: string;
+    headers: Record<string, string>;
+    body: Record<string, string>;
+  }> = [
+    // Attempt 1: API key in Authorization header with ApiKey prefix
+    {
+      name: 'Authorization: ApiKey',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `ApiKey ${TOPTEX_API_KEY}`,
+      },
+      body: { username: TOPTEX_USERNAME, password: TOPTEX_PASSWORD },
+    },
+    // Attempt 2: API key in body (alongside username/password)
+    {
+      name: 'api_key in body',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: { 
+        username: TOPTEX_USERNAME, 
+        password: TOPTEX_PASSWORD,
+        api_key: TOPTEX_API_KEY,
+      },
+    },
+    // Attempt 3: API key in custom x-api-key header
+    {
+      name: 'x-api-key header',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': TOPTEX_API_KEY,
+      },
+      body: { username: TOPTEX_USERNAME, password: TOPTEX_PASSWORD },
+    },
+    // Attempt 4: No API key (maybe username/password is enough)
+    {
+      name: 'username/password only',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: { username: TOPTEX_USERNAME, password: TOPTEX_PASSWORD },
+    },
+  ];
+
   let lastError: Error | null = null;
 
-  for (const headerName of apiKeyHeaders) {
+  for (const attempt of authAttempts) {
     try {
-      console.log(`Trying authentication with header: ${headerName}`);
+      console.log(`Trying authentication approach: ${attempt.name}`);
       
       const response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          [headerName]: TOPTEX_API_KEY,
-        },
-        body: JSON.stringify({
-          username: TOPTEX_USERNAME,
-          password: TOPTEX_PASSWORD,
-        }),
+        headers: attempt.headers,
+        body: JSON.stringify(attempt.body),
       });
 
       const statusCode = response.status;
-      console.log(`Auth response status: ${statusCode} (header: ${headerName})`);
+      console.log(`Auth response status: ${statusCode} (approach: ${attempt.name})`);
 
       if (response.ok) {
         const data = await response.json();
@@ -73,35 +111,26 @@ async function getToken(forceRefresh = false): Promise<string> {
           expiresAt: Date.now() + TOKEN_TTL,
         };
 
-        console.log('Token obtained and cached successfully');
+        console.log(`✓ Token obtained successfully with approach: ${attempt.name}`);
         return data.token;
       }
 
-      // If 403, try next header
-      if (statusCode === 403) {
-        const errorText = await response.text();
-        console.log(`Got 403 with ${headerName}, trying next header. Response: ${errorText.substring(0, 200)}`);
-        lastError = new Error(`TOPTEX_AUTH_FAILED: ${statusCode} - ${errorText}`);
-        continue;
-      }
-
-      // Other errors - throw immediately
+      // Log error and try next approach
       const errorText = await response.text();
-      throw new Error(`TOPTEX_AUTH_FAILED: ${statusCode} - ${errorText}`);
+      console.log(`✗ ${attempt.name} failed with ${statusCode}: ${errorText.substring(0, 150)}`);
+      lastError = new Error(`TOPTEX_AUTH_FAILED: ${statusCode} - ${errorText}`);
 
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('TOPTEX_')) {
         lastError = error;
-        if (!error.message.includes('403')) {
-          throw error;
-        }
       } else {
-        throw error;
+        console.error(`Network error with ${attempt.name}:`, error);
+        lastError = new Error(`TOPTEX_AUTH_NETWORK_ERROR: ${error}`);
       }
     }
   }
 
-  // If we get here, all headers failed
+  // If we get here, all attempts failed
   throw lastError || new Error('TOPTEX_AUTH_FAILED: All authentication attempts failed');
 }
 
@@ -122,66 +151,37 @@ async function fetchFromTopTex(endpoint: string, method: string = 'GET', retryCo
 
   const token = await getToken();
 
-  // Determine which API key header to use (try api_key first)
-  const apiKeyHeaders = ['api_key', 'x-api-key'];
-  let lastError: Error | null = null;
+  const response = await fetch(`${TOPTEX_API_URL}${endpoint}`, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+  });
 
-  for (const headerName of apiKeyHeaders) {
-    try {
-      const response = await fetch(`${TOPTEX_API_URL}${endpoint}`, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          [headerName]: TOPTEX_API_KEY!,
-        },
-      });
+  const statusCode = response.status;
+  console.log(`API response for ${endpoint}: ${statusCode}`);
 
-      const statusCode = response.status;
-      console.log(`API response for ${endpoint}: ${statusCode} (header: ${headerName})`);
-
-      if (response.ok) {
-        const data = await response.json();
-        dataCache.set(cacheKey, { data, timestamp: Date.now() });
-        return data;
-      }
-
-      // Handle 401/403 - token might be expired
-      if ((statusCode === 401 || statusCode === 403) && retryCount === 0) {
-        const errorText = await response.text();
-        console.log(`Got ${statusCode} on ${endpoint}, refreshing token and retrying. Error: ${errorText.substring(0, 200)}`);
-        
-        // Force token refresh and retry once
-        cachedToken = null;
-        return fetchFromTopTex(endpoint, method, retryCount + 1);
-      }
-
-      // If 403 with this header, try next
-      if (statusCode === 403) {
-        const errorText = await response.text();
-        console.log(`Got 403 with ${headerName} header, trying next. Error: ${errorText.substring(0, 200)}`);
-        lastError = new Error(`TOPTEX_API_ERROR: ${statusCode} - ${errorText}`);
-        continue;
-      }
-
-      // Other errors
-      const errorText = await response.text();
-      throw new Error(`TOPTEX_API_ERROR: ${statusCode} - ${errorText}`);
-
-    } catch (error) {
-      if (error instanceof Error && error.message.startsWith('TOPTEX_')) {
-        lastError = error;
-        if (!error.message.includes('403')) {
-          throw error;
-        }
-      } else {
-        throw error;
-      }
-    }
+  if (response.ok) {
+    const data = await response.json();
+    dataCache.set(cacheKey, { data, timestamp: Date.now() });
+    return data;
   }
 
-  throw lastError || new Error('TOPTEX_API_ERROR: Request failed with all header variants');
+  // Handle 401/403 - token might be expired
+  if ((statusCode === 401 || statusCode === 403) && retryCount === 0) {
+    const errorText = await response.text();
+    console.log(`Got ${statusCode} on ${endpoint}, refreshing token and retrying. Error: ${errorText.substring(0, 200)}`);
+    
+    // Force token refresh and retry once
+    cachedToken = null;
+    return fetchFromTopTex(endpoint, method, retryCount + 1);
+  }
+
+  // Other errors
+  const errorText = await response.text();
+  throw new Error(`TOPTEX_API_ERROR: ${statusCode} - ${errorText}`);
 }
 
 // Product normalization helpers
