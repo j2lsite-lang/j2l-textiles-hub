@@ -73,14 +73,14 @@ export function Categories() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                 
                 {/* Content */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
-                  <h3 className="font-display font-bold text-white text-lg md:text-xl mb-3">
+                <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
+                  <h3 className="font-display font-bold text-white text-xl md:text-2xl mb-3">
                     {category.name}
                   </h3>
                   <Button 
                     variant="outline" 
                     size="sm"
-                    className="w-full bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white hover:text-primary font-semibold text-xs uppercase tracking-wide"
+                    className="w-full bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white hover:text-primary font-semibold text-sm uppercase tracking-wide py-3"
                   >
                     Voir le catalogue
                   </Button>

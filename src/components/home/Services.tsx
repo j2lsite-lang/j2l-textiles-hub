@@ -79,7 +79,7 @@ export function Services() {
                       <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-md ${service.swatch} border-2 border-background shadow-sm`} />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold text-foreground mb-1">{service.title}</h3>
+                      <h3 className="font-semibold text-foreground text-base mb-1">{service.title}</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">
                         {service.description}
                       </p>
@@ -110,7 +110,7 @@ export function Services() {
                 <h3 className="text-xl font-display font-bold text-foreground mb-2">
                   Votre logo, notre savoir-faire
                 </h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-base text-muted-foreground">
                   Conseils gratuits pour choisir la meilleure technique
                 </p>
               </div>

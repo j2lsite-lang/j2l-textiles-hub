@@ -37,18 +37,18 @@ export function CTA() {
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-white mb-6">
             Prêt à personnaliser vos textiles ?
           </h2>
-          <p className="text-lg text-white/70 mb-8 max-w-2xl mx-auto">
+          <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
             Obtenez un devis gratuit en quelques clics. Notre équipe vous répond sous 24h avec des conseils personnalisés.
           </p>
 
           {/* Premium trust badges */}
-          <div className="flex flex-wrap justify-center gap-6 mb-10">
+          <div className="flex flex-wrap justify-center gap-6 md:gap-8 mb-10">
             {benefits.map((benefit) => (
-              <div key={benefit.label} className="flex items-center gap-2.5 text-white/90">
-                <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center">
-                  <benefit.icon className="h-4.5 w-4.5 text-accent" strokeWidth={1.75} />
+              <div key={benefit.label} className="flex items-center gap-3 text-white">
+                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                  <benefit.icon className="h-5 w-5 text-accent" strokeWidth={1.75} />
                 </div>
-                <span className="text-sm font-medium">{benefit.label}</span>
+                <span className="text-base font-semibold">{benefit.label}</span>
               </div>
             ))}
           </div>
@@ -57,7 +57,7 @@ export function CTA() {
             <Link to="/devis">
               <Button 
                 size="lg" 
-                className="accent-gradient text-white font-semibold h-14 px-8 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all group"
+                className="accent-gradient text-white font-semibold h-14 px-8 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all group text-base"
               >
                 <Send className="mr-2 h-5 w-5" strokeWidth={1.75} />
                 Demander un devis
@@ -67,8 +67,7 @@ export function CTA() {
             <Link to="/personnalisation">
               <Button 
                 size="lg" 
-                variant="outline" 
-                className="border-2 border-white/30 text-white hover:bg-white hover:text-primary font-semibold h-14 px-8 transition-all"
+                className="bg-white text-primary hover:bg-white/90 font-semibold h-14 px-8 transition-all text-base"
               >
                 <Upload className="mr-2 h-5 w-5" strokeWidth={1.75} />
                 Envoyer mon logo
@@ -76,9 +75,9 @@ export function CTA() {
             </Link>
           </div>
 
-          <p className="mt-8 text-sm text-white/50">
+          <p className="mt-8 text-base text-white/70">
             Ou appelez-nous directement au{' '}
-            <a href={`tel:${COMPANY_INFO.phoneLink}`} className="text-accent hover:underline font-medium">
+            <a href={`tel:${COMPANY_INFO.phoneLink}`} className="text-accent hover:underline font-semibold">
               {COMPANY_INFO.phone}
             </a>
           </p>

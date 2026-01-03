@@ -34,7 +34,7 @@ export function Hero() {
         <div className="min-h-[calc(100vh-8rem)] flex flex-col justify-center py-16 lg:py-24">
           <div className="max-w-xl lg:max-w-lg">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-white/90 text-sm font-medium animate-fade-in mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-white text-base font-medium animate-fade-in mb-8">
               <Zap className="h-4 w-4 text-accent" />
               Fournisseur textile professionnel
               <Star className="h-3 w-3 text-accent fill-accent" />
@@ -81,11 +81,11 @@ export function Hero() {
             {/* Features */}
             <div className="flex flex-wrap gap-6 animate-fade-in" style={{ animationDelay: '0.3s' }}>
               {features.map((feature) => (
-                <div key={feature.label} className="flex items-center gap-2 text-white/80">
-                  <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
-                    <feature.icon className="h-4 w-4 text-accent" />
+                <div key={feature.label} className="flex items-center gap-3 text-white">
+                  <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
+                    <feature.icon className="h-5 w-5 text-accent" />
                   </div>
-                  <span className="text-sm font-medium">{feature.label}</span>
+                  <span className="text-base font-semibold">{feature.label}</span>
                 </div>
               ))}
             </div>

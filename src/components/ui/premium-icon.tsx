@@ -88,13 +88,13 @@ interface TrustBadgeProps {
 export function TrustBadge({ icon: Icon, title, description, className }: TrustBadgeProps) {
   return (
     <div className={cn('flex items-center gap-3', className)}>
-      <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+      <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
         <Icon className="h-5 w-5 text-accent" strokeWidth={1.75} />
       </div>
       <div>
-        <span className="font-semibold text-foreground text-sm">{title}</span>
+        <span className="font-semibold text-foreground text-base">{title}</span>
         {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
         )}
       </div>
     </div>
