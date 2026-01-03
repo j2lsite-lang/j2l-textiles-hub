@@ -59,6 +59,7 @@ export function Footer() {
                 { href: '/devis', label: 'Demander un devis' },
                 { href: '/faq', label: 'Questions fréquentes' },
                 { href: '/contact', label: 'Nous contacter' },
+                { href: '/zones', label: 'Nos zones d\'intervention' },
               ].map((link) => (
                 <li key={link.href}>
                   <Link 
