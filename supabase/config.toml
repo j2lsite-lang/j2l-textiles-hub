@@ -1,1 +1,4 @@
 project_id = "ozbzhqmnvbbsnkbsnuja"
+
+[functions.toptex-api]
+verify_jwt = false
