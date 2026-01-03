@@ -22,29 +22,84 @@ async function getAuthToken(): Promise<string> {
   }
 
   console.log('Fetching new auth token from TopTex');
-  
-  const response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
+  console.log('API Key present:', !!TOPTEX_API_KEY);
+  console.log('API Key length:', TOPTEX_API_KEY?.length || 0);
+
+  // Try different authentication formats that TopTex might expect
+  // Format 1: api_key in body (common format)
+  let response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     },
     body: JSON.stringify({
-      apiKey: TOPTEX_API_KEY,
+      api_key: TOPTEX_API_KEY,
     }),
   });
+
+  // If format 1 fails, try format 2: apiKey in body
+  if (!response.ok) {
+    console.log('Format api_key failed, trying apiKey...');
+    response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        apiKey: TOPTEX_API_KEY,
+      }),
+    });
+  }
+
+  // If format 2 fails, try format 3: key in header
+  if (!response.ok) {
+    console.log('Format apiKey failed, trying X-API-Key header...');
+    response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-API-Key': TOPTEX_API_KEY || '',
+      },
+      body: JSON.stringify({}),
+    });
+  }
+
+  // If format 3 fails, try format 4: Authorization header with API key
+  if (!response.ok) {
+    console.log('Format X-API-Key header failed, trying Authorization header...');
+    response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${TOPTEX_API_KEY}`,
+      },
+      body: JSON.stringify({}),
+    });
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Auth error:', response.status, errorText);
-    throw new Error(`Authentication failed: ${response.status}`);
+    console.error('All authentication formats failed');
+    throw new Error(`Authentication failed: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
-  const token = data.token || data.accessToken || data;
+  console.log('Auth response keys:', Object.keys(data));
   
-  cache.set(cacheKey, { data: token, timestamp: Date.now() });
+  const token = data.token || data.accessToken || data.access_token || data.jwt || data;
   
-  return token;
+  if (typeof token === 'string') {
+    cache.set(cacheKey, { data: token, timestamp: Date.now() });
+    console.log('Token obtained successfully');
+    return token;
+  }
+  
+  throw new Error('No valid token in response');
 }
 
 async function fetchFromTopTex(endpoint: string, token: string): Promise<any> {
@@ -62,6 +117,7 @@ async function fetchFromTopTex(endpoint: string, token: string): Promise<any> {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     },
   });
 
@@ -158,18 +214,40 @@ serve(async (req) => {
   }
 
   try {
+    // Check if API key is configured
     if (!TOPTEX_API_KEY) {
-      throw new Error('TOPTEX_API_KEY is not configured');
+      console.error('TOPTEX_API_KEY is not configured');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Configuration manquante',
+          message: 'La clé API TopTex n\'est pas configurée. Veuillez ajouter TOPTEX_API_KEY dans les secrets.',
+          needsSetup: true,
+        }),
+        {
+          status: 503,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Parse request body if present
+    let body: any = {};
+    if (req.method === 'POST') {
+      try {
+        body = await req.json();
+      } catch {
+        // No body or invalid JSON
+      }
     }
 
     const url = new URL(req.url);
-    const action = url.searchParams.get('action') || 'catalog';
-    const query = url.searchParams.get('query') || '';
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const limit = parseInt(url.searchParams.get('limit') || '24');
-    const sku = url.searchParams.get('sku');
-    const category = url.searchParams.get('category');
-    const brand = url.searchParams.get('brand');
+    const action = body.action || url.searchParams.get('action') || 'catalog';
+    const query = body.query || url.searchParams.get('query') || '';
+    const page = parseInt(body.page || url.searchParams.get('page') || '1');
+    const limit = parseInt(body.limit || url.searchParams.get('limit') || '24');
+    const sku = body.sku || url.searchParams.get('sku');
+    const category = body.category || url.searchParams.get('category');
+    const brand = body.brand || url.searchParams.get('brand');
 
     console.log(`TopTex API request: action=${action}, query=${query}, page=${page}`);
 
@@ -246,13 +324,19 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error in toptex-api function:', errorMessage);
     
+    // Check if it's an auth error
+    const isAuthError = errorMessage.includes('Authentication failed');
+    
     return new Response(
       JSON.stringify({ 
         error: errorMessage,
-        message: 'Une erreur est survenue lors de la récupération des produits. Veuillez réessayer.',
+        message: isAuthError 
+          ? 'Échec de l\'authentification TopTex. Vérifiez que votre clé API est valide.'
+          : 'Une erreur est survenue lors de la récupération des produits. Veuillez réessayer.',
+        isAuthError,
       }),
       {
-        status: 500,
+        status: isAuthError ? 401 : 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
