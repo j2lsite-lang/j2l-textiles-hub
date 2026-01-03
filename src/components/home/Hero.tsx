@@ -32,7 +32,7 @@ export function Hero() {
       
       <div className="relative container-page">
         <div className="min-h-[calc(100vh-8rem)] flex flex-col justify-center py-16 lg:py-24">
-          <div className="max-w-2xl">
+          <div className="max-w-xl lg:max-w-lg">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-white/90 text-sm font-medium animate-fade-in mb-8">
               <Zap className="h-4 w-4 text-accent" />
@@ -41,7 +41,7 @@ export function Hero() {
             </div>
 
             {/* Title */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-display font-bold text-white leading-[1.1] animate-slide-up mb-6">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-white leading-[1.1] animate-slide-up mb-6">
               Textiles personnalisés pour{' '}
               <span className="relative inline-block">
                 <span className="text-accent">votre entreprise</span>
