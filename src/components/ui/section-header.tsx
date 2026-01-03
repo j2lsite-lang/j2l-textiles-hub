@@ -24,7 +24,7 @@ export function SectionHeader({
       )}
     >
       {eyebrow && (
-        <p className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 text-accent text-sm font-semibold uppercase tracking-wider mb-4">
+        <p className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 text-accent text-base font-semibold uppercase tracking-wider mb-4">
           <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
           {eyebrow}
         </p>
@@ -33,7 +33,7 @@ export function SectionHeader({
         {title}
       </h2>
       {description && (
-        <p className="mt-4 text-lg text-muted-foreground leading-relaxed">
+        <p className="mt-4 text-lg md:text-xl text-muted-foreground leading-relaxed">
           {description}
         </p>
       )}
