@@ -5,7 +5,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const TOPTEX_API_URL = 'https://api.toptex.io';
+// TopTex API URLs - try multiple possibilities
+const TOPTEX_API_URLS = [
+  'https://api.toptex.fr',
+  'https://www.toptex.fr/api',
+  'https://api.toptex.io',
+  'https://toptex.fr/api',
+];
 
 // Read secrets from environment
 const TOPTEX_API_KEY = Deno.env.get('TOPTEX_API_KEY');
@@ -13,7 +19,7 @@ const TOPTEX_USERNAME = Deno.env.get('TOPTEX_USERNAME');
 const TOPTEX_PASSWORD = Deno.env.get('TOPTEX_PASSWORD');
 
 // Token cache (in-memory)
-let cachedToken: { token: string; expiresAt: number } | null = null;
+let cachedToken: { token: string; expiresAt: number; baseUrl: string } | null = null;
 const TOKEN_TTL = 30 * 60 * 1000; // 30 minutes
 
 // Data cache (in-memory)
@@ -22,121 +28,131 @@ const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 /**
  * Get OIDC token from TopTex API
- * Tries multiple authentication approaches
+ * Tries multiple API URLs and authentication approaches
  */
-async function getToken(forceRefresh = false): Promise<string> {
+async function getToken(forceRefresh = false): Promise<{ token: string; baseUrl: string }> {
   // Return cached token if valid
   if (!forceRefresh && cachedToken && Date.now() < cachedToken.expiresAt) {
     console.log('Using cached token');
-    return cachedToken.token;
+    return { token: cachedToken.token, baseUrl: cachedToken.baseUrl };
   }
 
   console.log('Requesting new OIDC token from TopTex');
+  console.log(`Username: ${TOPTEX_USERNAME ? TOPTEX_USERNAME.substring(0, 3) + '***' : 'NOT SET'}`);
+  console.log(`Password: ${TOPTEX_PASSWORD ? '****' : 'NOT SET'}`);
+  console.log(`API Key: ${TOPTEX_API_KEY ? TOPTEX_API_KEY.substring(0, 4) + '***' : 'NOT SET'}`);
 
-  if (!TOPTEX_API_KEY || !TOPTEX_USERNAME || !TOPTEX_PASSWORD) {
-    throw new Error('TOPTEX_CONFIG_MISSING: API_KEY, USERNAME ou PASSWORD non configuré');
+  if (!TOPTEX_USERNAME || !TOPTEX_PASSWORD) {
+    throw new Error('TOPTEX_CONFIG_MISSING: USERNAME ou PASSWORD non configuré');
   }
 
-  // Try different authentication approaches
-  const authAttempts: Array<{
-    name: string;
-    headers: Record<string, string>;
-    body: Record<string, string>;
-  }> = [
-    // Attempt 1: API key in Authorization header with ApiKey prefix
-    {
-      name: 'Authorization: ApiKey',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `ApiKey ${TOPTEX_API_KEY}`,
-      },
-      body: { username: TOPTEX_USERNAME, password: TOPTEX_PASSWORD },
-    },
-    // Attempt 2: API key in body (alongside username/password)
-    {
-      name: 'api_key in body',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: { 
-        username: TOPTEX_USERNAME, 
-        password: TOPTEX_PASSWORD,
-        api_key: TOPTEX_API_KEY,
-      },
-    },
-    // Attempt 3: API key in custom x-api-key header
-    {
-      name: 'x-api-key header',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': TOPTEX_API_KEY,
-      },
-      body: { username: TOPTEX_USERNAME, password: TOPTEX_PASSWORD },
-    },
-    // Attempt 4: No API key (maybe username/password is enough)
-    {
-      name: 'username/password only',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: { username: TOPTEX_USERNAME, password: TOPTEX_PASSWORD },
-    },
+  // Authentication endpoints to try
+  const authEndpoints = [
+    '/v3/authentifier',
+    '/api/v3/authentifier',
+    '/v3/auth',
+    '/v3/login',
+    '/auth/token',
+    '/oauth/token',
+    '/api/auth',
   ];
 
+  // Authentication body formats
+  const getAuthBodies = () => [
+    // Format 1: Standard login
+    { login: TOPTEX_USERNAME, password: TOPTEX_PASSWORD },
+    // Format 2: Username/password
+    { username: TOPTEX_USERNAME, password: TOPTEX_PASSWORD },
+    // Format 3: Email/password
+    { email: TOPTEX_USERNAME, password: TOPTEX_PASSWORD },
+    // Format 4: With API key
+    { username: TOPTEX_USERNAME, password: TOPTEX_PASSWORD, api_key: TOPTEX_API_KEY },
+    // Format 5: OAuth style
+    { grant_type: 'password', username: TOPTEX_USERNAME, password: TOPTEX_PASSWORD },
+  ];
+
+  // Header combinations
+  const getHeaders = (): Record<string, string>[] => {
+    const base: Record<string, string> = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+    const configs: Record<string, string>[] = [base];
+    
+    if (TOPTEX_API_KEY) {
+      configs.push({ ...base, 'x-api-key': TOPTEX_API_KEY });
+      configs.push({ ...base, 'Authorization': `Bearer ${TOPTEX_API_KEY}` });
+      configs.push({ ...base, 'Authorization': `ApiKey ${TOPTEX_API_KEY}` });
+    }
+    
+    return configs;
+  };
+
   let lastError: Error | null = null;
+  let attemptCount = 0;
 
-  for (const attempt of authAttempts) {
-    try {
-      console.log(`Trying authentication approach: ${attempt.name}`);
-      
-      const response = await fetch(`${TOPTEX_API_URL}/v3/authentifier`, {
-        method: 'POST',
-        headers: attempt.headers,
-        body: JSON.stringify(attempt.body),
-      });
+  // Try each base URL
+  for (const baseUrl of TOPTEX_API_URLS) {
+    // Try each auth endpoint
+    for (const endpoint of authEndpoints) {
+      // Try each header combination (limit to first 2 for speed)
+      for (const headers of getHeaders().slice(0, 2)) {
+        // Try each body format (limit to first 3 for speed)
+        for (const body of getAuthBodies().slice(0, 3)) {
+          attemptCount++;
+          const url = `${baseUrl}${endpoint}`;
+          
+          try {
+            console.log(`[${attemptCount}] Trying: ${url}`);
+            
+            const response = await fetch(url, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(body),
+            });
 
-      const statusCode = response.status;
-      console.log(`Auth response status: ${statusCode} (approach: ${attempt.name})`);
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (!data.token) {
-          throw new Error('TOPTEX_AUTH_NO_TOKEN: Response OK but no token in response');
+            const statusCode = response.status;
+            
+            if (response.ok) {
+              const data = await response.json();
+              console.log(`✓ Success at ${url}, response keys:`, Object.keys(data));
+              
+              const token = data.token || data.access_token || data.accessToken || data.jwt;
+              
+              if (token) {
+                cachedToken = {
+                  token,
+                  expiresAt: Date.now() + TOKEN_TTL,
+                  baseUrl,
+                };
+                console.log(`✓ Token obtained from ${url}`);
+                return { token, baseUrl };
+              } else {
+                console.log(`Response OK but no token found in:`, JSON.stringify(data).substring(0, 200));
+              }
+            } else if (statusCode !== 404 && statusCode !== 403) {
+              // Log non-404/403 errors (they might give hints)
+              const errorText = await response.text();
+              console.log(`[${attemptCount}] ${statusCode} at ${url}: ${errorText.substring(0, 100)}`);
+              lastError = new Error(`TOPTEX_AUTH_FAILED: ${statusCode} at ${url}`);
+            }
+          } catch (error) {
+            // Network errors - skip silently for 404s
+            if (error instanceof Error && !error.message.includes('404')) {
+              console.log(`[${attemptCount}] Network error at ${url}:`, error.message.substring(0, 50));
+            }
+          }
         }
-
-        // Cache the token
-        cachedToken = {
-          token: data.token,
-          expiresAt: Date.now() + TOKEN_TTL,
-        };
-
-        console.log(`✓ Token obtained successfully with approach: ${attempt.name}`);
-        return data.token;
-      }
-
-      // Log error and try next approach
-      const errorText = await response.text();
-      console.log(`✗ ${attempt.name} failed with ${statusCode}: ${errorText.substring(0, 150)}`);
-      lastError = new Error(`TOPTEX_AUTH_FAILED: ${statusCode} - ${errorText}`);
-
-    } catch (error) {
-      if (error instanceof Error && error.message.startsWith('TOPTEX_')) {
-        lastError = error;
-      } else {
-        console.error(`Network error with ${attempt.name}:`, error);
-        lastError = new Error(`TOPTEX_AUTH_NETWORK_ERROR: ${error}`);
       }
     }
   }
 
-  // If we get here, all attempts failed
-  throw lastError || new Error('TOPTEX_AUTH_FAILED: All authentication attempts failed');
+  // If all attempts failed, throw with helpful message
+  throw lastError || new Error(
+    `TOPTEX_AUTH_FAILED: Impossible de s'authentifier auprès de TopTex après ${attemptCount} tentatives. ` +
+    'Vérifiez que vos identifiants sont corrects et que vous avez accès à l\'API TopTex.'
+  );
 }
 
 /**
  * Fetch data from TopTex API with Bearer token
- * Retries once on 401/403 with token refresh
  */
 async function fetchFromTopTex(endpoint: string, method: string = 'GET', retryCount = 0): Promise<any> {
   const cacheKey = `toptex_${endpoint}`;
@@ -149,9 +165,9 @@ async function fetchFromTopTex(endpoint: string, method: string = 'GET', retryCo
 
   console.log(`Fetching from TopTex: ${endpoint}`);
 
-  const token = await getToken();
+  const { token, baseUrl } = await getToken();
 
-  const response = await fetch(`${TOPTEX_API_URL}${endpoint}`, {
+  const response = await fetch(`${baseUrl}${endpoint}`, {
     method,
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -171,15 +187,11 @@ async function fetchFromTopTex(endpoint: string, method: string = 'GET', retryCo
 
   // Handle 401/403 - token might be expired
   if ((statusCode === 401 || statusCode === 403) && retryCount === 0) {
-    const errorText = await response.text();
-    console.log(`Got ${statusCode} on ${endpoint}, refreshing token and retrying. Error: ${errorText.substring(0, 200)}`);
-    
-    // Force token refresh and retry once
+    console.log(`Got ${statusCode}, refreshing token and retrying`);
     cachedToken = null;
     return fetchFromTopTex(endpoint, method, retryCount + 1);
   }
 
-  // Other errors
   const errorText = await response.text();
   throw new Error(`TOPTEX_API_ERROR: ${statusCode} - ${errorText}`);
 }
@@ -187,8 +199,8 @@ async function fetchFromTopTex(endpoint: string, method: string = 'GET', retryCo
 // Product normalization helpers
 function normalizeProduct(product: any): any {
   return {
-    sku: product.reference || product.sku || product.id,
-    name: product.designation || product.name || product.titre,
+    sku: product.reference || product.sku || product.id || product.code,
+    name: product.designation || product.name || product.titre || product.libelle,
     brand: product.marque || product.brand || 'N/A',
     category: product.categorie || product.category || 'Non classé',
     description: product.description || product.descriptif || '',
@@ -209,6 +221,7 @@ function extractImages(product: any): string[] {
   }
   if (product.image) return [product.image];
   if (product.photo) return [product.photo];
+  if (product.visuel) return [product.visuel];
   return [];
 }
 
@@ -261,12 +274,12 @@ serve(async (req) => {
 
   try {
     // Check configuration
-    if (!TOPTEX_API_KEY || !TOPTEX_USERNAME || !TOPTEX_PASSWORD) {
+    if (!TOPTEX_USERNAME || !TOPTEX_PASSWORD) {
       console.error('TopTex configuration incomplete');
       return new Response(
         JSON.stringify({ 
           error: 'TOPTEX_CONFIG_MISSING',
-          message: 'Configuration TopTex incomplète. Contactez l\'administrateur.',
+          message: 'Configuration TopTex incomplète. Veuillez configurer TOPTEX_USERNAME et TOPTEX_PASSWORD.',
           needsSetup: true,
         }),
         {
@@ -342,6 +355,9 @@ serve(async (req) => {
         } else if (data.results) {
           products = data.results;
           total = data.total || data.results.length;
+        } else if (data.data) {
+          products = data.data;
+          total = data.total || data.data.length;
         }
 
         result = {
@@ -365,13 +381,11 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error in toptex-api function:', errorMessage);
     
-    // Determine error type
     const isAuthError = errorMessage.includes('AUTH_FAILED') || 
                         errorMessage.includes('401') || 
                         errorMessage.includes('403');
     const isConfigError = errorMessage.includes('CONFIG_MISSING');
     
-    // Build user-friendly message
     let userMessage = 'Une erreur est survenue lors de la récupération des produits.';
     let errorCode = 'TOPTEX_ERROR';
     let statusCode = 500;
@@ -381,7 +395,7 @@ serve(async (req) => {
       errorCode = 'TOPTEX_CONFIG_MISSING';
       statusCode = 503;
     } else if (isAuthError) {
-      userMessage = 'Échec de l\'authentification TopTex. Vérifiez vos identifiants.';
+      userMessage = 'Échec de l\'authentification TopTex. Vérifiez vos identifiants ou contactez TopTex pour obtenir l\'accès API.';
       errorCode = 'TOPTEX_AUTH_FAILED';
       statusCode = 401;
     }
