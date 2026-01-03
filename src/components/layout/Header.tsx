@@ -65,13 +65,13 @@ export function Header() {
         )}
       >
         <div className="container-page">
-          <div className="flex items-center justify-between h-20 md:h-28">
+          <div className="flex items-center justify-between h-24 md:h-32">
             {/* Logo Premium */}
             <Link to="/" className="flex items-center group">
               <img 
                 src={logoJ2L} 
                 alt="J2L Textiles" 
-                className="h-16 md:h-20 lg:h-24 w-auto object-contain"
+                className="h-20 md:h-28 lg:h-32 w-auto object-contain"
               />
             </Link>
 
