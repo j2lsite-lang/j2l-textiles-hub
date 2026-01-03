@@ -1,60 +1,39 @@
 import { Link } from 'react-router-dom';
-import { 
-  Layers, 
-  Droplets, 
-  Scissors, 
-  Flame,
-  CheckCircle, 
-  ArrowRight, 
-  Upload,
-  FileCode,
-  Image,
-  Maximize,
-  Sparkles,
-  PenTool
-} from 'lucide-react';
+import { ArrowRight, Upload, FileCode, Image, Maximize, Sparkles, PenTool } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
-import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
 import { FileFormatBadge } from '@/components/ui/premium-icon';
-import { cn } from '@/lib/utils';
+
+// Import technique images
+import broderieImg from '@/assets/techniques/broderie.jpg';
+import impressionImg from '@/assets/techniques/impression-dtg.jpg';
+import serigraphieImg from '@/assets/techniques/serigraphie.jpg';
+import flocageImg from '@/assets/techniques/flocage.jpg';
 
 const techniques = [
   {
-    icon: Layers,
+    image: broderieImg,
+    name: 'La broderie',
+    description: `Cette technique est réputée pour son aspect haut de gamme et sa qualité exceptionnelle. Aujourd'hui, cette méthode artisanale est modernisée grâce à des machines à broder de pointe qui permettent de personnaliser une multitude de textiles.`,
+    details: `Chaque point de broderie apporte un relief qui donne une texture et une profondeur aux motifs créant des designs à la fois captivants et agréables au toucher. Idéale pour apporter une touche d'élégance et de sophistication, la broderie est un choix incontournable pour les polos, vestes et casquettes.`,
+  },
+  {
+    image: impressionImg,
+    name: 'Marquage numérique',
+    description: `Idéale pour les petites séries et les visuels complexes, le marquage numérique sur textile permet à votre visuel d'être imprimé sans aucune aspérité et avec un maximum de détails.`,
+    details: `Nous maîtrisons deux techniques de marquage numérique : l'Impression DTG (Direct to Garment) et le Transfert DTF (Direct to Film). L'impression DTG permet l'impression directe de visuels en quadrichromie sur une variété de vêtements avec une liberté de création quasi illimitée.`,
+  },
+  {
+    image: serigraphieImg,
     name: 'Sérigraphie',
-    description: 'Technique d\'impression par transfert d\'encre à travers un écran de soie. Idéale pour les grandes quantités et les designs avec peu de couleurs.',
-    pros: ['Économique en grandes quantités', 'Couleurs vives et durables', 'Excellent rendu sur coton'],
-    cons: ['Minimum 20 pièces', 'Limité en nombre de couleurs', 'Pas de dégradés'],
-    ideal: 'T-shirts, sweats, sacs en grandes séries',
-    swatch: 'bg-blue-500',
+    description: `Technique d'impression par transfert d'encre à travers un écran. C'est la méthode la plus économique pour les grandes quantités et les designs avec peu de couleurs.`,
+    details: `Les encres sérigraphiques offrent une excellente tenue au lavage et des couleurs très vives. Idéale pour les commandes importantes de t-shirts, sweats et sacs publicitaires. Minimum recommandé : 20 pièces.`,
   },
   {
-    icon: Droplets,
-    name: 'Impression numérique',
-    description: 'Impression directe sur textile (DTG) permettant des designs photo-réalistes avec des millions de couleurs.',
-    pros: ['Détails et dégradés parfaits', 'Idéal petites quantités', 'Photos et designs complexes'],
-    cons: ['Coût plus élevé', 'Moins durable au lavage', 'Meilleur sur textile clair'],
-    ideal: 'Designs détaillés, photos, petites séries',
-    swatch: 'bg-purple-500',
-  },
-  {
-    icon: Scissors,
-    name: 'Broderie',
-    description: 'Personnalisation haut de gamme par fil brodé. Aspect premium et durabilité exceptionnelle.',
-    pros: ['Aspect professionnel', 'Très durable', 'Relief et texture'],
-    cons: ['Coût par pièce plus élevé', 'Designs simplifiés', 'Pas de dégradés'],
-    ideal: 'Polos, vestes, casquettes, uniformes',
-    swatch: 'bg-amber-500',
-  },
-  {
-    icon: Flame,
+    image: flocageImg,
     name: 'Flocage & Flex',
-    description: 'Découpe de matière thermocollée et appliquée par presse à chaud. Rendu mat ou brillant au choix.',
-    pros: ['Noms et numéros faciles', 'Durable', 'Finition mate ou brillante'],
-    cons: ['Limité aux aplats', 'Pas de détails fins', 'Toucher "plastique"'],
-    ideal: 'Équipes sportives, noms personnalisés',
-    swatch: 'bg-green-500',
+    description: `Découpe de matière thermocollée appliquée par presse à chaud. Cette technique offre un rendu mat ou brillant au choix, parfait pour les noms et numéros.`,
+    details: `Le flocage offre un aspect velours très apprécié pour le textile sportif. Le flex permet des finitions brillantes ou mates. Ces techniques sont idéales pour les équipes sportives et les personnalisations individuelles.`,
   },
 ];
 
@@ -71,14 +50,14 @@ const fileGuidelines = [
   {
     icon: FileCode,
     title: 'Formats vectoriels',
-    description: 'Qualité optimale, redimensionnable sans perte. C\'est le format idéal.',
+    description: "Qualité optimale, redimensionnable sans perte. C'est le format idéal.",
     extensions: ['AI', 'EPS', 'PDF', 'SVG'],
     recommended: true,
   },
   {
     icon: Image,
     title: 'Images haute résolution',
-    description: 'Minimum 300 DPI à la taille d\'impression finale.',
+    description: "Minimum 300 DPI à la taille d'impression finale.",
     extensions: ['PNG', 'JPG', 'TIFF'],
     recommended: false,
   },
@@ -95,94 +74,47 @@ export default function Personnalisation() {
   return (
     <Layout>
       {/* Hero */}
-      <section className="relative py-20 overflow-hidden">
-        <div className="absolute inset-0 hero-gradient opacity-90" />
-        <div className="relative container-page">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl font-display font-bold text-white mb-6">
-              Personnalisation sur-mesure
-            </h1>
-            <p className="text-xl text-white/80 leading-relaxed mb-8">
-              Donnez vie à votre identité visuelle avec nos techniques de marquage professionnelles.
-              Conseils gratuits pour choisir la solution adaptée à vos besoins.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <Link to="/devis">
-                <Button size="lg" variant="secondary" className="font-semibold">
-                  Demander un devis
-                </Button>
-              </Link>
-              <Link to="/contact">
-                <Button size="lg" className="font-semibold bg-white/10 backdrop-blur-sm text-white border border-white/30 hover:bg-white/20">
-                  Nous contacter
-                </Button>
-              </Link>
-            </div>
-          </div>
+      <section className="py-16 md:py-20 bg-background">
+        <div className="container-page text-center">
+          <h1 className="text-3xl md:text-5xl font-display font-bold text-foreground mb-4">
+            <span className="bg-accent text-white px-3 py-1">Des techniques</span> de marquage textile
+            <br />pour vos personnalisations
+          </h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mt-6">
+            Découvrez nos méthodes de personnalisation professionnelles pour donner vie à votre identité visuelle.
+          </p>
         </div>
       </section>
 
       {/* Techniques */}
       <section className="section-padding">
         <div className="container-page">
-          <SectionHeader
-            eyebrow="Techniques"
-            title="Nos méthodes de personnalisation"
-            description="Chaque technique a ses avantages. Découvrez celle qui correspond le mieux à votre projet."
-          />
-
-          <div className="mt-12 space-y-8">
+          <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
             {techniques.map((technique, index) => (
               <div
                 key={technique.name}
-                className={cn(
-                  'surface-elevated rounded-2xl p-6 md:p-8',
-                  index % 2 === 1 && 'lg:flex-row-reverse'
-                )}
+                className="bg-white rounded-3xl overflow-hidden shadow-soft border border-border/50 hover:shadow-lg transition-shadow"
               >
-                <div className="grid lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-1">
-                    {/* Premium icon with swatch */}
-                    <div className="relative inline-block mb-4">
-                      <div className="w-14 h-14 rounded-xl bg-primary/8 flex items-center justify-center">
-                        <technique.icon className="h-7 w-7 text-primary" strokeWidth={1.5} />
-                      </div>
-                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-md ${technique.swatch} border-2 border-background shadow-sm`} />
-                    </div>
-                    <h3 className="text-2xl font-display font-semibold mb-3">{technique.name}</h3>
-                    <p className="text-muted-foreground leading-relaxed">{technique.description}</p>
-                    <p className="mt-4 text-sm">
-                      <span className="font-medium">Idéal pour :</span>{' '}
-                      <span className="text-muted-foreground">{technique.ideal}</span>
-                    </p>
-                  </div>
-                  <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-semibold text-green-600 mb-3 flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" strokeWidth={1.75} />
-                        Avantages
-                      </h4>
-                      <ul className="space-y-2">
-                        {technique.pros.map((pro) => (
-                          <li key={pro} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 shrink-0" />
-                            {pro}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-amber-600 mb-3">À considérer</h4>
-                      <ul className="space-y-2">
-                        {technique.cons.map((con) => (
-                          <li key={con} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-                            {con}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                {/* Image */}
+                <div className="aspect-video overflow-hidden">
+                  <img 
+                    src={technique.image} 
+                    alt={technique.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                
+                {/* Content */}
+                <div className="p-6 md:p-8">
+                  <h2 className="text-2xl font-display font-bold text-foreground mb-4">
+                    {technique.name}
+                  </h2>
+                  <p className="text-muted-foreground leading-relaxed mb-4">
+                    {technique.description}
+                  </p>
+                  <p className="text-muted-foreground leading-relaxed text-sm">
+                    {technique.details}
+                  </p>
                 </div>
               </div>
             ))}
@@ -190,20 +122,20 @@ export default function Personnalisation() {
         </div>
       </section>
 
-      {/* File Guidelines - Premium Studio Look */}
+      {/* File Guidelines */}
       <section className="section-padding bg-secondary/30">
         <div className="container-page">
           <div className="grid lg:grid-cols-2 gap-12 items-start">
             <div>
-              <SectionHeader
-                eyebrow="Fichiers"
-                title="Préparer votre logo"
-                description="Pour une personnalisation réussie, envoyez-nous votre logo dans un format adapté."
-                align="left"
-              />
+              <h2 className="text-3xl font-display font-bold mb-2">
+                Préparer votre logo
+              </h2>
+              <p className="text-muted-foreground mb-8">
+                Pour une personnalisation réussie, envoyez-nous votre logo dans un format adapté.
+              </p>
 
               {/* Format badges */}
-              <div className="mt-6 mb-8">
+              <div className="mb-8">
                 <p className="text-sm font-medium text-muted-foreground mb-3">Formats acceptés</p>
                 <div className="flex flex-wrap gap-2">
                   {fileFormats.map((f) => (
@@ -239,7 +171,7 @@ export default function Personnalisation() {
 
             {/* Vectorization offer card */}
             <div className="relative">
-              <div className="surface-elevated p-8 text-center">
+              <div className="bg-white rounded-3xl p-8 text-center shadow-soft border border-border/50">
                 <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-accent/10 flex items-center justify-center">
                   <PenTool className="h-8 w-8 text-accent" strokeWidth={1.5} />
                 </div>
