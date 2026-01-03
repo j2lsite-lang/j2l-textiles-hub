@@ -65,13 +65,13 @@ export function Header() {
         )}
       >
         <div className="container-page">
-          <div className="flex items-center justify-between h-16 md:h-20">
+          <div className="flex items-center justify-between h-18 md:h-24">
             {/* Logo Premium */}
             <Link to="/" className="flex items-center group">
               <img 
                 src={logoJ2L} 
                 alt="J2L Textiles" 
-                className="h-12 md:h-14 w-auto object-contain"
+                className="h-14 md:h-16 lg:h-20 w-auto object-contain"
               />
             </Link>
 
@@ -82,10 +82,10 @@ export function Header() {
                   key={link.href}
                   to={link.href}
                   className={cn(
-                    'px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                    'px-5 py-2.5 rounded-lg text-base font-semibold transition-all',
                     location.pathname === link.href
                       ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                      : 'text-foreground hover:text-primary hover:bg-secondary'
                   )}
                 >
                   {link.label}
