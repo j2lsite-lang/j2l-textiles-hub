@@ -22,6 +22,12 @@ export interface EmailJSParams {
 }
 
 export async function sendEmail(params: EmailJSParams): Promise<void> {
+  console.log('Tentative envoi email avec params:', {
+    service: SERVICE_ID,
+    template: TEMPLATE_ID,
+    params
+  });
+  
   try {
     const response = await emailjs.send(
       SERVICE_ID,
@@ -42,8 +48,13 @@ export async function sendEmail(params: EmailJSParams): Promise<void> {
     );
     
     console.log('Email envoyé avec succès:', response);
-  } catch (error) {
-    console.error('Erreur lors de l\'envoi de l\'email:', error);
-    throw new Error('Erreur lors de l\'envoi du message. Veuillez réessayer.');
+  } catch (error: any) {
+    console.error('Erreur EmailJS détaillée:', {
+      error,
+      message: error?.message,
+      text: error?.text,
+      status: error?.status
+    });
+    throw new Error(`Erreur EmailJS: ${error?.text || error?.message || 'Erreur inconnue'}`);
   }
 }
