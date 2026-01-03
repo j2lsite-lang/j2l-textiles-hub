@@ -66,21 +66,11 @@ export function Header() {
         <div className="container-page">
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo Premium */}
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="relative">
-                <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105 border-2 border-primary/20">
-                  <span className="text-xl md:text-2xl font-display font-black text-white tracking-tight drop-shadow-sm">J2L</span>
-                </div>
-                <div className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-lg bg-accent shadow-md border-2 border-white" />
-              </div>
-              <div className="hidden sm:block">
-                <span className="text-xl md:text-2xl font-display font-bold text-primary leading-none">
-                  Textiles
-                </span>
-                <span className="block text-[11px] text-accent font-semibold tracking-wider uppercase mt-0.5">
-                  Personnalisation pro
-                </span>
-              </div>
+            <Link to="/" className="flex items-center gap-2 group">
+              <span className="text-2xl md:text-3xl font-display font-black tracking-tight">
+                <span className="text-primary">J2L</span>
+                <span className="text-accent">Textiles</span>
+              </span>
             </Link>
 
             {/* Desktop Navigation */}
