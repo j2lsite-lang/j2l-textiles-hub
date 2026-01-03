@@ -303,13 +303,24 @@ function FilterSidebar({
   );
 }
 
+// Alphabet pour le filtre
+const alphabet = ['Tous', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
+
 export default function Catalogue() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState('Tous');
   const [selectedBrand, setSelectedBrand] = useState('Toutes');
+  const [selectedLetter, setSelectedLetter] = useState('Tous');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
+
+  // Filtrer les marques par lettre
+  const filteredBrandsByLetter = brands.filter(b => {
+    if (b === 'Toutes') return true;
+    if (selectedLetter === 'Tous') return true;
+    return b.charAt(0).toUpperCase() === selectedLetter;
+  });
 
   // Fetch from TopTex API
   const { data: catalogData, isLoading, error } = useCatalog({
@@ -349,6 +360,7 @@ export default function Catalogue() {
     setSearchQuery('');
     setSelectedCategory('Tous');
     setSelectedBrand('Toutes');
+    setSelectedLetter('Tous');
     setSearchParams({});
     setPage(1);
   };
@@ -501,17 +513,58 @@ export default function Catalogue() {
                     <div className="mb-10">
                       <h3 className="text-xl font-bold mb-4 text-foreground">Nos marques partenaires</h3>
                       <div className="w-12 h-1 bg-primary mb-6"></div>
+                      
+                      {/* Filtre alphabétique A-Z */}
+                      <div className="flex flex-wrap gap-1 mb-6">
+                        {alphabet.map((letter) => {
+                          // Vérifier si des marques commencent par cette lettre
+                          const hasBrands = letter === 'Tous' || brands.some(b => b !== 'Toutes' && b.charAt(0).toUpperCase() === letter);
+                          return (
+                            <button
+                              key={letter}
+                              onClick={() => setSelectedLetter(letter)}
+                              disabled={!hasBrands}
+                              className={cn(
+                                'w-9 h-9 text-sm font-semibold rounded-lg transition-all duration-200',
+                                selectedLetter === letter
+                                  ? 'bg-primary text-primary-foreground shadow-md'
+                                  : hasBrands
+                                    ? 'bg-white border border-gray-200 text-gray-700 hover:border-primary hover:text-primary'
+                                    : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                              )}
+                            >
+                              {letter === 'Tous' ? '∀' : letter}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Grille des marques filtrées */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {brands.filter(b => b !== 'Toutes').map((brand) => (
+                        {filteredBrandsByLetter.filter(b => b !== 'Toutes').map((brand) => (
                           <div
                             key={brand}
                             onClick={() => setSelectedBrand(brand)}
                             className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-center h-20 hover:shadow-md hover:border-primary/30 transition-all duration-300 cursor-pointer"
                           >
-                            <span className="text-sm font-bold text-gray-700 text-center">{brand}</span>
+                            {brandLogos[brand] ? (
+                              <img 
+                                src={brandLogos[brand]} 
+                                alt={brand} 
+                                className="max-h-12 max-w-full object-contain"
+                              />
+                            ) : (
+                              <span className="text-sm font-bold text-gray-700 text-center">{brand}</span>
+                            )}
                           </div>
                         ))}
                       </div>
+                      
+                      {filteredBrandsByLetter.filter(b => b !== 'Toutes').length === 0 && (
+                        <p className="text-center text-muted-foreground py-8">
+                          Aucune marque ne commence par "{selectedLetter}"
+                        </p>
+                      )}
                     </div>
                   )}
                   
