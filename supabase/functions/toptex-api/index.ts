@@ -166,7 +166,7 @@ async function request(
   const headers: Record<string, string> = {
     "Accept": "application/json",
     "x-api-key": TOPTEX_API_KEY!,
-    "x-toptex-authorization": token, // CORRECT HEADER per TopTex API spec
+    "Authorization": `Bearer ${token}`, // Standard Bearer token header
   };
 
   if (body) {
@@ -212,12 +212,11 @@ async function request(
 // ============================================================================
 // TOPTEX CLIENT METHODS
 // ============================================================================
-async function getAttributes(attributType: string = "marques"): Promise<any> {
+async function getAttributes(attributType: string = "brand,family,subfamily"): Promise<any> {
+  // TopTex correct endpoint: /v3/attributes?attributes=brand,family,subfamily
   const params = new URLSearchParams();
-  params.append("attributs", attributType);
-  params.append("taille_de_page", "500");
-  params.append("numéro_de_page", "1");
-  return request("GET", `/v3/attributs?${params.toString()}`);
+  params.append("attributes", attributType);
+  return request("GET", `/v3/attributes?${params.toString()}`);
 }
 
 async function getAllProducts(options: {
@@ -229,18 +228,23 @@ async function getAllProducts(options: {
 } = {}): Promise<any> {
   const { query, category, brand, page = 1, limit = 24 } = options;
   
+  // TopTex correct endpoint: /v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=1
   const params = new URLSearchParams();
-  if (query) params.append("recherche", query);
-  if (category && category !== "Tous") params.append("categorie", category);
-  if (brand && brand !== "Toutes") params.append("marque", brand);
-  params.append("taille_de_page", limit.toString());
-  params.append("numéro_de_page", page.toString());
+  params.append("usage_right", "b2b_b2c");
+  params.append("display_prices", "1");
+  params.append("result_in_file", "0"); // 0 to get JSON directly, 1 for file
+  params.append("page_size", limit.toString());
+  params.append("page_number", page.toString());
+  
+  if (query) params.append("search", query);
+  if (category && category !== "Tous") params.append("family", category);
+  if (brand && brand !== "Toutes") params.append("brand", brand);
 
-  return request("GET", `/v3/produits?${params.toString()}`);
+  return request("GET", `/v3/products/all?${params.toString()}`);
 }
 
 async function getProduct(sku: string): Promise<any> {
-  return request("GET", `/v3/produits/${encodeURIComponent(sku)}`);
+  return request("GET", `/v3/products/${encodeURIComponent(sku)}`);
 }
 
 async function healthCheck(): Promise<{ status: string; diagnostics: any }> {
@@ -264,7 +268,7 @@ async function healthCheck(): Promise<{ status: string; diagnostics: any }> {
 
   if (diagnostics.auth.success) {
     try {
-      const attrs = await getAttributes("marques");
+      const attrs = await getAttributes("brand");
       diagnostics.attributes.success = true;
       diagnostics.attributes.count = Array.isArray(attrs) ? attrs.length : "N/A";
     } catch (error) {
