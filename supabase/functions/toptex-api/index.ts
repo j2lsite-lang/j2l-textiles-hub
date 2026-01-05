@@ -166,7 +166,11 @@ async function request(
   const headers: Record<string, string> = {
     "Accept": "application/json",
     "x-api-key": TOPTEX_API_KEY!,
-    "Authorization": `Bearer ${token}`, // Standard Bearer token header
+
+    // TopTex: some endpoints accept standard Bearer auth, others rely on a vendor header.
+    // Sending both keeps compatibility and avoids 401/403 differences across gateways.
+    "Authorization": `Bearer ${token}`,
+    "x-toptex-authorization": token,
   };
 
   if (body) {
