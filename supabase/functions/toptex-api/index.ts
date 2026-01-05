@@ -108,29 +108,42 @@ async function authenticate(forceRefresh = false): Promise<string> {
     }
 
     // TopTex may return token in different fields
-    const token = 
-      data.token || 
-      data.jeton || 
-      data.access_token || 
-      data.accessToken || 
-      data.jwt || 
+    const tokenCandidate =
+      data.token ||
+      data.jeton ||
+      data.access_token ||
+      data.accessToken ||
+      data.jwt ||
       data.id_token ||
       data.data?.token ||
       data.data?.jeton;
 
-    if (!token || typeof token !== "string") {
-      console.error(`[TopTex Auth] Token not found in response. Keys: ${Object.keys(data).join(", ")}`);
+    if (!tokenCandidate || typeof tokenCandidate !== "string") {
+      console.error(
+        `[TopTex Auth] Token not found in response. Keys: ${Object.keys(data).join(", ")}`
+      );
       console.error(`[TopTex Auth] Full response: ${JSON.stringify(data).slice(0, 500)}`);
-      throw new Error(`TOPTEX_AUTH_NO_TOKEN: Response keys: ${Object.keys(data).join(", ")}`);
+      throw new Error(
+        `TOPTEX_AUTH_NO_TOKEN: Response keys: ${Object.keys(data).join(", ")}`
+      );
     }
 
-    console.log(`[TopTex Auth] ✅ Authenticated successfully. Token: ${safePreview(token, 8)}`);
-    
-    cachedToken = { 
-      token, 
-      expiresAt: Date.now() + TOKEN_TTL 
+    // Ensure no leading/trailing whitespace/newlines and no surrounding quotes
+    const token = tokenCandidate.trim().replace(/^"+|"+$/g, "");
+
+    if (!token) {
+      throw new Error("TOPTEX_AUTH_NO_TOKEN: Token was empty after sanitization");
+    }
+
+    console.log(
+      `[TopTex Auth] ✅ Authenticated successfully. Token: ${safePreview(token, 8)} (len=${token.length})`
+    );
+
+    cachedToken = {
+      token,
+      expiresAt: Date.now() + TOKEN_TTL,
     };
-    
+
     return token;
   } catch (error) {
     console.error(`[TopTex Auth] Error:`, error);
@@ -158,24 +171,25 @@ async function request(
     }
   }
 
-  const token = await authenticate(retryCount > 0);
+  const token = (await authenticate(retryCount > 0)).trim().replace(/^"+|"+$/g, "");
   const url = `${TOPTEX_BASE_URL}${path}`;
-  
+
   console.log(`[TopTex API] ${method} ${path}`);
 
+  // TopTex support guidance: use x-api-key + x-toptex-authorization (JWT)
   const headers: Record<string, string> = {
     "Accept": "application/json",
     "x-api-key": TOPTEX_API_KEY!,
-
-    // TopTex: some endpoints accept standard Bearer auth, others rely on a vendor header.
-    // Sending both keeps compatibility and avoids 401/403 differences across gateways.
-    "Authorization": `Bearer ${token}`,
     "x-toptex-authorization": token,
   };
 
   if (body) {
     headers["Content-Type"] = "application/json";
   }
+
+  console.log(
+    `[TopTex API] Outgoing headers: Accept=${headers["Accept"]}; x-api-key=${safePreview(headers["x-api-key"], 6)}; x-toptex-authorization=${safePreview(headers["x-toptex-authorization"], 10)}; Content-Type=${headers["Content-Type"] ?? "none"}`
+  );
 
   const response = await fetch(url, {
     method,
@@ -272,7 +286,7 @@ async function healthCheck(): Promise<{ status: string; diagnostics: any }> {
 
   if (diagnostics.auth.success) {
     try {
-      const attrs = await getAttributes("brand");
+      const attrs = await getAttributes("brand,family,subfamily");
       diagnostics.attributes.success = true;
       diagnostics.attributes.count = Array.isArray(attrs) ? attrs.length : "N/A";
     } catch (error) {
