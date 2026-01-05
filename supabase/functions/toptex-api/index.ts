@@ -5,119 +5,284 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const TOPTEX_API_URL = "https://api.toptex.io";
-
-// Secrets (server-side only)
+const TOPTEX_BASE_URL = Deno.env.get("TOPTEX_BASE_URL") || "https://api.toptex.io";
 const TOPTEX_API_KEY = Deno.env.get("TOPTEX_API_KEY");
 const TOPTEX_USERNAME = Deno.env.get("TOPTEX_USERNAME");
 const TOPTEX_PASSWORD = Deno.env.get("TOPTEX_PASSWORD");
 
-// Token cache (in-memory)
+// Token cache (in-memory, server-side only)
 let cachedToken: { token: string; expiresAt: number } | null = null;
-const TOKEN_TTL = 30 * 60 * 1000; // 30 minutes
+const TOKEN_TTL = 25 * 60 * 1000; // 25 minutes (conservative, refresh before expiry)
 
-// Data cache (in-memory)
+// Data cache
 const dataCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
-function safePreview(value: string | undefined | null, keep = 4) {
+// ============================================================================
+// UTILITY: Mask secrets for logging
+// ============================================================================
+function safePreview(value: string | undefined | null, keep = 4): string {
   if (!value) return "NOT_SET";
-  return value.length <= keep ? "***" : `${value.slice(0, keep)}***`;
+  if (value.length <= keep) return "***";
+  return `${value.slice(0, keep)}***`;
 }
 
-async function getToken(forceRefresh = false): Promise<string> {
+function logConfig(): void {
+  console.log("[TopTex Config Check]");
+  console.log(`  BASE_URL: ${TOPTEX_BASE_URL}`);
+  console.log(`  API_KEY: ${safePreview(TOPTEX_API_KEY, 6)}`);
+  console.log(`  USERNAME: ${safePreview(TOPTEX_USERNAME, 4)}`);
+  console.log(`  PASSWORD: ${TOPTEX_PASSWORD ? "****SET****" : "NOT_SET"}`);
+}
+
+// ============================================================================
+// AUTHENTICATION: POST /v3/authenticate
+// ============================================================================
+async function authenticate(forceRefresh = false): Promise<string> {
+  // Return cached token if valid
   if (!forceRefresh && cachedToken && Date.now() < cachedToken.expiresAt) {
+    console.log("[TopTex Auth] Using cached token");
     return cachedToken.token;
   }
 
+  // Validate config
   if (!TOPTEX_API_KEY || !TOPTEX_USERNAME || !TOPTEX_PASSWORD) {
-    throw new Error(
-      `TOPTEX_CONFIG_MISSING: api_key=${!!TOPTEX_API_KEY}, username=${!!TOPTEX_USERNAME}, password=${!!TOPTEX_PASSWORD}`
-    );
+    logConfig();
+    throw new Error("TOPTEX_CONFIG_MISSING: Missing API_KEY, USERNAME, or PASSWORD");
   }
 
-  // Per TopTex Swagger (screenshot): POST /v3/authenticate + x-api-key + { username, password }
-  const authUrl = `${TOPTEX_API_URL}/v3/authenticate`;
+  const authUrl = `${TOPTEX_BASE_URL}/v3/authenticate`;
+  
+  console.log(`[TopTex Auth] Authenticating...`);
+  console.log(`  URL: ${authUrl}`);
+  console.log(`  Username: ${safePreview(TOPTEX_USERNAME, 4)}`);
+  console.log(`  API Key: ${safePreview(TOPTEX_API_KEY, 6)}`);
 
-  console.log(
-    `TopTex auth attempt: url=${authUrl}, username=${safePreview(TOPTEX_USERNAME, 3)}, apiKey=${safePreview(
-      TOPTEX_API_KEY,
-      6
-    )}`
-  );
-
-  const resp = await fetch(authUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "x-api-key": TOPTEX_API_KEY,
-    },
-    body: JSON.stringify({ username: TOPTEX_USERNAME, password: TOPTEX_PASSWORD }),
-  });
-
-  const text = await resp.text();
-
-  if (!resp.ok) {
-    // Swagger shows 403 "Interdit" (API key / permissions) and 403 "Identifiants incorrects".
-    throw new Error(`TOPTEX_AUTH_FAILED: ${resp.status} - ${text}`);
-  }
-
-  let data: any;
   try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(`TOPTEX_AUTH_BAD_RESPONSE: ${text.slice(0, 200)}`);
+    const response = await fetch(authUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "x-api-key": TOPTEX_API_KEY,
+      },
+      body: JSON.stringify({
+        username: TOPTEX_USERNAME,
+        password: TOPTEX_PASSWORD,
+      }),
+    });
+
+    const responseText = await response.text();
+    console.log(`[TopTex Auth] Response status: ${response.status}`);
+    console.log(`[TopTex Auth] Response body preview: ${responseText.slice(0, 300)}`);
+
+    if (!response.ok) {
+      // Detailed 403 diagnostics
+      if (response.status === 403) {
+        console.error("[TopTex Auth] ❌ 403 FORBIDDEN - Checklist:");
+        console.error("  1. Vérifiez que votre abonnement 'Subscribe' est activé sur TopTex");
+        console.error("  2. Vérifiez que la clé API est valide et active");
+        console.error("  3. Endpoint correct: POST /v3/authenticate (pas /v3/authentifier)");
+        console.error("  4. Vérifiez username/password");
+        console.error(`  Response body: ${responseText.slice(0, 500)}`);
+      }
+      throw new Error(`TOPTEX_AUTH_FAILED: ${response.status} - ${responseText.slice(0, 200)}`);
+    }
+
+    let data: any;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      throw new Error(`TOPTEX_AUTH_PARSE_ERROR: Invalid JSON response`);
+    }
+
+    // Check if response contains an error (TopTex may return 200 with error body)
+    if (data.errorType || data.errorMessage || data.error) {
+      const errMsg = data.errorMessage || data.error || data.errorType || "Unknown error";
+      console.error(`[TopTex Auth] ❌ API returned error in body: ${errMsg}`);
+      console.error("[TopTex Auth] Checklist:");
+      console.error("  1. Vérifiez que votre abonnement 'Subscribe' est activé sur TopTex");
+      console.error("  2. Vérifiez que la clé API est correcte");
+      console.error("  3. Vérifiez username/password");
+      throw new Error(`TOPTEX_AUTH_FAILED: ${errMsg}`);
+    }
+
+    // TopTex may return token in different fields
+    const token = 
+      data.token || 
+      data.jeton || 
+      data.access_token || 
+      data.accessToken || 
+      data.jwt || 
+      data.id_token ||
+      data.data?.token ||
+      data.data?.jeton;
+
+    if (!token || typeof token !== "string") {
+      console.error(`[TopTex Auth] Token not found in response. Keys: ${Object.keys(data).join(", ")}`);
+      console.error(`[TopTex Auth] Full response: ${JSON.stringify(data).slice(0, 500)}`);
+      throw new Error(`TOPTEX_AUTH_NO_TOKEN: Response keys: ${Object.keys(data).join(", ")}`);
+    }
+
+    console.log(`[TopTex Auth] ✅ Authenticated successfully. Token: ${safePreview(token, 8)}`);
+    
+    cachedToken = { 
+      token, 
+      expiresAt: Date.now() + TOKEN_TTL 
+    };
+    
+    return token;
+  } catch (error) {
+    console.error(`[TopTex Auth] Error:`, error);
+    throw error;
   }
-
-  // Swagger model indicates "jeton".
-  const token =
-    data.token || data.jeton || data.access_token || data.accessToken || data.jwt || data.id_token;
-
-  if (!token || typeof token !== "string") {
-    throw new Error(`TOPTEX_AUTH_NO_TOKEN: keys=${Object.keys(data).join(",")}`);
-  }
-
-  cachedToken = { token, expiresAt: Date.now() + TOKEN_TTL };
-  return token;
 }
 
-async function fetchFromTopTex(endpoint: string, method: string = "GET", retryCount = 0): Promise<any> {
-  const cacheKey = `toptex_${endpoint}`;
-  const cached = dataCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.data;
+// ============================================================================
+// API REQUEST: Generic TopTex API call with retry on 401/403
+// ============================================================================
+async function request(
+  method: string,
+  path: string,
+  options: { body?: any; retryCount?: number } = {}
+): Promise<any> {
+  const { body, retryCount = 0 } = options;
+  
+  // Check cache for GET requests
+  const cacheKey = `${method}:${path}`;
+  if (method === "GET") {
+    const cached = dataCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log(`[TopTex API] Cache hit: ${path}`);
+      return cached.data;
+    }
+  }
 
-  const token = await getToken(retryCount > 0);
+  const token = await authenticate(retryCount > 0);
+  const url = `${TOPTEX_BASE_URL}${path}`;
+  
+  console.log(`[TopTex API] ${method} ${path}`);
 
-  const resp = await fetch(`${TOPTEX_API_URL}${endpoint}`, {
+  const headers: Record<string, string> = {
+    "Accept": "application/json",
+    "x-api-key": TOPTEX_API_KEY!,
+    "x-toptex-authorization": token, // CORRECT HEADER per TopTex API spec
+  };
+
+  if (body) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const response = await fetch(url, {
     method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "x-api-key": TOPTEX_API_KEY ?? "",
-      Accept: "application/json",
-    },
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
   });
 
-  if (resp.ok) {
-    const data = await resp.json();
-    dataCache.set(cacheKey, { data, timestamp: Date.now() });
+  const responseText = await response.text();
+
+  if (response.ok) {
+    let data: any;
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      data = { raw: responseText };
+    }
+    
+    // Cache successful GET responses
+    if (method === "GET") {
+      dataCache.set(cacheKey, { data, timestamp: Date.now() });
+    }
+    
+    console.log(`[TopTex API] ✅ ${method} ${path} - Success`);
     return data;
   }
 
-  if ((resp.status === 401 || resp.status === 403) && retryCount === 0) {
+  // Retry once on 401/403 (token expired or invalid)
+  if ((response.status === 401 || response.status === 403) && retryCount === 0) {
+    console.log(`[TopTex API] Got ${response.status}, refreshing token and retrying...`);
     cachedToken = null;
-    return fetchFromTopTex(endpoint, method, retryCount + 1);
+    return request(method, path, { body, retryCount: retryCount + 1 });
   }
 
-  const text = await resp.text();
-  throw new Error(`TOPTEX_API_ERROR: ${resp.status} - ${text}`);
+  console.error(`[TopTex API] ❌ ${method} ${path} - ${response.status}: ${responseText.slice(0, 300)}`);
+  throw new Error(`TOPTEX_API_ERROR: ${response.status} - ${responseText.slice(0, 200)}`);
 }
 
-// Product normalization helpers
+// ============================================================================
+// TOPTEX CLIENT METHODS
+// ============================================================================
+async function getAttributes(attributType: string = "marques"): Promise<any> {
+  const params = new URLSearchParams();
+  params.append("attributs", attributType);
+  params.append("taille_de_page", "500");
+  params.append("numéro_de_page", "1");
+  return request("GET", `/v3/attributs?${params.toString()}`);
+}
+
+async function getAllProducts(options: {
+  query?: string;
+  category?: string;
+  brand?: string;
+  page?: number;
+  limit?: number;
+} = {}): Promise<any> {
+  const { query, category, brand, page = 1, limit = 24 } = options;
+  
+  const params = new URLSearchParams();
+  if (query) params.append("recherche", query);
+  if (category && category !== "Tous") params.append("categorie", category);
+  if (brand && brand !== "Toutes") params.append("marque", brand);
+  params.append("taille_de_page", limit.toString());
+  params.append("numéro_de_page", page.toString());
+
+  return request("GET", `/v3/produits?${params.toString()}`);
+}
+
+async function getProduct(sku: string): Promise<any> {
+  return request("GET", `/v3/produits/${encodeURIComponent(sku)}`);
+}
+
+async function healthCheck(): Promise<{ status: string; diagnostics: any }> {
+  const diagnostics: any = {
+    config: {
+      baseUrl: TOPTEX_BASE_URL,
+      apiKeySet: !!TOPTEX_API_KEY,
+      usernameSet: !!TOPTEX_USERNAME,
+      passwordSet: !!TOPTEX_PASSWORD,
+    },
+    auth: { success: false, error: null },
+    attributes: { success: false, error: null },
+  };
+
+  try {
+    await authenticate(true);
+    diagnostics.auth.success = true;
+  } catch (error) {
+    diagnostics.auth.error = error instanceof Error ? error.message : String(error);
+  }
+
+  if (diagnostics.auth.success) {
+    try {
+      const attrs = await getAttributes("marques");
+      diagnostics.attributes.success = true;
+      diagnostics.attributes.count = Array.isArray(attrs) ? attrs.length : "N/A";
+    } catch (error) {
+      diagnostics.attributes.error = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  const status = diagnostics.auth.success && diagnostics.attributes.success ? "OK" : "KO";
+  return { status, diagnostics };
+}
+
+// ============================================================================
+// PRODUCT NORMALIZATION HELPERS
+// ============================================================================
 function normalizeProduct(product: any): any {
   return {
-    sku: product.reference || product.sku || product.id || product.code,
-    name: product.designation || product.name || product.titre || product.libelle,
+    sku: product.reference || product.sku || product.id || product.code || "",
+    name: product.designation || product.name || product.titre || product.libelle || "",
     brand: product.marque || product.brand || "N/A",
     category: product.categorie || product.category || "Non classé",
     description: product.description || product.descriptif || "",
@@ -128,13 +293,15 @@ function normalizeProduct(product: any): any {
     sizes: extractSizes(product),
     variants: extractVariants(product),
     priceHT: product.prixHT || product.prix || null,
-    stock: product.stock || null,
+    stock: product.stock ?? null,
   };
 }
 
 function extractImages(product: any): string[] {
   if (product.images && Array.isArray(product.images)) {
-    return product.images.map((img: any) => (typeof img === "string" ? img : img.url || img.src));
+    return product.images.map((img: any) => 
+      typeof img === "string" ? img : img.url || img.src || img.lien || ""
+    ).filter(Boolean);
   }
   if (product.image) return [product.image];
   if (product.photo) return [product.photo];
@@ -143,132 +310,136 @@ function extractImages(product: any): string[] {
 }
 
 function extractColors(product: any): Array<{ name: string; code: string }> {
-  if (product.couleurs && Array.isArray(product.couleurs)) {
-    return product.couleurs.map((c: any) => ({
-      name: typeof c === "string" ? c : c.nom || c.name || c.libelle,
+  const colors = product.couleurs || product.colors;
+  if (colors && Array.isArray(colors)) {
+    return colors.map((c: any) => ({
+      name: typeof c === "string" ? c : c.nom || c.name || c.libelle || "",
       code: typeof c === "string" ? "" : c.code || c.hexa || c.hex || "",
-    }));
-  }
-  if (product.colors && Array.isArray(product.colors)) {
-    return product.colors.map((c: any) => ({
-      name: typeof c === "string" ? c : c.name || c.label,
-      code: typeof c === "string" ? "" : c.code || c.hex || "",
     }));
   }
   return [];
 }
 
 function extractSizes(product: any): string[] {
-  if (product.tailles && Array.isArray(product.tailles)) {
-    return product.tailles.map((t: any) => (typeof t === "string" ? t : t.nom || t.name || t.libelle));
-  }
-  if (product.sizes && Array.isArray(product.sizes)) {
-    return product.sizes.map((s: any) => (typeof s === "string" ? s : s.name || s.label));
+  const sizes = product.tailles || product.sizes;
+  if (sizes && Array.isArray(sizes)) {
+    return sizes.map((t: any) => 
+      typeof t === "string" ? t : t.nom || t.name || t.libelle || ""
+    );
   }
   return [];
 }
 
 function extractVariants(product: any): any[] {
-  if (product.variantes && Array.isArray(product.variantes)) {
-    return product.variantes.map((v: any) => ({
-      sku: v.reference || v.sku,
-      color: v.couleur || v.color,
-      size: v.taille || v.size,
-      stock: v.stock,
-      price: v.prixHT || v.prix,
+  const variants = product.variantes || product.variants;
+  if (variants && Array.isArray(variants)) {
+    return variants.map((v: any) => ({
+      sku: v.reference || v.sku || "",
+      color: v.couleur || v.color || "",
+      size: v.taille || v.size || "",
+      stock: v.stock ?? null,
+      price: v.prixHT || v.prix || null,
     }));
   }
-  if (product.variants && Array.isArray(product.variants)) return product.variants;
   return [];
 }
 
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
 serve(async (req) => {
+  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Config check
     if (!TOPTEX_API_KEY || !TOPTEX_USERNAME || !TOPTEX_PASSWORD) {
+      logConfig();
       return new Response(
         JSON.stringify({
           error: "TOPTEX_CONFIG_MISSING",
-          message: "Configuration TopTex incomplète.",
+          message: "Configuration TopTex incomplète. Vérifiez les secrets.",
           needsSetup: true,
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Parse request
     let body: any = {};
     if (req.method === "POST") {
       try {
         body = await req.json();
       } catch {
-        // ignore
+        // empty body is OK
       }
     }
 
     const url = new URL(req.url);
     const action = body.action || url.searchParams.get("action") || "catalog";
     const query = body.query || url.searchParams.get("query") || "";
-    const page = parseInt(body.page || url.searchParams.get("page") || "1");
-    const limit = parseInt(body.limit || url.searchParams.get("limit") || "24");
+    const page = parseInt(body.page || url.searchParams.get("page") || "1", 10);
+    const limit = parseInt(body.limit || url.searchParams.get("limit") || "24", 10);
     const sku = body.sku || url.searchParams.get("sku");
     const category = body.category || url.searchParams.get("category");
     const brand = body.brand || url.searchParams.get("brand");
 
-    console.log(`TopTex request: action=${action}, page=${page}, limit=${limit}`);
+    console.log(`[TopTex Handler] action=${action}, page=${page}, limit=${limit}, query=${query || "none"}`);
 
     let result: any;
 
     switch (action) {
+      // ========== HEALTH CHECK ==========
+      case "health": {
+        const health = await healthCheck();
+        result = health;
+        break;
+      }
+
+      // ========== SINGLE PRODUCT ==========
       case "product": {
-        if (!sku) throw new Error("SKU is required for product action");
-        const data = await fetchFromTopTex(`/v3/produits/${sku}`);
-        result = normalizeProduct(data);
+        if (!sku) {
+          throw new Error("SKU is required for product action");
+        }
+        const productData = await getProduct(sku);
+        result = normalizeProduct(productData);
         break;
       }
 
+      // ========== ATTRIBUTES ==========
       case "attributes": {
-        // /v3/attributs requires "attributs" param (e.g. "marques", "couleurs", "tailles", "categories")
-        const attrType = body.attributType || "marques";
-        const attrParams = new URLSearchParams();
-        attrParams.append("attributs", attrType);
-        attrParams.append("taille_de_page", "100");
-        attrParams.append("numéro_de_page", "1");
-        result = await fetchFromTopTex(`/v3/attributs?${attrParams.toString()}`);
+        const attributType = body.attributType || url.searchParams.get("attributType") || "marques";
+        result = await getAttributes(attributType);
         break;
       }
 
+      // ========== CATALOG / SEARCH ==========
       case "search":
       case "catalog":
       default: {
-        const params = new URLSearchParams();
-        if (query) params.append("recherche", query);
-        if (category && category !== "Tous") params.append("categorie", category);
-        if (brand && brand !== "Toutes") params.append("marque", brand);
-        // TopTex uses French param names
-        params.append("taille_de_page", limit.toString());
-        params.append("numéro_de_page", page.toString());
-
-        const endpoint = `/v3/produits?${params.toString()}`;
-        const data = await fetchFromTopTex(endpoint);
+        const data = await getAllProducts({ query, category, brand, page, limit });
 
         let products: any[] = [];
         let total = 0;
 
+        // Handle various response formats
         if (Array.isArray(data)) {
           products = data;
           total = data.length;
         } else if (data.produits) {
           products = data.produits;
-          total = data.total || data.produits.length;
+          total = data.total || data.nombreTotal || products.length;
         } else if (data.items) {
           products = data.items;
-          total = data.total || data.items.length;
+          total = data.total || products.length;
         } else if (data.results) {
           products = data.results;
-          total = data.total || data.results.length;
+          total = data.total || products.length;
+        } else if (data.data && Array.isArray(data.data)) {
+          products = data.data;
+          total = data.total || products.length;
         }
 
         result = {
@@ -277,7 +448,7 @@ serve(async (req) => {
             page,
             limit,
             total,
-            totalPages: Math.ceil(total / limit),
+            totalPages: Math.ceil(total / limit) || 1,
           },
         };
         break;
@@ -287,25 +458,31 @@ serve(async (req) => {
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[TopTex Handler] Error:", message);
 
-    const isAuthError = message.includes("TOPTEX_AUTH") || message.includes("401") || message.includes("403");
+    const isAuthError = 
+      message.includes("TOPTEX_AUTH") || 
+      message.includes("401") || 
+      message.includes("403");
+
+    const isConfigError = message.includes("TOPTEX_CONFIG_MISSING");
 
     let userMessage = "Une erreur est survenue lors de la récupération des produits.";
     let errorCode = "TOPTEX_ERROR";
     let statusCode = 500;
 
-    if (message.includes("TOPTEX_CONFIG_MISSING")) {
+    if (isConfigError) {
       userMessage = "Configuration TopTex incomplète.";
       errorCode = "TOPTEX_CONFIG_MISSING";
       statusCode = 503;
     } else if (isAuthError) {
-      // Distinguish common Swagger cases
       if (message.includes("Identifiants") || message.toLowerCase().includes("incorrect")) {
-        userMessage = "Identifiants TopTex incorrects.";
-      } else if (message.includes("Interdit") || message.toLowerCase().includes("forbidden")) {
-        userMessage = "Accès API TopTex refusé (clé API / droits).";
+        userMessage = "Identifiants TopTex incorrects (username/password).";
+      } else if (message.includes("Interdit") || message.toLowerCase().includes("forbidden") || message.includes("403")) {
+        userMessage = "Accès API TopTex refusé. Vérifiez: abonnement Subscribe actif, clé API valide, droits API.";
       } else {
         userMessage = "Échec de l'authentification TopTex.";
       }
@@ -313,10 +490,13 @@ serve(async (req) => {
       statusCode = 401;
     }
 
-    console.error("Error in toptex-api:", message);
-
     return new Response(
-      JSON.stringify({ error: errorCode, message: userMessage, details: message, isAuthError }),
+      JSON.stringify({ 
+        error: errorCode, 
+        message: userMessage, 
+        details: message,
+        isAuthError 
+      }),
       { status: statusCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
