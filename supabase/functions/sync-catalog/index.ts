@@ -16,7 +16,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Timeouts
 const S3_LINK_EXPIRY_MINUTES = 13; // S3 links expire ~15 min, use 13 for safety
 const S3_POLL_INTERVAL_MS = 20000; // Poll every 20 seconds
-const S3_MIN_SIZE_BYTES = 10000; // Min 10KB to consider file ready
+const S3_MIN_SIZE_MB = 50; // Min 50MB to consider file ready (expected ~130MB)
+const S3_MIN_SIZE_BYTES = S3_MIN_SIZE_MB * 1024 * 1024;
 const BATCH_SIZE = 100;
 const ADVISORY_LOCK_ID = 12345; // Unique lock ID for catalog sync
 
