@@ -243,21 +243,31 @@ async function getAllProducts(options: {
   brand?: string;
   page?: number;
   limit?: number;
+  noFile?: boolean; // Test mode: get products without S3 file
 } = {}): Promise<any> {
-  const { query, category, brand, page = 1, limit = 24 } = options;
+  const { query, category, brand, page = 1, limit = 24, noFile = false } = options;
   
   // TopTex endpoint: /v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=1
   // result_in_file=1 generates an async S3 file that needs time to be ready
   const params = new URLSearchParams();
   params.append("usage_right", "b2b_b2c");
   params.append("display_prices", "1");
-  params.append("result_in_file", "1"); // 1 for async file generation
+  params.append("result_in_file", noFile ? "0" : "1"); // 0 = direct response, 1 = async file
   params.append("page_size", limit.toString());
   params.append("page_number", page.toString());
   
   if (query) params.append("search", query);
   if (category && category !== "Tous") params.append("family", category);
   if (brand && brand !== "Toutes") params.append("brand", brand);
+  
+  // If noFile mode, return direct response without S3 handling
+  if (noFile) {
+    console.log(`[TopTex API] Testing direct mode (result_in_file=0)...`);
+    const data = await request("GET", `/v3/products/all?${params.toString()}`);
+    console.log(`[TopTex API] Direct response keys: ${Object.keys(data || {}).join(", ")}`);
+    console.log(`[TopTex API] Direct response: ${JSON.stringify(data).slice(0, 500)}`);
+    return data;
+  }
 
   const data = await request("GET", `/v3/products/all?${params.toString()}`);
   
@@ -518,6 +528,20 @@ serve(async (req) => {
       case "attributes": {
         const attributType = body.attributType || url.searchParams.get("attributType") || "marques";
         result = await getAttributes(attributType);
+        break;
+      }
+
+      // ========== TEST DIRECT (no S3 file) ==========
+      case "test-direct": {
+        console.log(`[TopTex Handler] Testing direct mode (result_in_file=0)...`);
+        const data = await getAllProducts({ query, category, brand, page, limit, noFile: true });
+        result = {
+          testMode: "result_in_file=0",
+          rawResponse: data,
+          rawResponseType: typeof data,
+          rawResponseKeys: data ? Object.keys(data) : [],
+          rawResponsePreview: JSON.stringify(data).slice(0, 1000),
+        };
         break;
       }
 
