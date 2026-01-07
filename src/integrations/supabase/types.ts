@@ -14,7 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      products: {
+        Row: {
+          brand: string | null
+          category: string | null
+          colors: Json | null
+          composition: string | null
+          created_at: string
+          description: string | null
+          id: string
+          images: Json | null
+          name: string
+          price_ht: number | null
+          raw_data: Json | null
+          sizes: Json | null
+          sku: string
+          stock: number | null
+          synced_at: string
+          updated_at: string
+          variants: Json | null
+          weight: string | null
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          colors?: Json | null
+          composition?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          images?: Json | null
+          name: string
+          price_ht?: number | null
+          raw_data?: Json | null
+          sizes?: Json | null
+          sku: string
+          stock?: number | null
+          synced_at?: string
+          updated_at?: string
+          variants?: Json | null
+          weight?: string | null
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          colors?: Json | null
+          composition?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          images?: Json | null
+          name?: string
+          price_ht?: number | null
+          raw_data?: Json | null
+          sizes?: Json | null
+          sku?: string
+          stock?: number | null
+          synced_at?: string
+          updated_at?: string
+          variants?: Json | null
+          weight?: string | null
+        }
+        Relationships: []
+      }
+      sync_status: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          products_count: number | null
+          s3_link: string | null
+          started_at: string
+          status: string
+          sync_type: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          products_count?: number | null
+          s3_link?: string | null
+          started_at?: string
+          status?: string
+          sync_type?: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          products_count?: number | null
+          s3_link?: string | null
+          started_at?: string
+          status?: string
+          sync_type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
