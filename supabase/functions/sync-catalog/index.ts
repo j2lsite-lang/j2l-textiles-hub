@@ -14,10 +14,13 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // Timeouts
-const S3_LINK_EXPIRY_MINUTES = 13; // S3 links expire ~15 min, use 13 for safety
+const S3_LINK_EXPIRY_MINUTES = 12; // Hard stop: job > 12 min
+const S3_ETA_MARGIN_MS = 2 * 60 * 1000; // 403 after ETA + 2 min => treat as expired
 const S3_POLL_INTERVAL_MS = 20000; // Poll every 20 seconds
-const S3_MIN_SIZE_MB = 50; // Min 50MB to consider file ready (expected ~130MB)
+const S3_MIN_SIZE_MB = 50; // Min 50MB to consider file potentially ready
+const S3_TARGET_SIZE_MB = 130; // Expected ~130MB
 const S3_MIN_SIZE_BYTES = S3_MIN_SIZE_MB * 1024 * 1024;
+const S3_TARGET_SIZE_BYTES = S3_TARGET_SIZE_MB * 1024 * 1024;
 const BATCH_SIZE = 100;
 const ADVISORY_LOCK_ID = 12345; // Unique lock ID for catalog sync
 
@@ -144,6 +147,37 @@ async function authenticate(): Promise<string> {
 }
 
 // ============================================================================
+// (OPTIONNEL) VALIDATION ENDPOINT ATTRIBUTES
+// - Corrige l'appel /v3/attributes : pas de result_in_file
+// - Endpoint attendu: /v3/attributes?attributes=brand,family,subfamily
+// ============================================================================
+async function validateAttributesEndpoint(token: string): Promise<void> {
+  const params = new URLSearchParams({ attributes: "brand,family,subfamily" });
+
+  const response = await fetch(`${TOPTEX_BASE_URL}/v3/attributes?${params}`, {
+    method: "GET",
+    headers: {
+      "Accept": "application/json",
+      "x-api-key": TOPTEX_API_KEY,
+      "x-toptex-authorization": token,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Attributes request failed: ${response.status}`);
+  }
+
+  // Ne pas stocker: simple validation + debug
+  try {
+    const data = await response.json();
+    const count = Array.isArray(data) ? data.length : (data?.data?.length ?? null);
+    console.log(`[Sync] ✅ Attributes OK${count != null ? ` (${count})` : ""}`);
+  } catch {
+    console.log("[Sync] ✅ Attributes OK (non-JSON)");
+  }
+}
+
+// ============================================================================
 // 2. REQUEST S3 CATALOG LINK
 // ============================================================================
 async function requestCatalogGeneration(token: string): Promise<{ link: string; eta: Date }> {
@@ -186,68 +220,101 @@ async function requestCatalogGeneration(token: string): Promise<{ link: string; 
 // 3. S3 POLLING - HEAD every 20s, stable Content-Length on 2 checks
 // ============================================================================
 async function pollS3File(
-  url: string, 
-  eta: Date, 
+  url: string,
+  eta: Date,
   startTime: number,
-  updateProgress: (msg: string) => Promise<void>
+  updateProgress: (msg: string) => Promise<void>,
+  updateMetrics: (metrics: { s3_poll_count?: number; s3_content_length?: number | null }) => Promise<void>
 ): Promise<{ ready: boolean; expired: boolean; size: number }> {
-  
   // Wait until ETA - 30s before polling
   const waitMs = Math.max(0, eta.getTime() - Date.now() - 30000);
   if (waitMs > 0) {
-    console.log(`[Sync] Waiting ${Math.round(waitMs/1000)}s until ETA...`);
-    await updateProgress(`Attente ETA: ${Math.round(waitMs/1000)}s`);
-    await new Promise(r => setTimeout(r, waitMs));
+    console.log(`[Sync] Waiting ${Math.round(waitMs / 1000)}s until ETA...`);
+    await updateProgress(`Attente ETA: ${Math.round(waitMs / 1000)}s`);
+    await new Promise((r) => setTimeout(r, waitMs));
   }
-  
+
+  const etaDeadlineMs = eta.getTime() + S3_ETA_MARGIN_MS;
+
   let lastSize = 0;
   let stableCount = 0;
   let pollCount = 0;
-  
+
+  // Stable means "same content-length on 2 consecutive HEADs"
+  const stableNeeded = 1;
+
   while (true) {
     pollCount++;
-    
-    // Check expiry
-    const elapsed = (Date.now() - startTime) / 60000;
-    if (elapsed > S3_LINK_EXPIRY_MINUTES) {
-      console.log(`[Sync] S3 link expired after ${elapsed.toFixed(1)} min`);
+
+    // Hard stop: job too old
+    const elapsedMin = (Date.now() - startTime) / 60000;
+    if (elapsedMin > S3_LINK_EXPIRY_MINUTES) {
+      console.log(`[Sync] S3 polling expired after ${elapsedMin.toFixed(1)} min`);
       return { ready: false, expired: true, size: 0 };
     }
-    
+
     try {
       const headRes = await fetch(url, { method: "HEAD" });
-      
-      if (headRes.status === 403 || headRes.status === 404) {
-        console.log(`[Sync] Poll #${pollCount}: not ready (${headRes.status})`);
-        await updateProgress(`Fichier non prêt (poll #${pollCount})`);
-      } else if (headRes.ok) {
-        const size = parseInt(headRes.headers.get("content-length") || "0", 10);
-        
-        if (size >= S3_MIN_SIZE_BYTES) {
-          if (size === lastSize) {
-            stableCount++;
-            if (stableCount >= 2) {
-              console.log(`[Sync] ✅ File ready: ${(size / 1024 / 1024).toFixed(2)} MB`);
-              return { ready: true, expired: false, size };
-            }
-            console.log(`[Sync] Poll #${pollCount}: ${(size/1024/1024).toFixed(1)}MB, stable ${stableCount}/2`);
-          } else {
-            stableCount = 0;
-            lastSize = size;
-            console.log(`[Sync] Poll #${pollCount}: ${(size/1024/1024).toFixed(1)}MB (size changed)`);
-          }
-          await updateProgress(`Vérification: ${(size/1024/1024).toFixed(1)}MB`);
-        } else {
-          console.log(`[Sync] Poll #${pollCount}: too small (${size} bytes)`);
-          stableCount = 0;
+
+      if (headRes.status === 403) {
+        // 403 can mean "not ready" OR "expired". We decide by ETA+marge.
+        await updateMetrics({ s3_poll_count: pollCount, s3_content_length: null });
+
+        if (Date.now() > etaDeadlineMs) {
+          console.log(`[Sync] Poll #${pollCount}: 403 after ETA+marge => expired`);
+          await updateProgress(`Lien expiré (403 après ETA+marge) - poll #${pollCount}`);
+          return { ready: false, expired: true, size: 0 };
         }
+
+        console.log(`[Sync] Poll #${pollCount}: 403 (avant ETA+marge) => retry`);
+        await updateProgress(`Fichier non prêt (403) - poll #${pollCount}`);
+      } else if (headRes.status === 404) {
+        await updateMetrics({ s3_poll_count: pollCount, s3_content_length: null });
+        console.log(`[Sync] Poll #${pollCount}: not ready (404)`);
+        await updateProgress(`Fichier non prêt (404) - poll #${pollCount}`);
+      } else if (headRes.ok) {
+        const size = parseInt(headRes.headers.get("content-length") || "0", 10) || 0;
+        await updateMetrics({ s3_poll_count: pollCount, s3_content_length: size });
+
+        const sizeMb = (size / 1024 / 1024).toFixed(1);
+
+        // Track stability
+        if (size > 0 && size === lastSize) stableCount++;
+        else {
+          stableCount = 0;
+          lastSize = size;
+        }
+
+        // Ready rule:
+        // - Prefer expected size (~130MB) + stable
+        // - Or >=50MB + stable
+        const stableOk = stableCount >= stableNeeded;
+
+        if (size >= S3_TARGET_SIZE_BYTES && stableOk) {
+          console.log(`[Sync] ✅ File ready (target): ${sizeMb}MB`);
+          await updateProgress(`Prêt: ${sizeMb}MB (target) - poll #${pollCount}`);
+          return { ready: true, expired: false, size };
+        }
+
+        if (size >= S3_MIN_SIZE_BYTES && stableOk) {
+          console.log(`[Sync] ✅ File ready (min): ${sizeMb}MB`);
+          await updateProgress(`Prêt: ${sizeMb}MB - poll #${pollCount}`);
+          return { ready: true, expired: false, size };
+        }
+
+        console.log(`[Sync] Poll #${pollCount}: ${sizeMb}MB (stable=${stableCount}/${stableNeeded})`);
+        await updateProgress(`Vérification: ${sizeMb}MB - poll #${pollCount}`);
+      } else {
+        await updateMetrics({ s3_poll_count: pollCount, s3_content_length: null });
+        console.log(`[Sync] Poll #${pollCount}: unexpected status ${headRes.status}`);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       console.log(`[Sync] Poll #${pollCount} error: ${msg}`);
+      await updateMetrics({ s3_poll_count: pollCount });
     }
-    
-    await new Promise(r => setTimeout(r, S3_POLL_INTERVAL_MS));
+
+    await new Promise((r) => setTimeout(r, S3_POLL_INTERVAL_MS));
   }
 }
 
