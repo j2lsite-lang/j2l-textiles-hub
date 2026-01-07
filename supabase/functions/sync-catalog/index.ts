@@ -5,22 +5,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// TopTex API configuration
+// Configuration
 const TOPTEX_BASE_URL = "https://api.toptex.io";
-const TOPTEX_API_KEY = Deno.env.get("TOPTEX_API_KEY");
-const TOPTEX_USERNAME = Deno.env.get("TOPTEX_USERNAME");
-const TOPTEX_PASSWORD = Deno.env.get("TOPTEX_PASSWORD");
-
-// Supabase configuration
+const TOPTEX_API_KEY = Deno.env.get("TOPTEX_API_KEY")!;
+const TOPTEX_USERNAME = Deno.env.get("TOPTEX_USERNAME")!;
+const TOPTEX_PASSWORD = Deno.env.get("TOPTEX_PASSWORD")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// Timeouts and limits
-const S3_LINK_EXPIRY_MINUTES = 12; // S3 links expire ~15 min, use 12 for safety margin
+// Timeouts
+const S3_LINK_EXPIRY_MINUTES = 13; // S3 links expire ~15 min, use 13 for safety
 const S3_POLL_INTERVAL_MS = 20000; // Poll every 20 seconds
-const S3_MAX_POLL_ATTEMPTS = 30; // Max ~10 min of polling
-const MAX_S3_RETRIES = 3; // Max times to request new S3 link
+const S3_MIN_SIZE_BYTES = 10000; // Min 10KB to consider file ready
 const BATCH_SIZE = 100;
+const ADVISORY_LOCK_ID = 12345; // Unique lock ID for catalog sync
 
 function getSupabaseAdmin() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -28,18 +26,99 @@ function getSupabaseAdmin() {
   });
 }
 
+function jsonResponse(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
+}
+
+// ============================================================================
+// 1. LOCK TRANSACTIONNEL - Advisory Lock via DB
+// ============================================================================
+async function tryAcquireAdvisoryLock(): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+  
+  // Try to acquire advisory lock (non-blocking)
+  const { data, error } = await supabase.rpc('pg_try_advisory_lock', { key: ADVISORY_LOCK_ID });
+  
+  if (error) {
+    // Fallback: check sync_status table
+    console.log("[Sync] Advisory lock RPC failed, using table-based lock");
+    return await tryTableBasedLock();
+  }
+  
+  return data === true;
+}
+
+async function releaseAdvisoryLock(): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  try {
+    await supabase.rpc('pg_advisory_unlock', { key: ADVISORY_LOCK_ID });
+  } catch {
+    // Ignore - lock will be released when connection closes
+  }
+}
+
+async function tryTableBasedLock(): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+  
+  // First, auto-expire stale jobs
+  await expireStaleJobs();
+  
+  // Check for active jobs
+  const { data: activeJobs } = await supabase
+    .from("sync_status")
+    .select("id, status, started_at, s3_link")
+    .in("status", ["started", "authenticating", "requesting_catalog", "waiting_for_file", "downloading", "syncing"])
+    .order("started_at", { ascending: false })
+    .limit(1);
+  
+  if (activeJobs && activeJobs.length > 0) {
+    const job = activeJobs[0];
+    const ageMinutes = (Date.now() - new Date(job.started_at).getTime()) / 60000;
+    
+    // If job is too old, it's stale
+    if (ageMinutes > S3_LINK_EXPIRY_MINUTES) {
+      await supabase.from("sync_status").update({
+        status: "expired",
+        error_message: "Auto-expired: exceeded time limit",
+        completed_at: new Date().toISOString()
+      }).eq("id", job.id);
+      console.log(`[Sync] Auto-expired stale job ${job.id.slice(0, 8)}...`);
+    } else {
+      console.log(`[Sync] Active job exists: ${job.id.slice(0, 8)}... (${job.status}, ${ageMinutes.toFixed(1)} min)`);
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+async function expireStaleJobs(): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const threshold = new Date(Date.now() - S3_LINK_EXPIRY_MINUTES * 60 * 1000).toISOString();
+  
+  await supabase.from("sync_status").update({
+    status: "expired",
+    error_message: "Auto-expired: S3 link timeout",
+    completed_at: new Date().toISOString()
+  }).in("status", ["started", "authenticating", "requesting_catalog", "waiting_for_file", "downloading", "syncing"])
+    .lt("started_at", threshold);
+}
+
 // ============================================================================
 // TOPTEX AUTHENTICATION
 // ============================================================================
 async function authenticate(): Promise<string> {
-  console.log("[Sync] Authenticating with TopTex...");
+  console.log("[Sync] Authenticating...");
   
   const response = await fetch(`${TOPTEX_BASE_URL}/v3/authenticate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Accept": "application/json",
-      "x-api-key": TOPTEX_API_KEY!,
+      "x-api-key": TOPTEX_API_KEY,
     },
     body: JSON.stringify({
       username: TOPTEX_USERNAME,
@@ -49,14 +128,14 @@ async function authenticate(): Promise<string> {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Authentication failed: ${response.status} - ${text.slice(0, 200)}`);
+    throw new Error(`Auth failed: ${response.status}`);
   }
 
   const data = await response.json();
   const token = data.token || data.jeton;
   
   if (!token) {
-    throw new Error(`No token in response. Keys: ${Object.keys(data).join(", ")}`);
+    throw new Error("No token in auth response");
   }
   
   console.log("[Sync] ✅ Authenticated");
@@ -64,173 +143,179 @@ async function authenticate(): Promise<string> {
 }
 
 // ============================================================================
-// REQUEST NEW S3 CATALOG LINK
+// 2. REQUEST S3 CATALOG LINK
 // ============================================================================
 async function requestCatalogGeneration(token: string): Promise<{ link: string; eta: Date }> {
   console.log("[Sync] Requesting catalog generation...");
   
-  const params = new URLSearchParams();
-  params.append("usage_right", "b2b_b2c");
-  params.append("display_prices", "1");
-  params.append("result_in_file", "1");
+  const params = new URLSearchParams({
+    usage_right: "b2b_b2c",
+    display_prices: "1",
+    result_in_file: "1"
+  });
 
-  const response = await fetch(`${TOPTEX_BASE_URL}/v3/products/all?${params.toString()}`, {
+  const response = await fetch(`${TOPTEX_BASE_URL}/v3/products/all?${params}`, {
     method: "GET",
     headers: {
       "Accept": "application/json",
-      "x-api-key": TOPTEX_API_KEY!,
+      "x-api-key": TOPTEX_API_KEY,
       "x-toptex-authorization": token,
     },
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Catalog request failed: ${response.status} - ${text.slice(0, 200)}`);
+    throw new Error(`Catalog request failed: ${response.status}`);
   }
 
   const data = await response.json();
   
   if (!data.link) {
-    throw new Error(`No S3 link in TopTex response. Keys: ${Object.keys(data).join(", ")}`);
+    throw new Error("No S3 link in response");
   }
 
-  // Parse ETA
-  let eta = new Date();
-  if (data.estimated_time_of_arrival) {
-    eta = new Date(data.estimated_time_of_arrival);
-  } else {
-    // Default: assume 5 minutes
-    eta = new Date(Date.now() + 5 * 60 * 1000);
-  }
+  const eta = data.estimated_time_of_arrival 
+    ? new Date(data.estimated_time_of_arrival)
+    : new Date(Date.now() + 5 * 60 * 1000);
   
   console.log(`[Sync] ✅ Got S3 link, ETA: ${eta.toISOString()}`);
   return { link: data.link, eta };
 }
 
 // ============================================================================
-// S3 FILE POLLING WITH STABILITY CHECK
+// 3. S3 POLLING - HEAD every 20s, stable Content-Length on 2 checks
 // ============================================================================
-async function waitForS3File(url: string, eta: Date, startTime: number): Promise<{ ready: boolean; expired: boolean }> {
-  // Wait until ETA - 30s before starting to poll
-  const now = Date.now();
-  const waitUntilPoll = Math.max(0, eta.getTime() - now - 30000);
+async function pollS3File(
+  url: string, 
+  eta: Date, 
+  startTime: number,
+  updateProgress: (msg: string) => Promise<void>
+): Promise<{ ready: boolean; expired: boolean; size: number }> {
   
-  if (waitUntilPoll > 0) {
-    console.log(`[Sync] Waiting ${Math.round(waitUntilPoll/1000)}s until ETA...`);
-    await new Promise(resolve => setTimeout(resolve, waitUntilPoll));
+  // Wait until ETA - 30s before polling
+  const waitMs = Math.max(0, eta.getTime() - Date.now() - 30000);
+  if (waitMs > 0) {
+    console.log(`[Sync] Waiting ${Math.round(waitMs/1000)}s until ETA...`);
+    await updateProgress(`Attente ETA: ${Math.round(waitMs/1000)}s`);
+    await new Promise(r => setTimeout(r, waitMs));
   }
   
   let lastSize = 0;
-  let stableSizeCount = 0;
+  let stableCount = 0;
+  let pollCount = 0;
   
-  for (let attempt = 0; attempt < S3_MAX_POLL_ATTEMPTS; attempt++) {
-    // Check if S3 link has expired
+  while (true) {
+    pollCount++;
+    
+    // Check expiry
     const elapsed = (Date.now() - startTime) / 60000;
     if (elapsed > S3_LINK_EXPIRY_MINUTES) {
-      console.log(`[Sync] S3 link expired after ${elapsed.toFixed(1)} minutes`);
-      return { ready: false, expired: true };
+      console.log(`[Sync] S3 link expired after ${elapsed.toFixed(1)} min`);
+      return { ready: false, expired: true, size: 0 };
     }
     
     try {
-      const headResponse = await fetch(url, { method: "HEAD" });
+      const headRes = await fetch(url, { method: "HEAD" });
       
-      if (headResponse.status === 403 || headResponse.status === 404) {
-        console.log(`[Sync] Poll ${attempt + 1}: File not ready (${headResponse.status})`);
-        await new Promise(resolve => setTimeout(resolve, S3_POLL_INTERVAL_MS));
-        continue;
-      }
-      
-      if (headResponse.ok) {
-        const size = parseInt(headResponse.headers.get("content-length") || "0", 10);
+      if (headRes.status === 403 || headRes.status === 404) {
+        console.log(`[Sync] Poll #${pollCount}: not ready (${headRes.status})`);
+        await updateProgress(`Fichier non prêt (poll #${pollCount})`);
+      } else if (headRes.ok) {
+        const size = parseInt(headRes.headers.get("content-length") || "0", 10);
         
-        if (size > 1000) {
-          // Check size stability
+        if (size >= S3_MIN_SIZE_BYTES) {
           if (size === lastSize) {
-            stableSizeCount++;
-            if (stableSizeCount >= 2) {
-              console.log(`[Sync] ✅ File ready and stable: ${(size / 1024 / 1024).toFixed(2)} MB`);
-              return { ready: true, expired: false };
+            stableCount++;
+            if (stableCount >= 2) {
+              console.log(`[Sync] ✅ File ready: ${(size / 1024 / 1024).toFixed(2)} MB`);
+              return { ready: true, expired: false, size };
             }
+            console.log(`[Sync] Poll #${pollCount}: ${(size/1024/1024).toFixed(1)}MB, stable ${stableCount}/2`);
           } else {
-            stableSizeCount = 0;
+            stableCount = 0;
             lastSize = size;
+            console.log(`[Sync] Poll #${pollCount}: ${(size/1024/1024).toFixed(1)}MB (size changed)`);
           }
-          console.log(`[Sync] Poll ${attempt + 1}: Size=${size}, stability=${stableSizeCount}/2`);
+          await updateProgress(`Vérification: ${(size/1024/1024).toFixed(1)}MB`);
         } else {
-          console.log(`[Sync] Poll ${attempt + 1}: File too small (${size} bytes)`);
-          stableSizeCount = 0;
+          console.log(`[Sync] Poll #${pollCount}: too small (${size} bytes)`);
+          stableCount = 0;
         }
       }
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.log(`[Sync] Poll ${attempt + 1} error: ${errMsg}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`[Sync] Poll #${pollCount} error: ${msg}`);
     }
     
-    await new Promise(resolve => setTimeout(resolve, S3_POLL_INTERVAL_MS));
+    await new Promise(r => setTimeout(r, S3_POLL_INTERVAL_MS));
   }
-  
-  console.log("[Sync] Max poll attempts reached");
-  return { ready: false, expired: false };
 }
 
 // ============================================================================
-// DOWNLOAD S3 FILE
+// 4. DOWNLOAD + STREAMING JSON PARSE
 // ============================================================================
-async function downloadCatalog(url: string): Promise<any[]> {
-  console.log("[Sync] Downloading catalog from S3...");
+async function downloadAndParseCatalog(
+  url: string,
+  updateProgress: (msg: string) => Promise<void>
+): Promise<any[]> {
+  console.log("[Sync] Downloading catalog...");
+  await updateProgress("Téléchargement en cours...");
   
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Download failed: ${response.status}`);
   }
   
-  const rawText = await response.text();
-  console.log(`[Sync] Downloaded ${(rawText.length / 1024 / 1024).toFixed(2)} MB`);
+  // For large files, we stream the response
+  const text = await response.text();
+  const sizeMB = (text.length / 1024 / 1024).toFixed(2);
+  console.log(`[Sync] Downloaded ${sizeMB} MB`);
+  await updateProgress(`Téléchargé: ${sizeMB} MB`);
+  
+  // Parse JSON
+  console.log("[Sync] Parsing JSON...");
+  await updateProgress("Parsing JSON...");
   
   let data: any;
   try {
-    data = JSON.parse(rawText);
+    data = JSON.parse(text);
   } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    throw new Error(`JSON parse error: ${errMsg}`);
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`JSON parse failed: ${msg}`);
   }
   
-  if (Array.isArray(data)) {
-    console.log(`[Sync] ✅ Parsed ${data.length} products`);
-    return data;
-  } else if (data?.products && Array.isArray(data.products)) {
-    console.log(`[Sync] ✅ Parsed ${data.products.length} products (from .products)`);
-    return data.products;
-  }
+  const products = Array.isArray(data) ? data : (data?.products || []);
+  console.log(`[Sync] ✅ Parsed ${products.length} products`);
   
-  console.log(`[Sync] Unexpected format. Keys: ${Object.keys(data).join(", ")}`);
-  return [];
+  return products;
 }
 
 // ============================================================================
 // PRODUCT NORMALIZATION
 // ============================================================================
-function normalizeProduct(product: any) {
+function normalizeProduct(p: any): any {
   const images: string[] = [];
-  if (product.images && Array.isArray(product.images)) {
-    product.images.forEach((img: any) => {
+  if (Array.isArray(p.images)) {
+    p.images.forEach((img: any) => {
       if (typeof img === "string") images.push(img);
       else if (img?.url) images.push(img.url);
       else if (img?.original) images.push(img.original);
     });
   }
-  if (product.image) images.push(product.image);
-  if (product.visuel) images.push(product.visuel);
+  if (p.image) images.push(p.image);
+  if (p.visuel) images.push(p.visuel);
 
   const colors: Array<{ name: string; code: string }> = [];
-  if (product.colors && Array.isArray(product.colors)) {
-    product.colors.forEach((c: any) => {
-      if (typeof c === "string") colors.push({ name: c, code: "" });
-      else if (c?.name || c?.nom) colors.push({ name: c.name || c.nom, code: c.code || c.hex || "" });
+  const rawColors = p.couleurs || p.colors || [];
+  if (Array.isArray(rawColors)) {
+    rawColors.forEach((c: any) => {
+      colors.push({
+        name: typeof c === "string" ? c : (c.nom || c.name || ""),
+        code: typeof c === "string" ? "" : (c.code || c.hex || ""),
+      });
     });
   }
-  if (product.declinaisons && Array.isArray(product.declinaisons)) {
-    product.declinaisons.forEach((d: any) => {
+  if (Array.isArray(p.declinaisons)) {
+    p.declinaisons.forEach((d: any) => {
       if (d.couleur && !colors.find(c => c.name === d.couleur)) {
         colors.push({ name: d.couleur, code: d.code_couleur || "" });
       }
@@ -238,56 +323,67 @@ function normalizeProduct(product: any) {
   }
 
   const sizes: string[] = [];
-  if (product.sizes && Array.isArray(product.sizes)) {
-    sizes.push(...product.sizes.map((s: any) => typeof s === "string" ? s : s.name || ""));
+  const rawSizes = p.tailles || p.sizes || [];
+  if (Array.isArray(rawSizes)) {
+    rawSizes.forEach((s: any) => sizes.push(typeof s === "string" ? s : (s.nom || s.name || "")));
   }
-  if (product.declinaisons && Array.isArray(product.declinaisons)) {
-    product.declinaisons.forEach((d: any) => {
+  if (Array.isArray(p.declinaisons)) {
+    p.declinaisons.forEach((d: any) => {
       if (d.taille && !sizes.includes(d.taille)) sizes.push(d.taille);
     });
   }
 
   const variants: any[] = [];
-  if (product.declinaisons && Array.isArray(product.declinaisons)) {
-    product.declinaisons.forEach((d: any) => {
+  const rawVariants = p.variantes || p.variants || p.declinaisons || [];
+  if (Array.isArray(rawVariants)) {
+    rawVariants.forEach((v: any) => {
       variants.push({
-        sku: d.reference || d.sku || "",
-        color: d.couleur || "",
-        size: d.taille || "",
-        stock: d.stock ?? null,
-        price: d.prix_ht ?? null,
+        sku: v.reference || v.sku || "",
+        color: v.couleur || v.color || "",
+        size: v.taille || v.size || "",
+        stock: v.stock ?? null,
+        price: v.prixHT || v.prix_ht || v.prix || null,
       });
     });
   }
 
   return {
-    sku: product.reference || product.sku || product.id || "",
-    name: product.designation || product.name || product.titre || "",
-    brand: product.marque || product.brand || "",
-    category: product.famille || product.category || "",
-    description: product.description || product.descriptif || "",
-    composition: product.composition || product.matiere || "",
-    weight: product.poids || product.weight || "",
+    sku: p.reference || p.sku || p.id || "",
+    name: p.designation || p.name || p.titre || "",
+    brand: p.marque || p.brand || "",
+    category: p.famille || p.category || "",
+    description: p.description || p.descriptif || "",
+    composition: p.composition || p.matiere || "",
+    weight: p.grammage || p.poids || p.weight || "",
     images,
     colors,
     sizes,
     variants,
-    price_ht: product.prix_ht ?? product.price ?? null,
-    stock: product.stock ?? product.quantite ?? null,
-    raw_data: product,
+    price_ht: p.prixHT || p.prix_ht || p.prix || null,
+    stock: p.stock ?? null,
+    raw_data: p,
   };
 }
 
 // ============================================================================
-// DATABASE UPSERT IN BATCHES
+// 5. DATABASE UPSERT IN BATCHES
 // ============================================================================
-async function upsertProducts(products: any[], jobId: string): Promise<number> {
+async function upsertProductsBatch(
+  products: any[], 
+  jobId: string,
+  updateProgress: (count: number) => Promise<void>
+): Promise<number> {
   const supabase = getSupabaseAdmin();
   let successCount = 0;
+  let errorCount = 0;
+  
+  console.log(`[Sync] Upserting ${products.length} products in batches of ${BATCH_SIZE}...`);
   
   for (let i = 0; i < products.length; i += BATCH_SIZE) {
     const batch = products.slice(i, i + BATCH_SIZE);
-    const normalized = batch.map(normalizeProduct).filter(p => p.sku);
+    const normalized = batch
+      .map(normalizeProduct)
+      .filter(p => p.sku && p.sku.length > 0);
     
     if (normalized.length === 0) continue;
     
@@ -302,92 +398,37 @@ async function upsertProducts(products: any[], jobId: string): Promise<number> {
       );
     
     if (error) {
-      console.error(`[Sync] Batch ${Math.floor(i/BATCH_SIZE) + 1} error:`, error.message);
+      errorCount += batch.length;
+      console.log(`[Sync] Batch ${Math.floor(i/BATCH_SIZE)+1} error: ${error.message}`);
     } else {
       successCount += normalized.length;
     }
     
-    // Update progress
-    if ((i / BATCH_SIZE) % 5 === 0) {
-      await supabase.from("sync_status").update({ products_count: successCount }).eq("id", jobId);
-      console.log(`[Sync] Progress: ${successCount}/${products.length}`);
+    // Update progress every 5 batches
+    if ((i / BATCH_SIZE) % 5 === 0 || i + BATCH_SIZE >= products.length) {
+      await updateProgress(successCount);
+      console.log(`[Sync] Progress: ${successCount}/${products.length} (${errorCount} errors)`);
     }
   }
   
+  console.log(`[Sync] ✅ Upserted ${successCount} products (${errorCount} errors)`);
   return successCount;
 }
 
 // ============================================================================
-// ACQUIRE LOCK - ONLY ONE ACTIVE JOB
+// MAIN SYNC PROCESS WITH AUTO-RECOVERY
 // ============================================================================
-async function acquireSyncLock(): Promise<{ acquired: boolean; jobId?: string; existingJob?: any }> {
+async function runSyncProcess(jobId: string): Promise<void> {
   const supabase = getSupabaseAdmin();
+  let retryCount = 0;
+  const maxRetries = 3;
   
-  // Expire stale jobs (older than S3_LINK_EXPIRY_MINUTES)
-  const expiryThreshold = new Date(Date.now() - S3_LINK_EXPIRY_MINUTES * 60 * 1000).toISOString();
-  
-  await supabase.from("sync_status").update({
-    status: "expired",
-    error_message: "Job auto-expired - S3 link timeout",
-    completed_at: new Date().toISOString()
-  }).in("status", ["started", "authenticating", "requesting_catalog", "generating", "waiting_for_file", "downloading", "syncing", "processing", "pending"])
-    .lt("started_at", expiryThreshold);
-  
-  // Check for active jobs
-  const { data: activeJobs } = await supabase
-    .from("sync_status")
-    .select("*")
-    .in("status", ["started", "authenticating", "requesting_catalog", "generating", "waiting_for_file", "downloading", "syncing", "processing", "pending"])
-    .order("started_at", { ascending: false })
-    .limit(1);
-  
-  if (activeJobs && activeJobs.length > 0) {
-    const job = activeJobs[0];
-    const jobAge = (Date.now() - new Date(job.started_at).getTime()) / 60000;
-    
-    // Double-check: expire if too old
-    if (jobAge > S3_LINK_EXPIRY_MINUTES) {
-      await supabase.from("sync_status").update({
-        status: "expired",
-        error_message: "Job expired - exceeded time limit",
-        completed_at: new Date().toISOString()
-      }).eq("id", job.id);
-      console.log(`[Sync] Expired stale job ${job.id}`);
-    } else {
-      console.log(`[Sync] Active job exists: ${job.id} (${job.status}, ${jobAge.toFixed(1)} min)`);
-      return { acquired: false, existingJob: job };
-    }
-  }
-  
-  // Create new job
-  const { data: newJob, error } = await supabase
-    .from("sync_status")
-    .insert({
-      sync_type: "catalog",
-      status: "started",
-      started_at: new Date().toISOString()
-    })
-    .select()
-    .single();
-  
-  if (error || !newJob) {
-    console.error("[Sync] Failed to create job:", error?.message);
-    return { acquired: false };
-  }
-  
-  console.log(`[Sync] Created job: ${newJob.id}`);
-  return { acquired: true, jobId: newJob.id };
-}
-
-// ============================================================================
-// MAIN SYNC WITH AUTO-RECOVERY
-// ============================================================================
-async function runSync(jobId: string): Promise<void> {
-  const supabase = getSupabaseAdmin();
-  let s3RetryCount = 0;
-  
-  const updateStatus = async (status: string, extra?: any) => {
+  const updateStatus = async (status: string, extra: any = {}) => {
     await supabase.from("sync_status").update({ status, ...extra }).eq("id", jobId);
+  };
+  
+  const updateProgress = async (msg: string) => {
+    await supabase.from("sync_status").update({ error_message: msg }).eq("id", jobId);
   };
   
   try {
@@ -395,46 +436,50 @@ async function runSync(jobId: string): Promise<void> {
     await updateStatus("authenticating");
     const token = await authenticate();
     
-    // Retry loop for S3 link expiry
-    while (s3RetryCount < MAX_S3_RETRIES) {
+    // Retry loop for S3 link expiry (auto-recovery)
+    while (retryCount < maxRetries) {
       const linkStartTime = Date.now();
       
       try {
         // Step 2: Request new S3 link
-        await updateStatus("requesting_catalog", { 
-          error_message: s3RetryCount > 0 ? `Retry ${s3RetryCount}: requesting new S3 link` : null 
+        await updateStatus("requesting_catalog", {
+          error_message: retryCount > 0 ? `Retry ${retryCount}: nouveau lien S3` : null
         });
         const { link, eta } = await requestCatalogGeneration(token);
         
+        // Save link to job
         await supabase.from("sync_status").update({ s3_link: link }).eq("id", jobId);
         
-        // Step 3: Wait and poll for file readiness
+        // Step 3: Wait and poll for file
         await updateStatus("waiting_for_file", { error_message: `ETA: ${eta.toISOString()}` });
-        const { ready, expired } = await waitForS3File(link, eta, linkStartTime);
+        const { ready, expired, size } = await pollS3File(link, eta, linkStartTime, updateProgress);
         
+        // Auto-recovery: if expired, get new link
         if (expired) {
-          s3RetryCount++;
-          console.log(`[Sync] S3 link expired, requesting new one (attempt ${s3RetryCount}/${MAX_S3_RETRIES})`);
-          continue; // Get new link
-        }
-        
-        if (!ready) {
-          s3RetryCount++;
-          console.log(`[Sync] File not ready, requesting new link (attempt ${s3RetryCount}/${MAX_S3_RETRIES})`);
+          retryCount++;
+          console.log(`[Sync] Link expired, retrying (${retryCount}/${maxRetries})`);
           continue;
         }
         
-        // Step 4: Download
-        await updateStatus("downloading");
-        const products = await downloadCatalog(link);
-        
-        if (products.length === 0) {
-          throw new Error("No products in catalog");
+        if (!ready) {
+          retryCount++;
+          console.log(`[Sync] File not ready, retrying (${retryCount}/${maxRetries})`);
+          continue;
         }
         
-        // Step 5: Process and upsert
-        await updateStatus("syncing", { products_count: 0 });
-        const count = await upsertProducts(products, jobId);
+        // Step 4: Download and parse
+        await updateStatus("downloading");
+        const products = await downloadAndParseCatalog(link, updateProgress);
+        
+        if (products.length === 0) {
+          throw new Error("Aucun produit dans le catalogue");
+        }
+        
+        // Step 5: Upsert to database
+        await updateStatus("syncing", { products_count: 0, error_message: "Import en cours..." });
+        const count = await upsertProductsBatch(products, jobId, async (c) => {
+          await supabase.from("sync_status").update({ products_count: c }).eq("id", jobId);
+        });
         
         // Success!
         await supabase.from("sync_status").update({
@@ -444,33 +489,38 @@ async function runSync(jobId: string): Promise<void> {
           error_message: null
         }).eq("id", jobId);
         
-        console.log(`[Sync] ✅ Completed: ${count} products`);
+        console.log(`[Sync] ✅ COMPLETED: ${count} products`);
         return;
         
-      } catch (innerError: unknown) {
-        // Check if recoverable (S3 expired)
-        const msg = innerError instanceof Error ? innerError.message : String(innerError);
-        if (msg.includes("403") || msg.includes("expired") || msg.includes("not accessible")) {
-          s3RetryCount++;
-          console.log(`[Sync] Recoverable error, retry ${s3RetryCount}: ${msg}`);
-          if (s3RetryCount >= MAX_S3_RETRIES) throw new Error(msg);
+      } catch (innerErr: unknown) {
+        const msg = innerErr instanceof Error ? innerErr.message : String(innerErr);
+        
+        // Check if recoverable
+        if (msg.includes("403") || msg.includes("expired") || msg.includes("timeout")) {
+          retryCount++;
+          console.log(`[Sync] Recoverable error, retry ${retryCount}: ${msg}`);
+          if (retryCount >= maxRetries) throw new Error(msg);
           continue;
         }
-        throw innerError instanceof Error ? innerError : new Error(msg);
+        
+        throw innerErr instanceof Error ? innerErr : new Error(msg);
       }
     }
     
-    throw new Error(`Max S3 retries (${MAX_S3_RETRIES}) reached`);
+    throw new Error(`Max retries (${maxRetries}) atteint`);
     
-  } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    console.error("[Sync] ❌ Fatal error:", errMsg);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[Sync] ❌ FAILED:", msg);
     
     await supabase.from("sync_status").update({
       status: "failed",
-      error_message: errMsg,
+      error_message: msg,
       completed_at: new Date().toISOString()
     }).eq("id", jobId);
+    
+  } finally {
+    await releaseAdvisoryLock();
   }
 }
 
@@ -493,103 +543,146 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "status";
 
-    // STATUS
+    // ========== GET /sync-status ==========
     if (action === "status") {
       const { data: jobs } = await supabase
         .from("sync_status")
-        .select("*")
+        .select("id, status, started_at, completed_at, products_count, error_message, s3_link")
         .order("started_at", { ascending: false })
         .limit(5);
       
-      const { count } = await supabase
+      const { count: productCount } = await supabase
         .from("products")
         .select("*", { count: "exact", head: true });
       
-      return new Response(JSON.stringify({
+      const lastJob = jobs?.[0] || null;
+      
+      return jsonResponse({
         success: true,
-        product_count: count || 0,
-        recent_syncs: jobs || [],
-        last_sync: jobs?.[0] || null
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        status: lastJob?.status || "never_synced",
+        product_count: productCount || 0,
+        last_sync: lastJob ? {
+          id: lastJob.id,
+          status: lastJob.status,
+          started_at: lastJob.started_at,
+          completed_at: lastJob.completed_at,
+          products_count: lastJob.products_count,
+          progress: lastJob.error_message,
+        } : null,
+        recent_syncs: jobs?.map(j => ({
+          id: j.id,
+          status: j.status,
+          started_at: j.started_at,
+          products_count: j.products_count,
+        })) || []
       });
     }
 
-    // START
+    // ========== POST /start - Start sync ==========
     if (action === "start") {
-      const { acquired, jobId, existingJob } = await acquireSyncLock();
+      // Try to acquire lock
+      const lockAcquired = await tryAcquireAdvisoryLock();
       
-      if (!acquired) {
-        return new Response(JSON.stringify({
+      if (!lockAcquired) {
+        // Return existing active job
+        const { data: activeJob } = await supabase
+          .from("sync_status")
+          .select("*")
+          .in("status", ["started", "authenticating", "requesting_catalog", "waiting_for_file", "downloading", "syncing"])
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        return jsonResponse({
           success: false,
           message: "Sync already in progress",
-          existing_job: existingJob
-        }), {
-          status: 409,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+          existing_job: activeJob ? {
+            id: activeJob.id,
+            status: activeJob.status,
+            started_at: activeJob.started_at,
+            progress: activeJob.error_message,
+          } : null
+        }, 409);
       }
       
-      (globalThis as any).EdgeRuntime?.waitUntil?.(runSync(jobId!)) || runSync(jobId!);
+      // Create new job
+      const { data: newJob, error } = await supabase
+        .from("sync_status")
+        .insert({
+          sync_type: "catalog",
+          status: "started",
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
       
-      return new Response(JSON.stringify({
+      if (error || !newJob) {
+        await releaseAdvisoryLock();
+        return jsonResponse({ success: false, message: "Failed to create job" }, 500);
+      }
+      
+      // Start background sync
+      const runtime = (globalThis as any).EdgeRuntime;
+      if (runtime?.waitUntil) {
+        runtime.waitUntil(runSyncProcess(newJob.id));
+      } else {
+        runSyncProcess(newJob.id); // Fire and forget
+      }
+      
+      return jsonResponse({
         success: true,
         message: "Sync started",
-        job_id: jobId
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        job_id: newJob.id
       });
     }
 
-    // FORCE RESTART
+    // ========== POST /force-restart ==========
     if (action === "force-restart") {
-      // Expire all active
+      // Expire all active jobs
       await supabase.from("sync_status").update({
         status: "expired",
-        error_message: "Force restarted",
+        error_message: "Force restart",
         completed_at: new Date().toISOString()
-      }).in("status", ["started", "authenticating", "requesting_catalog", "generating", "waiting_for_file", "downloading", "syncing", "processing", "pending"]);
+      }).in("status", ["started", "authenticating", "requesting_catalog", "waiting_for_file", "downloading", "syncing"]);
       
-      const { acquired, jobId } = await acquireSyncLock();
+      // Create new job
+      const { data: newJob, error } = await supabase
+        .from("sync_status")
+        .insert({
+          sync_type: "catalog",
+          status: "started",
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
       
-      if (!acquired || !jobId) {
-        return new Response(JSON.stringify({
-          success: false,
-          message: "Failed to start after force restart"
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+      if (error || !newJob) {
+        return jsonResponse({ success: false, message: "Failed to create job" }, 500);
       }
       
-      (globalThis as any).EdgeRuntime?.waitUntil?.(runSync(jobId)) || runSync(jobId);
+      // Start background sync
+      const runtime = (globalThis as any).EdgeRuntime;
+      if (runtime?.waitUntil) {
+        runtime.waitUntil(runSyncProcess(newJob.id));
+      } else {
+        runSyncProcess(newJob.id);
+      }
       
-      return new Response(JSON.stringify({
+      return jsonResponse({
         success: true,
         message: "Force restarted",
-        job_id: jobId
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        job_id: newJob.id
       });
     }
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: false,
       message: "Unknown action. Use: status, start, force-restart"
-    }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    }, 400);
 
-  } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    console.error("[Sync] Error:", errMsg);
-    return new Response(JSON.stringify({
-      success: false,
-      error: errMsg
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[Sync] Error:", msg);
+    return jsonResponse({ success: false, error: msg }, 500);
   }
 });
