@@ -47,48 +47,73 @@ export interface CatalogFilters {
   limit?: number;
 }
 
-// Flag to use demo mode when API fails
-let useDemoMode = false;
-
 export async function fetchCatalog(filters: CatalogFilters = {}): Promise<CatalogResponse> {
-  // If we already know demo mode is needed, use it directly
-  if (useDemoMode) {
-    return getDemoCatalog(filters);
-  }
+  const { query, category, brand, page = 1, limit = 24 } = filters;
 
   try {
-    const response = await supabase.functions.invoke('toptex-api', {
-      body: { ...filters, action: 'catalog' },
-    });
+    // First, try to fetch from local database (synced products)
+    let dbQuery = supabase
+      .from('products')
+      .select('*', { count: 'exact' });
 
-    if (response.error || response.data?.error) {
-      console.warn('TopTex API unavailable, switching to demo mode');
-      useDemoMode = true;
+    // Apply filters
+    if (query) {
+      dbQuery = dbQuery.or(`name.ilike.%${query}%,sku.ilike.%${query}%,brand.ilike.%${query}%`);
+    }
+    if (category && category !== 'Tous') {
+      dbQuery = dbQuery.ilike('category', `%${category}%`);
+    }
+    if (brand && brand !== 'Toutes') {
+      dbQuery = dbQuery.ilike('brand', `%${brand}%`);
+    }
+
+    // Pagination
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    dbQuery = dbQuery.range(from, to).order('name');
+
+    const { data: products, count, error } = await dbQuery;
+
+    if (error) {
+      console.warn('Database query failed:', error);
       return getDemoCatalog(filters);
     }
 
-    // Check if TopTex catalog is still being generated
-    if (response.data?.pending === true) {
-      console.info(`TopTex catalog pending, ETA: ${response.data.waitSeconds}s. Using demo mode.`);
-      const demoCatalog = getDemoCatalog(filters);
+    // If we have products in the database, use them
+    if (products && products.length > 0) {
+      const total = count || products.length;
       return {
-        ...demoCatalog,
-        pending: true,
-        eta: response.data.eta,
-        message: response.data.message,
+        products: products.map(p => ({
+          sku: p.sku,
+          name: p.name,
+          brand: p.brand || '',
+          category: p.category || '',
+          description: p.description || '',
+          composition: p.composition || '',
+          weight: p.weight || '',
+          images: (p.images as string[]) || [],
+          colors: (p.colors as Array<{ name: string; code: string }>) || [],
+          sizes: (p.sizes as string[]) || [],
+          variants: (p.variants as any[]) || [],
+          priceHT: p.price_ht ? Number(p.price_ht) : null,
+          stock: p.stock,
+        })),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+        isDemo: false,
       };
     }
 
-    // If API returns empty products, use demo mode
-    if (response.data?.products?.length === 0) {
-      console.info('TopTex API returned 0 products, using demo mode');
-      return getDemoCatalog(filters);
-    }
+    // No products in DB, use demo mode
+    console.info('No products in database, using demo mode');
+    return getDemoCatalog(filters);
 
-    return response.data as CatalogResponse;
   } catch (error) {
-    console.warn('TopTex API error, using demo mode:', error);
-    useDemoMode = true;
+    console.warn('Error fetching catalog:', error);
     return getDemoCatalog(filters);
   }
 }
