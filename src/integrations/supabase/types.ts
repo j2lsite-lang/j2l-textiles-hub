@@ -80,30 +80,45 @@ export type Database = {
       sync_status: {
         Row: {
           completed_at: string | null
+          download_bytes: number | null
           error_message: string | null
+          eta: string | null
+          finished_in_ms: number | null
           id: string
           products_count: number | null
+          s3_content_length: number | null
           s3_link: string | null
+          s3_poll_count: number | null
           started_at: string
           status: string
           sync_type: string
         }
         Insert: {
           completed_at?: string | null
+          download_bytes?: number | null
           error_message?: string | null
+          eta?: string | null
+          finished_in_ms?: number | null
           id?: string
           products_count?: number | null
+          s3_content_length?: number | null
           s3_link?: string | null
+          s3_poll_count?: number | null
           started_at?: string
           status?: string
           sync_type?: string
         }
         Update: {
           completed_at?: string | null
+          download_bytes?: number | null
           error_message?: string | null
+          eta?: string | null
+          finished_in_ms?: number | null
           id?: string
           products_count?: number | null
+          s3_content_length?: number | null
           s3_link?: string | null
+          s3_poll_count?: number | null
           started_at?: string
           status?: string
           sync_type?: string
