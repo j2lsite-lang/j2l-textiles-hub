@@ -34,6 +34,9 @@ export interface CatalogResponse {
     totalPages: number;
   };
   isDemo?: boolean;
+  pending?: boolean;
+  eta?: string;
+  message?: string;
 }
 
 export interface CatalogFilters {
@@ -61,6 +64,24 @@ export async function fetchCatalog(filters: CatalogFilters = {}): Promise<Catalo
     if (response.error || response.data?.error) {
       console.warn('TopTex API unavailable, switching to demo mode');
       useDemoMode = true;
+      return getDemoCatalog(filters);
+    }
+
+    // Check if TopTex catalog is still being generated
+    if (response.data?.pending === true) {
+      console.info(`TopTex catalog pending, ETA: ${response.data.waitSeconds}s. Using demo mode.`);
+      const demoCatalog = getDemoCatalog(filters);
+      return {
+        ...demoCatalog,
+        pending: true,
+        eta: response.data.eta,
+        message: response.data.message,
+      };
+    }
+
+    // If API returns empty products, use demo mode
+    if (response.data?.products?.length === 0) {
+      console.info('TopTex API returned 0 products, using demo mode');
       return getDemoCatalog(filters);
     }
 
