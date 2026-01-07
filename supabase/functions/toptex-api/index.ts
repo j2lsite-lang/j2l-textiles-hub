@@ -246,11 +246,12 @@ async function getAllProducts(options: {
 } = {}): Promise<any> {
   const { query, category, brand, page = 1, limit = 24 } = options;
   
-  // TopTex correct endpoint: /v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=0
+  // TopTex endpoint: /v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=1
+  // result_in_file=1 generates an async S3 file that needs time to be ready
   const params = new URLSearchParams();
   params.append("usage_right", "b2b_b2c");
   params.append("display_prices", "1");
-  params.append("result_in_file", "0"); // 0 to get JSON directly, 1 for file
+  params.append("result_in_file", "1"); // 1 for async file generation
   params.append("page_size", limit.toString());
   params.append("page_number", page.toString());
   
@@ -260,34 +261,84 @@ async function getAllProducts(options: {
 
   const data = await request("GET", `/v3/products/all?${params.toString()}`);
   
-  // TopTex may return a link to an S3 file instead of inline data
+  // TopTex returns a link to an S3 file with estimated_time_of_arrival
   if (data?.link && typeof data.link === "string") {
-    console.log(`[TopTex API] Response contains S3 link, fetching file...`);
+    console.log(`[TopTex API] Response contains S3 link`);
     console.log(`[TopTex API] S3 link: ${data.link.slice(0, 100)}...`);
     
-    try {
-      const fileResponse = await fetch(data.link);
-      if (!fileResponse.ok) {
-        console.error(`[TopTex API] Failed to fetch S3 file: ${fileResponse.status}`);
-        throw new Error(`Failed to fetch product file: ${fileResponse.status}`);
+    // Check estimated_time_of_arrival - the file won't be ready until this time
+    if (data.estimated_time_of_arrival) {
+      const eta = new Date(data.estimated_time_of_arrival);
+      const now = new Date();
+      const waitMs = eta.getTime() - now.getTime();
+      
+      console.log(`[TopTex API] File ETA: ${data.estimated_time_of_arrival}`);
+      console.log(`[TopTex API] Current time: ${now.toISOString()}`);
+      console.log(`[TopTex API] Wait time needed: ${waitMs}ms`);
+      
+      // If wait time is more than 10 seconds, return a special response
+      // The file generation is async and takes 2-3 minutes
+      if (waitMs > 10000) {
+        console.log(`[TopTex API] File not ready yet, ETA too long (${Math.round(waitMs/1000)}s)`);
+        return { 
+          pending: true, 
+          eta: data.estimated_time_of_arrival,
+          waitSeconds: Math.round(waitMs / 1000),
+          link: data.link
+        };
       }
       
-      const fileData = await fileResponse.json();
-      console.log(`[TopTex API] S3 file fetched, type: ${typeof fileData}, isArray: ${Array.isArray(fileData)}`);
-      
-      if (Array.isArray(fileData)) {
-        console.log(`[TopTex API] S3 file contains ${fileData.length} products`);
-        return fileData;
-      } else if (fileData?.products) {
-        console.log(`[TopTex API] S3 file contains ${fileData.products.length} products`);
-        return fileData.products;
-      } else {
-        console.log(`[TopTex API] S3 file keys: ${Object.keys(fileData || {}).join(", ")}`);
-        return fileData;
+      if (waitMs > 0) {
+        // Wait for the file to be ready (max 10 seconds)
+        const actualWait = Math.min(waitMs + 2000, 10000);
+        console.log(`[TopTex API] Waiting ${actualWait}ms for file to be ready...`);
+        await new Promise(resolve => setTimeout(resolve, actualWait));
       }
-    } catch (err) {
-      console.error(`[TopTex API] Error fetching S3 file:`, err);
-      throw err;
+    }
+    
+    // Retry fetching the S3 file with exponential backoff
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[TopTex API] Fetching S3 file (attempt ${attempt}/${maxRetries})...`);
+        const fileResponse = await fetch(data.link);
+        
+        if (!fileResponse.ok) {
+          console.error(`[TopTex API] S3 file not ready: ${fileResponse.status}`);
+          if (attempt < maxRetries) {
+            const retryWait = attempt * 5000; // 5s, 10s, 15s
+            console.log(`[TopTex API] Retrying in ${retryWait}ms...`);
+            await new Promise(resolve => setTimeout(resolve, retryWait));
+            continue;
+          }
+          throw new Error(`Failed to fetch product file: ${fileResponse.status}`);
+        }
+        
+        const fileData = await fileResponse.json();
+        console.log(`[TopTex API] S3 file fetched, type: ${typeof fileData}, isArray: ${Array.isArray(fileData)}`);
+        
+        if (Array.isArray(fileData)) {
+          console.log(`[TopTex API] S3 file contains ${fileData.length} products`);
+          if (fileData.length === 0 && attempt < maxRetries) {
+            // Empty array might mean file not ready yet
+            const retryWait = attempt * 5000;
+            console.log(`[TopTex API] Empty array, retrying in ${retryWait}ms...`);
+            await new Promise(resolve => setTimeout(resolve, retryWait));
+            continue;
+          }
+          return fileData;
+        } else if (fileData?.products) {
+          console.log(`[TopTex API] S3 file contains ${fileData.products.length} products`);
+          return fileData.products;
+        } else {
+          console.log(`[TopTex API] S3 file keys: ${Object.keys(fileData || {}).join(", ")}`);
+          return fileData;
+        }
+      } catch (err) {
+        console.error(`[TopTex API] Error fetching S3 file (attempt ${attempt}):`, err);
+        if (attempt === maxRetries) throw err;
+        await new Promise(resolve => setTimeout(resolve, attempt * 5000));
+      }
     }
   }
   
@@ -475,6 +526,20 @@ serve(async (req) => {
       case "catalog":
       default: {
         const data = await getAllProducts({ query, category, brand, page, limit });
+
+        // Check if TopTex returned a "pending" response (file not ready yet)
+        if (data?.pending === true) {
+          console.log(`[TopTex Catalog] File generation pending, ETA: ${data.eta}`);
+          result = {
+            products: [],
+            pagination: { page, limit, total: 0, totalPages: 0 },
+            pending: true,
+            eta: data.eta,
+            waitSeconds: data.waitSeconds,
+            message: `Le catalogue est en cours de génération. Temps estimé: ${data.waitSeconds} secondes.`
+          };
+          break;
+        }
 
         // Log raw response structure for debugging
         console.log(`[TopTex Catalog] Raw response type: ${typeof data}`);
