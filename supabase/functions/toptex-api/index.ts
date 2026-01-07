@@ -246,7 +246,7 @@ async function getAllProducts(options: {
 } = {}): Promise<any> {
   const { query, category, brand, page = 1, limit = 24 } = options;
   
-  // TopTex correct endpoint: /v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=1
+  // TopTex correct endpoint: /v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=0
   const params = new URLSearchParams();
   params.append("usage_right", "b2b_b2c");
   params.append("display_prices", "1");
@@ -258,7 +258,40 @@ async function getAllProducts(options: {
   if (category && category !== "Tous") params.append("family", category);
   if (brand && brand !== "Toutes") params.append("brand", brand);
 
-  return request("GET", `/v3/products/all?${params.toString()}`);
+  const data = await request("GET", `/v3/products/all?${params.toString()}`);
+  
+  // TopTex may return a link to an S3 file instead of inline data
+  if (data?.link && typeof data.link === "string") {
+    console.log(`[TopTex API] Response contains S3 link, fetching file...`);
+    console.log(`[TopTex API] S3 link: ${data.link.slice(0, 100)}...`);
+    
+    try {
+      const fileResponse = await fetch(data.link);
+      if (!fileResponse.ok) {
+        console.error(`[TopTex API] Failed to fetch S3 file: ${fileResponse.status}`);
+        throw new Error(`Failed to fetch product file: ${fileResponse.status}`);
+      }
+      
+      const fileData = await fileResponse.json();
+      console.log(`[TopTex API] S3 file fetched, type: ${typeof fileData}, isArray: ${Array.isArray(fileData)}`);
+      
+      if (Array.isArray(fileData)) {
+        console.log(`[TopTex API] S3 file contains ${fileData.length} products`);
+        return fileData;
+      } else if (fileData?.products) {
+        console.log(`[TopTex API] S3 file contains ${fileData.products.length} products`);
+        return fileData.products;
+      } else {
+        console.log(`[TopTex API] S3 file keys: ${Object.keys(fileData || {}).join(", ")}`);
+        return fileData;
+      }
+    } catch (err) {
+      console.error(`[TopTex API] Error fetching S3 file:`, err);
+      throw err;
+    }
+  }
+  
+  return data;
 }
 
 async function getProduct(sku: string): Promise<any> {
@@ -443,26 +476,49 @@ serve(async (req) => {
       default: {
         const data = await getAllProducts({ query, category, brand, page, limit });
 
+        // Log raw response structure for debugging
+        console.log(`[TopTex Catalog] Raw response type: ${typeof data}`);
+        console.log(`[TopTex Catalog] Raw response keys: ${data ? Object.keys(data).join(", ") : "null"}`);
+        console.log(`[TopTex Catalog] Raw response preview: ${JSON.stringify(data).slice(0, 500)}`);
+
         let products: any[] = [];
         let total = 0;
 
-        // Handle various response formats
+        // Handle various TopTex response formats
         if (Array.isArray(data)) {
           products = data;
           total = data.length;
-        } else if (data.produits) {
+        } else if (data?.products && Array.isArray(data.products)) {
+          products = data.products;
+          total = data.total_count || data.total || data.count || products.length;
+        } else if (data?.produits && Array.isArray(data.produits)) {
           products = data.produits;
           total = data.total || data.nombreTotal || products.length;
-        } else if (data.items) {
+        } else if (data?.items && Array.isArray(data.items)) {
           products = data.items;
-          total = data.total || products.length;
-        } else if (data.results) {
+          total = data.total || data.total_count || products.length;
+        } else if (data?.results && Array.isArray(data.results)) {
           products = data.results;
           total = data.total || products.length;
-        } else if (data.data && Array.isArray(data.data)) {
+        } else if (data?.data && Array.isArray(data.data)) {
           products = data.data;
           total = data.total || products.length;
+        } else if (data?.content && Array.isArray(data.content)) {
+          // Spring/Java style pagination
+          products = data.content;
+          total = data.totalElements || data.total || products.length;
+        } else {
+          // Maybe the data itself is a product list at root level with numeric keys
+          const possibleProducts = Object.values(data || {}).filter(
+            (v: any) => v && typeof v === "object" && (v.reference || v.sku || v.designation || v.name)
+          );
+          if (possibleProducts.length > 0) {
+            products = possibleProducts as any[];
+            total = products.length;
+          }
         }
+
+        console.log(`[TopTex Catalog] Parsed ${products.length} products, total=${total}`);
 
         result = {
           products: products.map(normalizeProduct),
