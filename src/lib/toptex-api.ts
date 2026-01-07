@@ -141,7 +141,7 @@ function getDemoCatalog(filters: CatalogFilters): CatalogResponse {
 
 export async function fetchProduct(sku: string): Promise<Product> {
   // Check if it's a demo product
-  if (sku.startsWith('MOCK-') || useDemoMode) {
+  if (sku.startsWith('MOCK-')) {
     const product = getMockProduct(sku);
     if (product) {
       return product as Product;
@@ -149,20 +149,37 @@ export async function fetchProduct(sku: string): Promise<Product> {
   }
 
   try {
-    const response = await supabase.functions.invoke('toptex-api', {
-      body: { action: 'product', sku },
-    });
+    // First try to get from database
+    const { data: dbProduct, error: dbError } = await supabase
+      .from('products')
+      .select('*')
+      .eq('sku', sku)
+      .single();
 
-    if (response.error || response.data?.error) {
-      console.warn('TopTex API unavailable for product');
-      const demoProduct = getMockProduct(sku);
-      if (demoProduct) return demoProduct as Product;
-      throw new Error('Produit non trouvé');
+    if (dbProduct && !dbError) {
+      return {
+        sku: dbProduct.sku,
+        name: dbProduct.name,
+        brand: dbProduct.brand || '',
+        category: dbProduct.category || '',
+        description: dbProduct.description || '',
+        composition: dbProduct.composition || '',
+        weight: dbProduct.weight || '',
+        images: (dbProduct.images as string[]) || [],
+        colors: (dbProduct.colors as Array<{ name: string; code: string }>) || [],
+        sizes: (dbProduct.sizes as string[]) || [],
+        variants: (dbProduct.variants as any[]) || [],
+        priceHT: dbProduct.price_ht ? Number(dbProduct.price_ht) : null,
+        stock: dbProduct.stock,
+      };
     }
 
-    return response.data as Product;
+    // Fallback to mock product
+    const demoProduct = getMockProduct(sku);
+    if (demoProduct) return demoProduct as Product;
+    throw new Error('Produit non trouvé');
   } catch (error) {
-    console.warn('TopTex API error for product:', error);
+    console.warn('Error fetching product:', error);
     const demoProduct = getMockProduct(sku);
     if (demoProduct) return demoProduct as Product;
     throw new Error('Produit non trouvé');
@@ -175,8 +192,40 @@ export async function fetchAttributes(): Promise<{
   colors: Array<{ name: string; code: string }>;
   sizes: string[];
 }> {
-  // If demo mode, return mock attributes
-  if (useDemoMode) {
+  try {
+    // Get unique categories and brands from database
+    const { data: products } = await supabase
+      .from('products')
+      .select('category, brand, colors');
+
+    if (products && products.length > 0) {
+      const categories = [...new Set(products.map(p => p.category).filter(Boolean))] as string[];
+      const brands = [...new Set(products.map(p => p.brand).filter(Boolean))] as string[];
+      const allColors: Array<{ name: string; code: string }> = [];
+      
+      products.forEach(p => {
+        if (p.colors && Array.isArray(p.colors)) {
+          (p.colors as Array<{ name: string; code: string }>).forEach(c => {
+            if (!allColors.find(ac => ac.name === c.name)) {
+              allColors.push(c);
+            }
+          });
+        }
+      });
+
+      return {
+        categories: categories.length > 0 ? categories : mockCategories,
+        brands: brands.length > 0 ? brands : mockBrands,
+        colors: allColors.length > 0 ? allColors : [
+          { name: "Blanc", code: "#FFFFFF" },
+          { name: "Noir", code: "#000000" },
+          { name: "Marine", code: "#1e3a5f" },
+        ],
+        sizes: ["XS", "S", "M", "L", "XL", "XXL", "3XL"],
+      };
+    }
+
+    // Fallback to mock attributes
     return {
       categories: mockCategories,
       brands: mockBrands,
@@ -191,22 +240,70 @@ export async function fetchAttributes(): Promise<{
       ],
       sizes: ["XS", "S", "M", "L", "XL", "XXL", "3XL"],
     };
+  } catch (error) {
+    console.warn('Error fetching attributes:', error);
+    return {
+      categories: mockCategories,
+      brands: mockBrands,
+      colors: [
+        { name: "Blanc", code: "#FFFFFF" },
+        { name: "Noir", code: "#000000" },
+        { name: "Marine", code: "#1e3a5f" },
+      ],
+      sizes: ["XS", "S", "M", "L", "XL", "XXL", "3XL"],
+    };
   }
+}
 
+// Function to trigger manual sync
+export async function triggerCatalogSync(): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await supabase.functions.invoke('toptex-api', {
-      body: { action: 'attributes' },
+    const response = await supabase.functions.invoke('sync-catalog', {
+      body: {},
     });
 
-    if (response.error || response.data?.error) {
-      useDemoMode = true;
-      return fetchAttributes(); // Recursive call will use demo mode
+    if (response.error) {
+      return { success: false, message: response.error.message };
     }
 
-    return response.data;
+    return { 
+      success: response.data?.success || false, 
+      message: response.data?.success 
+        ? `${response.data.products_synced} produits synchronisés` 
+        : response.data?.error || 'Erreur inconnue'
+    };
   } catch (error) {
-    console.warn('TopTex API error for attributes:', error);
-    useDemoMode = true;
-    return fetchAttributes();
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'Erreur de synchronisation' 
+    };
+  }
+}
+
+// Get sync status
+export async function getSyncStatus(): Promise<{
+  lastSync: string | null;
+  status: string;
+  productsCount: number;
+}> {
+  try {
+    const { data } = await supabase
+      .from('sync_status')
+      .select('*')
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    return {
+      lastSync: data?.completed_at || data?.started_at || null,
+      status: data?.status || 'never',
+      productsCount: data?.products_count || 0,
+    };
+  } catch {
+    return {
+      lastSync: null,
+      status: 'never',
+      productsCount: 0,
+    };
   }
 }
