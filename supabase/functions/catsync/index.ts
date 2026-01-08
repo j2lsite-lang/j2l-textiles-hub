@@ -51,7 +51,11 @@ async function syncJob(jobId: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  const action = new URL(req.url).searchParams.get("action") || "status";
+  let action = new URL(req.url).searchParams.get("action");
+  if (!action && req.method === "POST") {
+    try { const body = await req.json(); action = body.action; } catch {}
+  }
+  action = action || "status";
   if (action === "status") {
     const { data: jobs } = await supabase.from("sync_status").select("*").order("started_at", { ascending: false }).limit(5);
     const { count } = await supabase.from("products").select("*", { count: "exact", head: true });
