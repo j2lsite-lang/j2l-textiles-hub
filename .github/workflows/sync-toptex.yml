@@ -10,170 +10,34 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
     
     steps:
-      - name: Sync TopTex Catalog to Supabase
+      - name: Trigger Catalog Sync
         env:
-          TOPTEX_API_KEY: ${{ secrets.TOPTEX_API_KEY }}
-          TOPTEX_USERNAME: ${{ secrets.TOPTEX_USERNAME }}
-          TOPTEX_PASSWORD: ${{ secrets.TOPTEX_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          cat << 'EOF' > sync.js
-          const TOPTEX = "https://api.toptex.io";
-          const BATCH_SIZE = 500;
+          echo "🚀 Triggering catalog sync..."
           
-          async function auth() {
-            console.log("🔐 Authenticating...");
-            const r = await fetch(`${TOPTEX}/v3/authenticate`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "x-api-key": process.env.TOPTEX_API_KEY },
-              body: JSON.stringify({ username: process.env.TOPTEX_USERNAME, password: process.env.TOPTEX_PASSWORD })
-            });
-            if (!r.ok) throw new Error(`Auth failed: ${r.status}`);
-            const d = await r.json();
-            console.log("✅ Auth successful");
-            return d.token || d.jeton;
-          }
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"action":"start"}' \
+            "${SUPABASE_URL}/functions/v1/catsync")
           
-          async function getCatalogLink(token) {
-            console.log("📦 Requesting catalog link...");
-            const r = await fetch(`${TOPTEX}/v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=1`, {
-              headers: { "x-api-key": process.env.TOPTEX_API_KEY, "x-toptex-authorization": token }
-            });
-            if (!r.ok) throw new Error(`Catalog request failed: ${r.status}`);
-            const d = await r.json();
-            console.log(`📋 ETA: ${d.estimated_time_of_arrival}`);
-            return { link: d.link, eta: new Date(d.estimated_time_of_arrival) };
-          }
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
           
-          async function waitForFile(link, eta) {
-            const waitTime = Math.max(0, eta.getTime() - Date.now() + 30000);
-            console.log(`⏳ Waiting ${Math.round(waitTime/1000)}s for file to be ready...`);
-            await new Promise(r => setTimeout(r, waitTime));
-            
-            for (let i = 0; i < 20; i++) {
-              console.log(`🔄 Checking file (attempt ${i+1})...`);
-              const r = await fetch(link, { method: "HEAD" });
-              if (r.ok) {
-                const size = parseInt(r.headers.get("content-length") || "0");
-                if (size > 1024 * 1024) {
-                  console.log(`✅ File ready: ${(size / 1024 / 1024).toFixed(1)} MB`);
-                  return size;
-                }
-              }
-              await new Promise(r => setTimeout(r, 30000));
-            }
-            throw new Error("File not ready after 10 minutes");
-          }
+          echo "📋 Response: $BODY"
           
-          function normalize(p) {
-            return {
-              sku: p.reference || p.sku || "",
-              name: p.designation || p.name || "",
-              brand: p.marque || p.brand || "",
-              category: p.famille || p.category || "",
-              description: p.description || "",
-              images: (p.images || []).map(i => typeof i === "string" ? i : i?.url || ""),
-              colors: (p.couleurs || []).map(c => ({ name: c.nom || c, code: c.code || "" })),
-              sizes: p.tailles || [],
-              raw_data: p,
-              synced_at: new Date().toISOString()
-            };
-          }
-          
-          async function upsertBatch(products) {
-            const r = await fetch(`${process.env.SUPABASE_URL}/rest/v1/products?on_conflict=sku`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "apikey": process.env.SUPABASE_SERVICE_ROLE_KEY,
-                "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                "Prefer": "resolution=merge-duplicates"
-              },
-              body: JSON.stringify(products)
-            });
-            if (!r.ok) {
-              const txt = await r.text();
-              throw new Error(`Upsert failed: ${r.status} - ${txt}`);
-            }
-          }
-          
-          async function updateSyncStatus(status, extra = {}) {
-            await fetch(`${process.env.SUPABASE_URL}/rest/v1/sync_status`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "apikey": process.env.SUPABASE_SERVICE_ROLE_KEY,
-                "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                "Prefer": "return=minimal"
-              },
-              body: JSON.stringify({
-                sync_type: "github_action",
-                status,
-                ...extra
-              })
-            });
-          }
-          
-          async function main() {
-            const start = Date.now();
-            try {
-              await updateSyncStatus("started");
-              
-              const token = await auth();
-              const { link, eta } = await getCatalogLink(token);
-              const fileSize = await waitForFile(link, eta);
-              
-              console.log("⬇️ Downloading catalog...");
-              await updateSyncStatus("downloading", { s3_content_length: fileSize });
-              
-              const response = await fetch(link);
-              if (!response.ok) throw new Error(`Download failed: ${response.status}`);
-              
-              const text = await response.text();
-              console.log(`📄 Downloaded ${(text.length / 1024 / 1024).toFixed(1)} MB`);
-              
-              const data = JSON.parse(text);
-              const products = Array.isArray(data) ? data : data?.products || [];
-              console.log(`📊 Found ${products.length} products`);
-              
-              await updateSyncStatus("syncing", { download_bytes: text.length });
-              
-              let count = 0;
-              for (let i = 0; i < products.length; i += BATCH_SIZE) {
-                const batch = products.slice(i, i + BATCH_SIZE).map(normalize).filter(p => p.sku);
-                if (batch.length > 0) {
-                  await upsertBatch(batch);
-                  count += batch.length;
-                  if (count % 5000 === 0) {
-                    console.log(`📤 Progress: ${count}/${products.length}`);
-                  }
-                }
-              }
-              
-              await updateSyncStatus("completed", {
-                products_count: count,
-                completed_at: new Date().toISOString(),
-                finished_in_ms: Date.now() - start
-              });
-              
-              console.log(`✅ Sync complete: ${count} products in ${((Date.now() - start) / 1000).toFixed(1)}s`);
-              
-            } catch (error) {
-              console.error("❌ Error:", error.message);
-              await updateSyncStatus("failed", {
-                error_message: error.message,
-                completed_at: new Date().toISOString(),
-                finished_in_ms: Date.now() - start
-              });
-              process.exit(1);
-            }
-          }
-          
-          main();
-          EOF
-          
-          node sync.js
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Sync triggered successfully!"
+            JOB_ID=$(echo "$BODY" | grep -o '"jobId":"[^"]*"' | cut -d'"' -f4)
+            if [ -n "$JOB_ID" ]; then
+              echo "📊 Job ID: $JOB_ID"
+              echo "🔗 Monitor at: ${SUPABASE_URL}/functions/v1/catsync?action=status"
+            fi
+          else
+            echo "❌ Failed to trigger sync (HTTP $HTTP_CODE)"
+            exit 1
+          fi
