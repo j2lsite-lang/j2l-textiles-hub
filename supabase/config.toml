@@ -3,8 +3,8 @@ project_id = "ozbzhqmnvbbsnkbsnuja"
 [functions.toptex-api]
 verify_jwt = false
 
-[functions.catalog-sync]
+[functions.sync]
 verify_jwt = false
 
-[functions.sync-test]
+[functions.sync-mini]
 verify_jwt = false
