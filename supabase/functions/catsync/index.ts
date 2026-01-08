@@ -1,8 +1,30 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 const TOPTEX = "https://api.toptex.io";
-const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  { auth: { persistSession: false } },
+);
+
+const envTrim = (key: string) => {
+  const v = Deno.env.get(key);
+  if (v == null) throw new Error(`Missing env: ${key}`);
+  const t = v.trim();
+  if (!t) throw new Error(`Empty env: ${key}`);
+  return t;
+};
+
+const mask = (v: string) => {
+  const t = (v || "").trim();
+  if (!t) return "(empty)";
+  if (t.length <= 8) return `${t.slice(0, 2)}…(${t.length})`;
+  return `${t.slice(0, 4)}…${t.slice(-4)}(${t.length})`;
+};
 
 // Configuration
 const BATCH_SIZE = 100; // Produits par upsert batch
@@ -11,39 +33,95 @@ const POLL_INTERVAL = 30000; // 30 secondes entre chaque vérification
 
 async function auth(): Promise<string> {
   console.log("[CATSYNC] Authenticating...");
-  const r = await fetch(`${TOPTEX}/v3/authenticate`, { 
-    method: "POST", 
-    headers: { "Content-Type": "application/json", "x-api-key": Deno.env.get("TOPTEX_API_KEY")! }, 
-    body: JSON.stringify({ username: Deno.env.get("TOPTEX_USERNAME")!, password: Deno.env.get("TOPTEX_PASSWORD")! }) 
+
+  const apiKey = envTrim("TOPTEX_API_KEY");
+  const username = envTrim("TOPTEX_USERNAME");
+  const password = envTrim("TOPTEX_PASSWORD");
+
+  const r = await fetch(`${TOPTEX}/v3/authenticate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+    body: JSON.stringify({ username, password }),
   });
+
+  const txt = await r.text();
+
   if (!r.ok) {
-    const txt = await r.text();
-    console.error(`[CATSYNC] Auth failed: ${r.status} - ${txt}`);
-    throw new Error(`Auth: ${r.status}`);
+    console.error(
+      `[CATSYNC] Auth failed: ${r.status} - ${txt.slice(0, 500)} (apiKey=${mask(apiKey)})`,
+    );
+    throw new Error(`Auth: ${r.status} - ${txt.slice(0, 200)}`);
   }
-  const d = await r.json();
-  console.log("[CATSYNC] Auth successful");
-  return d.token || d.jeton;
+
+  let d: any;
+  try {
+    d = JSON.parse(txt);
+  } catch {
+    console.error(`[CATSYNC] Auth OK but invalid JSON: ${txt.slice(0, 200)}`);
+    throw new Error("Auth: invalid JSON response");
+  }
+
+  const token = (d?.token ?? d?.jeton ?? d?.access_token ?? d?.accessToken ?? "").trim();
+  if (!token) {
+    console.error(`[CATSYNC] Auth OK but token missing. Keys: ${Object.keys(d || {}).join(", ")}`);
+    throw new Error("Auth: missing token in response");
+  }
+
+  console.log(`[CATSYNC] Auth successful (token_len=${token.length})`);
+  return token;
 }
 
 async function requestCatalogLink(token: string): Promise<{ link: string; eta: string }> {
   console.log("[CATSYNC] Requesting catalog link...");
-  const r = await fetch(`${TOPTEX}/v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=1`, { 
-    headers: { 
-      "x-api-key": Deno.env.get("TOPTEX_API_KEY")!, 
-      "x-toptex-authorization": token 
-    } 
-  });
-  if (!r.ok) {
-    const txt = await r.text();
-    console.error(`[CATSYNC] Link request failed: ${r.status} - ${txt}`);
-    throw new Error(`Link: ${r.status}`);
+
+  const apiKey = envTrim("TOPTEX_API_KEY");
+  const url = `${TOPTEX}/v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=1`;
+
+  const tryFetch = (headers: Record<string, string>) =>
+    fetch(url, {
+      headers: {
+        "x-api-key": apiKey,
+        ...headers,
+      },
+    });
+
+  // 1) format actuel
+  let r = await tryFetch({ "x-toptex-authorization": token });
+  let txt = await r.text();
+
+  // 2) fallback si TopTex attend un format Bearer ou un header standard
+  if (!r.ok && (r.status === 401 || r.status === 403)) {
+    console.warn(
+      `[CATSYNC] Link request unauthorized with raw token (status=${r.status}). Retrying with Bearer formats...`,
+    );
+
+    // a) Bearer dans le header x-toptex-authorization
+    r = await tryFetch({ "x-toptex-authorization": `Bearer ${token}` });
+    txt = await r.text();
+
+    // b) Authorization standard
+    if (!r.ok && (r.status === 401 || r.status === 403)) {
+      r = await tryFetch({ Authorization: `Bearer ${token}` });
+      txt = await r.text();
+    }
   }
-  const data = await r.json();
+
+  if (!r.ok) {
+    console.error(`[CATSYNC] Link request failed: ${r.status} - ${txt.slice(0, 500)}`);
+    throw new Error(`Link: ${r.status} - ${txt.slice(0, 200)}`);
+  }
+
+  let data: any;
+  try {
+    data = JSON.parse(txt);
+  } catch {
+    throw new Error(`Link: invalid JSON - ${txt.slice(0, 200)}`);
+  }
+
   console.log(`[CATSYNC] Catalog link received, ETA: ${data.estimated_time_of_arrival}`);
-  return { 
-    link: data.link, 
-    eta: data.estimated_time_of_arrival || "unknown" 
+  return {
+    link: data.link,
+    eta: data.estimated_time_of_arrival || "unknown",
   };
 }
 
@@ -189,31 +267,35 @@ async function syncJob(jobId: string) {
       
       try {
         const headResponse = await fetch(link, { method: "HEAD" });
-        
+
         if (headResponse.ok) {
           const contentLength = parseInt(headResponse.headers.get("content-length") || "0");
           console.log(`[CATSYNC] S3 file available, size: ${contentLength} bytes`);
-          
+
           // Vérifier que le fichier fait au moins 1MB (pas vide)
           if (contentLength > 1024 * 1024) {
-            await supabase.from("sync_status").update({ 
+            await supabase.from("sync_status").update({
               s3_content_length: contentLength,
-              s3_poll_count: pollCount
+              s3_poll_count: pollCount,
             }).eq("id", jobId);
             fileReady = true;
           } else {
             console.log(`[CATSYNC] File too small (${contentLength}), waiting...`);
-            await supabase.from("sync_status").update({ 
+            await supabase.from("sync_status").update({
               s3_poll_count: pollCount,
-              error_message: `Fichier en cours de génération (${pollCount}/${maxPolls})...`
+              error_message: `Fichier en cours de génération (${pollCount}/${maxPolls})...`,
             }).eq("id", jobId);
           }
-        } else if (headResponse.status === 403) {
-          console.log(`[CATSYNC] S3 link expired (403)`);
-          throw new Error("S3 link expired");
+        } else {
+          // IMPORTANT: TopTex peut renvoyer 403 tant que l'objet S3 n'existe pas encore.
+          // Ce n'est pas forcément un lien expiré.
+          console.log(`[CATSYNC] S3 not ready yet (status=${headResponse.status})`);
+          await supabase.from("sync_status").update({
+            s3_poll_count: pollCount,
+            error_message: `Fichier non prêt (${headResponse.status}) (${pollCount}/${maxPolls})...`,
+          }).eq("id", jobId);
         }
       } catch (e: any) {
-        if (e.message === "S3 link expired") throw e;
         console.log(`[CATSYNC] Poll error: ${e.message}`);
       }
     }
