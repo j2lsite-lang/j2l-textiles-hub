@@ -499,6 +499,13 @@ async function runSyncProcess(jobId: string): Promise<void> {
     await supabase.from("sync_status").update({ error_message: msg }).eq("id", jobId);
   };
   
+  // Metrics helper to track s3_poll_count and s3_content_length
+  const updateMetrics = async (metrics: { s3_poll_count?: number; s3_content_length?: number | null }) => {
+    await supabase.from("sync_status").update(metrics).eq("id", jobId);
+  };
+  
+  const jobStartTime = Date.now();
+  
   try {
     // Step 1: Authenticate
     await updateStatus("authenticating");
@@ -520,44 +527,55 @@ async function runSyncProcess(jobId: string): Promise<void> {
         
         // Step 3: Wait and poll for file
         await updateStatus("waiting_for_file", { error_message: `ETA: ${eta.toISOString()}` });
-        const { ready, expired, size } = await pollS3File(link, eta, linkStartTime, updateProgress);
+        const { ready, expired, size } = await pollS3File(link, eta, linkStartTime, updateProgress, updateMetrics);
         
         // Auto-recovery: if expired, get new link
         if (expired) {
           retryCount++;
           console.log(`[Sync] Link expired, retrying (${retryCount}/${maxRetries})`);
+          // Wait 60s before requesting new link (per user spec)
+          await new Promise(r => setTimeout(r, 60000));
           continue;
         }
         
         if (!ready) {
           retryCount++;
           console.log(`[Sync] File not ready, retrying (${retryCount}/${maxRetries})`);
+          // Wait 60s before retry
+          await new Promise(r => setTimeout(r, 60000));
           continue;
         }
         
         // Step 4: Download and parse
         await updateStatus("downloading");
+        const downloadStart = Date.now();
         const products = await downloadAndParseCatalog(link, updateProgress);
         
         if (products.length === 0) {
           throw new Error("Aucun produit dans le catalogue");
         }
         
+        // Compute download_bytes (approximate from products JSON size)
+        const downloadBytes = JSON.stringify(products).length;
+        
         // Step 5: Upsert to database
-        await updateStatus("syncing", { products_count: 0, error_message: "Import en cours..." });
+        await updateStatus("syncing", { products_count: 0, error_message: "Import en cours...", download_bytes: downloadBytes });
         const count = await upsertProductsBatch(products, jobId, async (c) => {
           await supabase.from("sync_status").update({ products_count: c }).eq("id", jobId);
         });
         
-        // Success!
+        // Success! Compute finished_in_ms
+        const finishedInMs = Date.now() - jobStartTime;
+        
         await supabase.from("sync_status").update({
           status: "completed",
           products_count: count,
           completed_at: new Date().toISOString(),
+          finished_in_ms: finishedInMs,
           error_message: null
         }).eq("id", jobId);
         
-        console.log(`[Sync] ✅ COMPLETED: ${count} products`);
+        console.log(`[Sync] ✅ COMPLETED: ${count} products in ${(finishedInMs/1000).toFixed(1)}s`);
         return;
         
       } catch (innerErr: unknown) {
