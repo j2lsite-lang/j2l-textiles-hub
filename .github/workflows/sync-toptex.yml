@@ -15,29 +15,31 @@ jobs:
     steps:
       - name: Trigger Catalog Sync
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          BACKEND_ANON_KEY: ${{ secrets.BACKEND_ANON_KEY }}
         run: |
-          echo "🚀 Triggering catalog sync..."
-          
+          echo "Triggering catalog sync..."
+
           RESPONSE=$(curl -s -w "\n%{http_code}" \
             -X POST \
             -H "Content-Type: application/json" \
+            -H "apikey: ${BACKEND_ANON_KEY}" \
+            -H "Authorization: Bearer ${BACKEND_ANON_KEY}" \
             -d '{"action":"start"}' \
-            "${SUPABASE_URL}/functions/v1/catsync")
-          
+            "${BACKEND_URL}/functions/v1/catsync")
+
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          echo "📋 Response: $BODY"
-          
+
+          echo "Response: $BODY"
+
           if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "✅ Sync triggered successfully!"
-            JOB_ID=$(echo "$BODY" | grep -o '"jobId":"[^"]*"' | cut -d'"' -f4)
+            echo "Sync triggered successfully."
+            JOB_ID=$(echo "$BODY" | grep -o '"job_id":"[^"]*"' | cut -d'"' -f4)
             if [ -n "$JOB_ID" ]; then
-              echo "📊 Job ID: $JOB_ID"
-              echo "🔗 Monitor at: ${SUPABASE_URL}/functions/v1/catsync?action=status"
+              echo "Job ID: $JOB_ID"
             fi
           else
-            echo "❌ Failed to trigger sync (HTTP $HTTP_CODE)"
+            echo "Failed to trigger sync (HTTP $HTTP_CODE)"
             exit 1
           fi
