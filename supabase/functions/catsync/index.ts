@@ -149,30 +149,66 @@ async function upsertBatch(rows: any[]) {
 async function waitForS3File(link: string, jobId: string): Promise<{ size: number; polls: number }> {
   const maxPolls = Math.ceil(MAX_WAIT_MS / POLL_INTERVAL_MS);
 
+  // IMPORTANT: Le lien S3 pré-signé est (souvent) signé pour GET.
+  // Un HEAD peut renvoyer 403 même si le fichier existe.
+  // => On "probe" avec un GET Range (0-0) pour vérifier la disponibilité sans télécharger.
+
   for (let poll = 1; poll <= maxPolls; poll++) {
     console.log(`[CATSYNC] Polling S3 (${poll}/${maxPolls})...`);
 
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
 
     try {
-      const head = await fetch(link, { method: "HEAD" });
-      if (head.ok) {
-        const size = parseInt(head.headers.get("content-length") || "0");
-        console.log(`[CATSYNC] S3 HEAD OK, size=${size}`);
+      const probe = await fetch(link, {
+        method: "GET",
+        headers: {
+          // Ne récupère qu'1 octet si le fichier existe
+          Range: "bytes=0-0",
+        },
+      });
 
-        await supabase.from("sync_status").update({
-          s3_poll_count: poll,
-          s3_content_length: size,
-          error_message: `Fichier prêt (${Math.round(size / 1024)} KB)`,
-        }).eq("id", jobId);
+      // 206 = Partial Content (ok), 200 = ok, 416 peut arriver si range invalide mais objet existant
+      const ok = probe.ok || probe.status === 206 || probe.status === 416;
 
-        if (size >= MIN_READY_SIZE_BYTES) return { size, polls: poll };
-      } else {
-        await supabase.from("sync_status").update({
-          s3_poll_count: poll,
-          error_message: `Génération en cours (${head.status}) (${poll}/${maxPolls})...`,
-        }).eq("id", jobId);
+      if (ok) {
+        // Tentative de récupérer la taille totale via Content-Range: bytes 0-0/123456
+        const cr = probe.headers.get("content-range") || "";
+        const m = cr.match(/\/(\d+)$/);
+        const sizeFromCR = m ? parseInt(m[1], 10) : 0;
+        const sizeFromCL = parseInt(probe.headers.get("content-length") || "0", 10);
+        const size = Math.max(sizeFromCR, sizeFromCL);
+
+        console.log(`[CATSYNC] S3 probe OK, status=${probe.status}, size=${size} (cr='${cr}')`);
+
+        await supabase
+          .from("sync_status")
+          .update({
+            s3_poll_count: poll,
+            s3_content_length: size || null,
+            error_message: size
+              ? `Fichier prêt (${Math.round(size / 1024)} KB)`
+              : "Fichier prêt (taille inconnue)",
+          })
+          .eq("id", jobId);
+
+        if (!size || size >= MIN_READY_SIZE_BYTES) return { size, polls: poll };
       }
+
+      // Not ready / not accessible
+      let preview = "";
+      try {
+        preview = (await probe.text()).slice(0, 200);
+      } catch {
+        // ignore
+      }
+
+      await supabase
+        .from("sync_status")
+        .update({
+          s3_poll_count: poll,
+          error_message: `Génération en cours (${probe.status}) (${poll}/${maxPolls})...${preview ? ` ${preview}` : ""}`,
+        })
+        .eq("id", jobId);
     } catch (e: any) {
       console.log(`[CATSYNC] Poll error: ${e?.message || e}`);
     }
@@ -180,6 +216,7 @@ async function waitForS3File(link: string, jobId: string): Promise<{ size: numbe
 
   throw new Error(`Fichier S3 non prêt après ${maxPolls} tentatives`);
 }
+
 
 // Parse JSON array stream and upsert progressively
 async function streamParseAndUpsert(response: Response, jobId: string): Promise<number> {

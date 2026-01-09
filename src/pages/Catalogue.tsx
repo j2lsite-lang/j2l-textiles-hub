@@ -356,12 +356,21 @@ export default function Catalogue() {
           if (status === 'completed') {
             setSyncStatus(null);
             setIsSyncing(false);
-            toast({
-              title: "Synchronisation terminée",
-              description: `${count} produits synchronisés avec succès.`,
-            });
-            // Rafraîchir la page pour voir les nouveaux produits
-            window.location.reload();
+
+            if (count > 0) {
+              toast({
+                title: "Synchronisation terminée",
+                description: `${count} produits synchronisés avec succès.`,
+              });
+              // Rafraîchir la page pour voir les nouveaux produits
+              window.location.reload();
+            } else {
+              toast({
+                title: "Synchronisation terminée (0 produit)",
+                description: "Le job s'est terminé mais aucun produit n'a été importé. Relance la synchro; si ça persiste, c'est côté TopTex (fichier non disponible / lien expiré).",
+                variant: "destructive",
+              });
+            }
           } else if (status === 'failed') {
             setSyncStatus(null);
             setIsSyncing(false);
