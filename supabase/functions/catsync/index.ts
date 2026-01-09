@@ -291,12 +291,15 @@ async function syncCatalog(jobId: string) {
       console.log(`[CATSYNC] Fetch page ${page}: ${url}`);
 
       const { status, text } = await toptexGet(url, token);
+      console.log(`[CATSYNC] Page ${page} response: status=${status}, len=${text.length}, preview=${text.slice(0, 500)}`);
+      
       if (status !== 200) {
         console.error(`[CATSYNC] Page fetch failed: ${status} - ${text.slice(0, 400)}`);
         throw new Error(`TopTex products: ${status}`);
       }
 
       const parsed = parseProductsResponse(text);
+      console.log(`[CATSYNC] Parsed kind: ${parsed.kind}`);
 
       if (parsed.kind === "link") {
         // Fallback to S3 stream
