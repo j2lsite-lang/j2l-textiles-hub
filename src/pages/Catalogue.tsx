@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Search, Filter, X, Loader2, ShoppingBag, AlertCircle, RefreshCw } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
@@ -321,6 +321,10 @@ export default function Catalogue() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Avoid spamming resume calls
+  const lastAutoResumeAtRef = useRef<number>(0);
+  const AUTO_RESUME_COOLDOWN_MS = 60_000;
+
   // Lancer ou reprendre la synchronisation du catalogue
   const handleSync = async (forceRestart = false) => {
     setIsSyncing(true);
@@ -400,26 +404,40 @@ export default function Catalogue() {
               description: errMsg || "Une erreur est survenue",
               variant: "destructive",
             });
-          } else if (status === 'paused') {
-            setSyncStatus(null);
-            setIsSyncing(false);
-            toast({
-              title: "Synchronisation en pause",
-              description: `${count} produits importés. Cliquez sur Synchroniser pour reprendre.`,
-              variant: "default",
-            });
           } else {
+            // Auto-reprise si le job est en pause ou semble bloqué (heartbeat trop ancien)
+            const heartbeatAt = lastSync.heartbeat_at ? new Date(lastSync.heartbeat_at).getTime() : 0;
+            const secondsSinceHeartbeat = heartbeatAt ? Math.round((Date.now() - heartbeatAt) / 1000) : null;
+            const recommended = statusData?.recommended_action as string | null | undefined;
+
+            const shouldAutoResume =
+              (status === 'paused') ||
+              (status === 'syncing' && (recommended === 'resume' || (secondsSinceHeartbeat != null && secondsSinceHeartbeat > 90)));
+
+            if (shouldAutoResume) {
+              const now = Date.now();
+              if (now - lastAutoResumeAtRef.current > AUTO_RESUME_COOLDOWN_MS) {
+                lastAutoResumeAtRef.current = now;
+                setSyncStatus('Reprise automatique en cours...');
+                await supabase.functions.invoke('catsync', { body: { action: 'resume' } });
+              }
+            }
+
             // Toujours en cours - afficher progression détaillée
             let statusText = `Page ${currentPage}`;
             if (retryAttempt > 0) {
               statusText += ` (tentative ${retryAttempt})`;
             }
             statusText += ` - ${count} produits`;
-            
+
+            if (secondsSinceHeartbeat != null && secondsSinceHeartbeat > 20) {
+              statusText += ` (dernier signal il y a ${secondsSinceHeartbeat}s)`;
+            }
+
             if (errMsg && !errMsg.startsWith('Page')) {
               statusText = errMsg;
             }
-            
+
             setSyncStatus(statusText);
             setTimeout(pollStatus, 2000); // Poll every 2s for faster updates
           }

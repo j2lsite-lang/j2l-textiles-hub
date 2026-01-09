@@ -297,37 +297,84 @@ async function markPageSuccess(jobId: string, page: number, total: number) {
 }
 
 /**
- * Check if there's an existing syncing job that might have stalled
- * If so, resume from where it left off
+ * Return the latest job (most recent started_at)
  */
-async function findResumableJob(): Promise<{ id: string; lastSuccessfulPage: number; productsCount: number } | null> {
-  const { data: jobs } = await supabase
+async function getLatestJob() {
+  const { data } = await supabase
     .from("sync_status")
     .select("id, status, heartbeat_at, last_successful_page, products_count, current_page")
-    .eq("status", "syncing")
     .order("started_at", { ascending: false })
     .limit(1);
 
-  if (!jobs || jobs.length === 0) return null;
+  return data?.[0] ?? null;
+}
 
-  const job = jobs[0];
-  const heartbeat = new Date(job.heartbeat_at).getTime();
+function isJobStale(heartbeatAtIso: string | null | undefined) {
+  if (!heartbeatAtIso) return true;
+  const heartbeat = new Date(heartbeatAtIso).getTime();
   const now = Date.now();
+  return now - heartbeat > MAX_IDLE_MS;
+}
 
-  // Job is stale if no heartbeat for MAX_IDLE_MS
-  if (now - heartbeat > MAX_IDLE_MS) {
-    console.log(`[CATSYNC] Found stale job ${job.id} - last heartbeat ${Math.round((now - heartbeat) / 1000)}s ago`);
-    console.log(`[CATSYNC] Resuming from page ${job.last_successful_page + 1} with ${job.products_count} products`);
+/**
+ * Decide how/if we can resume a job.
+ */
+async function getResumeDecision(): Promise<
+  | { kind: "resume"; id: string; startPage: number; productsCount: number; reason: string }
+  | { kind: "active"; id: string; status: string; heartbeatAt: string | null }
+  | { kind: "none" }
+> {
+  const job = await getLatestJob();
+  if (!job) return { kind: "none" };
+
+  const productsCount = job.products_count || 0;
+  const startPage = (job.current_page || 0) > 0
+    ? job.current_page
+    : (job.last_successful_page || 0) + 1;
+
+  if (job.status === "paused") {
     return {
+      kind: "resume",
       id: job.id,
-      lastSuccessfulPage: job.last_successful_page || 0,
-      productsCount: job.products_count || 0,
+      startPage,
+      productsCount,
+      reason: "paused",
     };
   }
 
-  // Job is still running
-  console.log(`[CATSYNC] Job ${job.id} is still active (heartbeat ${Math.round((now - heartbeat) / 1000)}s ago)`);
-  return null;
+  if (job.status === "syncing") {
+    if (isJobStale(job.heartbeat_at)) {
+      console.log(
+        `[CATSYNC] Found stale job ${job.id} - resuming from page ${startPage} (products=${productsCount})`,
+      );
+      return {
+        kind: "resume",
+        id: job.id,
+        startPage,
+        productsCount,
+        reason: "stale",
+      };
+    }
+
+    return {
+      kind: "active",
+      id: job.id,
+      status: job.status,
+      heartbeatAt: job.heartbeat_at,
+    };
+  }
+
+  // Other non-terminal states mean something is already running
+  if (["started", "authenticating", "requesting_catalog", "waiting_for_file", "downloading"].includes(job.status)) {
+    return {
+      kind: "active",
+      id: job.id,
+      status: job.status,
+      heartbeatAt: job.heartbeat_at,
+    };
+  }
+
+  return { kind: "none" };
 }
 
 /**
@@ -568,64 +615,94 @@ Deno.serve(async (req) => {
       .from("products")
       .select("*", { count: "exact", head: true });
 
+    const last = jobs?.[0] ?? null;
+    const stale = last?.status === "syncing" ? isJobStale(last.heartbeat_at) : false;
+
+    let recommended_action: "resume" | null = null;
+    if (last?.status === "paused") recommended_action = "resume";
+    else if (stale) recommended_action = "resume";
+
     return new Response(
       JSON.stringify({
-        status: jobs?.[0]?.status || "never",
+        status: last?.status || "never",
         product_count_db: count,
-        last_sync: jobs?.[0],
+        last_sync: last,
+        is_stale: stale,
+        recommended_action,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 
   if (action === "start" || action === "force-restart" || action === "resume") {
-    // Check for resumable stale job first
-    const resumable = await findResumableJob();
-    
-    if (action === "resume" && resumable) {
-      // Resume the stale job
-      console.log(`[CATSYNC] Resuming job ${resumable.id} from page ${resumable.lastSuccessfulPage + 1}`);
-      
-      ((globalThis as any).EdgeRuntime?.waitUntil || ((p: any) => p))(
-        syncCatalog(resumable.id, resumable.lastSuccessfulPage + 1, resumable.productsCount)
-      );
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          job_id: resumable.id, 
-          resumed: true,
-          resume_from_page: resumable.lastSuccessfulPage + 1,
-          existing_products: resumable.productsCount,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    if (action === "resume") {
+      const decision = await getResumeDecision();
+
+      if (decision.kind === "active") {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            already_running: true,
+            job_id: decision.id,
+            status: decision.status,
+            heartbeat_at: decision.heartbeatAt,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      if (decision.kind === "resume") {
+        console.log(
+          `[CATSYNC] Resuming job ${decision.id} from page ${decision.startPage} (reason=${decision.reason})`,
+        );
+
+        ((globalThis as any).EdgeRuntime?.waitUntil || ((p: any) => p))(
+          syncCatalog(decision.id, decision.startPage, decision.productsCount),
+        );
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            job_id: decision.id,
+            resumed: true,
+            resume_from_page: decision.startPage,
+            existing_products: decision.productsCount,
+            reason: decision.reason,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // No resumable job found -> fall through and create a fresh job
     }
-    
+
     if (action === "force-restart" || action === "start") {
       // Cancel any existing running jobs
-      await supabase.from("sync_status").update({
-        status: "cancelled",
-        completed_at: new Date().toISOString(),
-        error_message: "Annulé - nouveau job démarré",
-      }).in("status", [
-        "started",
-        "authenticating",
-        "requesting_catalog",
-        "waiting_for_file",
-        "downloading",
-        "syncing",
-        "paused",
-      ]);
+      await supabase
+        .from("sync_status")
+        .update({
+          status: "cancelled",
+          completed_at: new Date().toISOString(),
+          error_message: "Annulé - nouveau job démarré",
+        })
+        .in("status", [
+          "started",
+          "authenticating",
+          "requesting_catalog",
+          "waiting_for_file",
+          "downloading",
+          "syncing",
+          "paused",
+        ]);
     }
 
     // Create new job - optionally start from a specific page
     const startPage = resumeFromPage || 1;
-    
+
     const { data: job } = await supabase
       .from("sync_status")
-      .insert({ 
-        sync_type: "catalog_auto", 
+      .insert({
+        sync_type: "catalog_auto",
         status: "started",
         current_page: startPage,
         last_successful_page: startPage > 1 ? startPage - 1 : 0,
@@ -642,7 +719,7 @@ Deno.serve(async (req) => {
     }
 
     ((globalThis as any).EdgeRuntime?.waitUntil || ((p: any) => p))(
-      syncCatalog(job.id, startPage, 0)
+      syncCatalog(job.id, startPage, 0),
     );
 
     return new Response(
