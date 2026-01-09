@@ -151,45 +151,11 @@ interface DisplayProduct {
   price?: number;
 }
 
-// Import des logos de marques (vrais logos TopTex)
-import bagbaseLogo from '@/assets/brands/bagbase.jpg';
-import bcLogo from '@/assets/brands/bc.jpg';
-import fruitLogo from '@/assets/brands/fruit-of-the-loom.jpg';
-import gildanLogo from '@/assets/brands/gildan.jpg';
-import jamesLogo from '@/assets/brands/james-nicholson.jpg';
-import karibanLogo from '@/assets/brands/kariban.jpg';
-import kimoodLogo from '@/assets/brands/kimood.jpg';
-import kupLogo from '@/assets/brands/k-up.jpg';
-import nativeSpiritLogo from '@/assets/brands/native-spirit.jpg';
-import proactLogo from '@/assets/brands/proact.jpg';
-import resultLogo from '@/assets/brands/result.jpg';
-import russellLogo from '@/assets/brands/russell.jpg';
-import solsLogo from '@/assets/brands/sols.jpg';
-import stanleyLogo from '@/assets/brands/stanley-stella.jpg';
+// Note: Les logos locaux ne sont plus utilisés - on utilise maintenant useToptexBrandLogos
+// qui contient les URLs officielles des logos TopTex
 
-// Liste des marques avec leurs logos (mapping complet avec toutes les variantes de noms)
-const brandLogos: Record<string, string> = {
-  // Noms exacts de TopTex
-  'B&C': bcLogo,
-  'BagBase®': bagbaseLogo,
-  'BagBase': bagbaseLogo,
-  'Fruit of the Loom': fruitLogo,
-  'Gildan': gildanLogo,
-  'Kariban': karibanLogo,
-  'Kariban Premium': karibanLogo,
-  'Kimood': kimoodLogo,
-  'K-up': kupLogo,
-  'K-Up': kupLogo,
-  'Native Spirit': nativeSpiritLogo,
-  'PROACT®': proactLogo,
-  'PROACT': proactLogo,
-  'Proact': proactLogo,
-  'Result': resultLogo,
-  'Russell': russellLogo,
-  "Sol's": solsLogo,
-  'Stanley/Stella': stanleyLogo,
-  'James & Nicholson': jamesLogo,
-};
+// Liste vide - on utilise désormais remoteBrandLogos exclusivement
+const brandLogos: Record<string, string> = {};
 
 function ProductCard({ product }: { product: DisplayProduct }) {
   const image = product.images?.[0] || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
