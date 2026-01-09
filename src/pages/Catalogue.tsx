@@ -347,8 +347,11 @@ export default function Catalogue() {
         });
         
         if (statusData?.last_sync) {
-          const status = statusData.last_sync.status;
-          const count = statusData.last_sync.products_count || 0;
+          const lastSync = statusData.last_sync;
+          const status = lastSync.status;
+          const count = lastSync.products_count || 0;
+          const pollCount = lastSync.s3_poll_count || 0;
+          const errMsg = lastSync.error_message || '';
           
           if (status === 'completed') {
             setSyncStatus(null);
@@ -364,12 +367,22 @@ export default function Catalogue() {
             setIsSyncing(false);
             toast({
               title: "Erreur de synchronisation",
-              description: statusData.last_sync.error_message || "Une erreur est survenue",
+              description: errMsg || "Une erreur est survenue",
               variant: "destructive",
             });
           } else {
-            // Toujours en cours
-            setSyncStatus(`${count} produits...`);
+            // Toujours en cours - afficher plus de détails
+            let statusText = `${count} produits...`;
+            if (status === 'waiting_for_file') {
+              statusText = `Génération fichier (${pollCount}/90)...`;
+            } else if (status === 'downloading') {
+              statusText = 'Téléchargement...';
+            } else if (status === 'syncing' && count > 0) {
+              statusText = `Import: ${count} produits...`;
+            } else if (errMsg) {
+              statusText = errMsg;
+            }
+            setSyncStatus(statusText);
             setTimeout(pollStatus, 3000);
           }
         }
