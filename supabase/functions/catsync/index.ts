@@ -22,12 +22,11 @@ const envTrim = (key: string) => {
 };
 
 // Config
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 100; // Keep reasonable to avoid timeouts
 const UPSERT_BATCH_SIZE = 200;
-const POLL_INTERVAL_MS = 10_000;
-const MAX_WAIT_MS = 15 * 60_000; // 15 minutes max (TopTex peut être long)
-const MIN_READY_SIZE_BYTES = 100 * 1024; // 100KB
-const MAX_TINY_FILE_POLLS = 10; // If file stays <= 2 bytes for 10 polls, fail & retry generate
+const POLL_INTERVAL_MS = 5_000;
+const MAX_WAIT_MS = 2 * 60_000;
+const MIN_READY_SIZE_BYTES = 100 * 1024;
 
 async function auth(): Promise<string> {
   console.log("[CATSYNC] Authenticating...");
@@ -148,109 +147,57 @@ async function upsertBatch(rows: any[]) {
 }
 
 /**
- * Wait for S3 file to be ready. Returns size and poll count.
- * If the file stays tiny (<=2 bytes) for MAX_TINY_FILE_POLLS polls, throws with "retry_generate" flag.
+ * Quick probe of S3 file. Returns immediately with result:
+ * - { ready: true, size } if file is large enough
+ * - { ready: false, reason, fallback: true } if file is empty/tiny (should fallback to pagination)
+ * - { ready: false, reason, fallback: false } if still generating (can retry)
  */
-async function waitForS3File(link: string, jobId: string): Promise<{ size: number; polls: number }> {
-  const maxPolls = Math.ceil(MAX_WAIT_MS / POLL_INTERVAL_MS);
-  let tinyFilePollCount = 0;
+async function probeS3File(link: string): Promise<{ ready: boolean; size: number; reason: string; fallback: boolean; content?: string }> {
+  try {
+    const probe = await fetch(link, {
+      method: "GET",
+      headers: { Range: "bytes=0-2047" },
+    });
 
-  for (let poll = 1; poll <= maxPolls; poll++) {
-    console.log(`[CATSYNC] Polling S3 (${poll}/${maxPolls})...`);
+    const ok = probe.ok || probe.status === 206 || probe.status === 416;
+    const cr = probe.headers.get("content-range") || "";
+    const m = cr.match(/\/(\d+)$/);
+    const sizeFromCR = m ? parseInt(m[1], 10) : 0;
+    const sizeFromCL = parseInt(probe.headers.get("content-length") || "0", 10);
+    const size = Math.max(sizeFromCR, sizeFromCL);
 
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-
+    let content = "";
     try {
-      // Probe with Range 0-2047 to get content preview
-      const probe = await fetch(link, {
-        method: "GET",
-        headers: {
-          Range: "bytes=0-2047",
-        },
-      });
+      content = await probe.text();
+    } catch {}
 
-      // 206 = Partial Content (ok), 200 = ok, 416 peut arriver si range invalide mais objet existant
-      const ok = probe.ok || probe.status === 206 || probe.status === 416;
+    console.log(`[CATSYNC] S3 probe: status=${probe.status}, size=${size}, content='${content.slice(0, 100)}'`);
 
-      // Get total size from Content-Range: bytes 0-X/TOTAL
-      const cr = probe.headers.get("content-range") || "";
-      const m = cr.match(/\/(\d+)$/);
-      const sizeFromCR = m ? parseInt(m[1], 10) : 0;
-      const sizeFromCL = parseInt(probe.headers.get("content-length") || "0", 10);
-      const size = Math.max(sizeFromCR, sizeFromCL);
-
-      // Read content preview (up to 2KB)
-      let contentPreview = "";
-      try {
-        contentPreview = await probe.text();
-      } catch {
-        // ignore
-      }
-
-      console.log(`[CATSYNC] S3 probe: status=${probe.status}, size=${size}, cr='${cr}', content='${contentPreview.slice(0, 200)}'`);
-
-      if (ok) {
-        await supabase
-          .from("sync_status")
-          .update({
-            s3_poll_count: poll,
-            s3_content_length: size || null,
-            error_message: size
-              ? `Fichier: ${Math.round(size / 1024)} KB - ${contentPreview.slice(0, 100)}`
-              : `Fichier prêt - ${contentPreview.slice(0, 100)}`,
-          })
-          .eq("id", jobId);
-
-        // Check if file is ready (>= MIN_READY_SIZE_BYTES)
-        if (size >= MIN_READY_SIZE_BYTES) {
-          return { size, polls: poll };
-        }
-
-        // File is tiny (<= 2 bytes) - could be placeholder, [], or error
-        if (size <= 2) {
-          tinyFilePollCount++;
-          console.log(`[CATSYNC] Tiny file detected (${size} bytes, content='${contentPreview}'). Count: ${tinyFilePollCount}/${MAX_TINY_FILE_POLLS}`);
-
-          if (tinyFilePollCount >= MAX_TINY_FILE_POLLS) {
-            // Analyze content to give better error message
-            const trimmed = contentPreview.trim();
-            let reason = "Fichier vide/placeholder";
-            if (trimmed === "[]") {
-              reason = "Fichier vide (tableau JSON vide [])";
-            } else if (trimmed.startsWith("<")) {
-              reason = `Erreur XML: ${trimmed.slice(0, 150)}`;
-            } else if (trimmed === "OK" || trimmed === "ok") {
-              reason = "Fichier placeholder (OK)";
-            } else if (trimmed.length > 0) {
-              reason = `Contenu inattendu: ${trimmed.slice(0, 100)}`;
-            }
-
-            const error = new Error(`${reason}. Fichier reste à ${size} bytes après ${tinyFilePollCount} polls. Retry generate.`);
-            (error as any).retryGenerate = true;
-            (error as any).contentPreview = contentPreview;
-            throw error;
-          }
-        } else {
-          // File is growing, reset tiny counter
-          tinyFilePollCount = 0;
-        }
-      } else {
-        // Not accessible
-        await supabase
-          .from("sync_status")
-          .update({
-            s3_poll_count: poll,
-            error_message: `Génération en cours (${probe.status}) (${poll}/${maxPolls})... ${contentPreview.slice(0, 100)}`,
-          })
-          .eq("id", jobId);
-      }
-    } catch (e: any) {
-      if (e.retryGenerate) throw e; // Re-throw retry errors
-      console.log(`[CATSYNC] Poll error: ${e?.message || e}`);
+    if (!ok) {
+      return { ready: false, size: 0, reason: `HTTP ${probe.status}`, fallback: false };
     }
-  }
 
-  throw new Error(`Fichier S3 non prêt après ${maxPolls} tentatives`);
+    // File is ready and large enough
+    if (size >= MIN_READY_SIZE_BYTES) {
+      return { ready: true, size, reason: "OK", fallback: false, content };
+    }
+
+    // File is tiny - IMMEDIATE FALLBACK
+    if (size <= 10) {
+      const trimmed = content.trim();
+      if (trimmed === "[]" || trimmed === "" || trimmed === "OK" || trimmed === "ok") {
+        console.log(`[CATSYNC] ⚠️ File is empty/placeholder (${size} bytes, content='${trimmed}'). IMMEDIATE FALLBACK.`);
+        return { ready: false, size, reason: `Fichier vide (${trimmed || "empty"})`, fallback: true, content };
+      }
+    }
+
+    // File exists but is small - might still be generating
+    return { ready: false, size, reason: `Fichier en cours (${size} bytes)`, fallback: false, content };
+
+  } catch (e: any) {
+    console.log(`[CATSYNC] S3 probe error: ${e?.message || e}`);
+    return { ready: false, size: 0, reason: e?.message || "Probe error", fallback: false };
+  }
 }
 
 
@@ -378,225 +325,187 @@ async function requestGenerateExport(token: string, jobId: string): Promise<{ li
   throw new Error(`Generate export: unexpected response kind=${parsed.kind}`);
 }
 
+/**
+ * Main sync function - simplified logic:
+ * 1. Try to get file export
+ * 2. Probe S3 once - if empty/tiny, IMMEDIATELY fallback to pagination
+ * 3. Pagination: loop pages until empty
+ */
 async function syncCatalog(jobId: string) {
   const upd = (status: string, extra: any = {}) =>
     supabase.from("sync_status").update({ status, ...extra }).eq("id", jobId);
 
   const start = Date.now();
-  const MAX_GENERATE_RETRIES = 3;
 
   try {
     await upd("authenticating");
     const token = await auth();
 
-    // Try pagination first
-    await upd("syncing", { error_message: "Récupération des produits..." });
-
-    let page = 1;
-    let total = 0;
-    let batch: any[] = [];
-
-    while (true) {
-      const url = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&display_prices=1&result_in_file=0&page_number=${page}&page_size=${PAGE_SIZE}`;
-      console.log(`[CATSYNC] Fetch page ${page}: ${url}`);
-
-      const { status, text } = await toptexGet(url, token);
-      console.log(`[CATSYNC] Page ${page} response: status=${status}, len=${text.length}, preview=${text.slice(0, 500)}`);
+    // Step 1: Request file export to check if TopTex gives us a file or items directly
+    await upd("syncing", { error_message: "Demande export TopTex..." });
+    
+    const firstUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&display_prices=1&result_in_file=1`;
+    console.log(`[CATSYNC] Requesting export: ${firstUrl}`);
+    
+    const { status: firstStatus, text: firstText } = await toptexGet(firstUrl, token);
+    console.log(`[CATSYNC] Export response: status=${firstStatus}, len=${firstText.length}`);
+    
+    if (firstStatus !== 200) {
+      throw new Error(`TopTex export request: HTTP ${firstStatus}`);
+    }
+    
+    const firstParsed = parseProductsResponse(firstText);
+    let usePagination = false;
+    
+    if (firstParsed.kind === "link") {
+      // TopTex gave us a file link - probe it ONCE
+      console.log(`[CATSYNC] Got S3 link, probing: ${firstParsed.link.slice(0, 80)}...`);
       
-      if (status !== 200) {
-        console.error(`[CATSYNC] Page fetch failed: ${status} - ${text.slice(0, 400)}`);
-        throw new Error(`TopTex products: ${status}`);
-      }
-
-      const parsed = parseProductsResponse(text);
-      console.log(`[CATSYNC] Parsed kind: ${parsed.kind}`);
-
-      if (parsed.kind === "link") {
-        // TopTex wants to use file export - handle with retry logic
-        let s3Link = parsed.link;
-        let eta = parsed.eta;
+      await upd("waiting_for_file", { 
+        s3_link: firstParsed.link,
+        error_message: "Vérification du fichier S3..." 
+      });
+      
+      // Wait a moment for file to be created
+      await new Promise(r => setTimeout(r, 3000));
+      
+      const probe = await probeS3File(firstParsed.link);
+      
+      await supabase.from("sync_status").update({
+        s3_poll_count: 1,
+        s3_content_length: probe.size,
+        error_message: `Probe: ${probe.reason}`,
+      }).eq("id", jobId);
+      
+      if (probe.fallback) {
+        // File is empty - IMMEDIATE FALLBACK
+        console.log(`[CATSYNC] ⚠️ S3 file empty (${probe.reason}). Switching to pagination mode.`);
+        usePagination = true;
+      } else if (probe.ready) {
+        // File is ready - download and import
+        console.log(`[CATSYNC] File ready (${probe.size} bytes), downloading...`);
+        await upd("downloading", { error_message: "Téléchargement du fichier..." });
         
-        for (let attempt = 1; attempt <= MAX_GENERATE_RETRIES; attempt++) {
-          console.log(`[CATSYNC] File export attempt ${attempt}/${MAX_GENERATE_RETRIES}`);
+        const resp = await fetch(firstParsed.link);
+        if (!resp.ok) throw new Error(`Download failed: ${resp.status}`);
+        
+        await upd("syncing", { error_message: "Import en streaming..." });
+        const count = await streamParseAndUpsert(resp, jobId);
+        
+        await supabase.from("sync_status").update({
+          status: "completed",
+          products_count: count,
+          completed_at: new Date().toISOString(),
+          finished_in_ms: Date.now() - start,
+          error_message: `Import terminé : ${count} produits`,
+        }).eq("id", jobId);
+        
+        console.log(`✅ [CATSYNC] Completed via file: ${count} products in ${(Date.now() - start) / 1000}s`);
+        return;
+      } else {
+        // File not ready but not empty - might be generating, try pagination anyway
+        console.log(`[CATSYNC] File not ready (${probe.reason}). Switching to pagination.`);
+        usePagination = true;
+      }
+    } else if (firstParsed.kind === "items" && firstParsed.items && firstParsed.items.length > 0) {
+      // TopTex returned items directly - use pagination
+      console.log(`[CATSYNC] TopTex returned items directly. Using pagination.`);
+      usePagination = true;
+    } else {
+      // Unknown or empty response - try pagination
+      console.log(`[CATSYNC] Unknown response kind: ${firstParsed.kind}. Trying pagination.`);
+      usePagination = true;
+    }
+    
+    // Step 2: PAGINATION MODE
+    if (usePagination) {
+      console.log(`[CATSYNC] 📄 Starting PAGINATION mode (page_size=${PAGE_SIZE})`);
+      
+      await upd("syncing", { error_message: "Fallback pagination - Démarrage..." });
+      
+      let page = 1;
+      let total = 0;
+      let batch: any[] = [];
+      
+      while (true) {
+        const pageUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&display_prices=1&page_number=${page}&page_size=${PAGE_SIZE}`;
+        console.log(`[CATSYNC] Pagination page ${page}: ${pageUrl}`);
+        
+        const { status: pageStatus, text: pageText } = await toptexGet(pageUrl, token);
+        console.log(`[CATSYNC] Page ${page}: status=${pageStatus}, len=${pageText.length}`);
+        
+        if (pageStatus !== 200) {
+          throw new Error(`Pagination page ${page}: HTTP ${pageStatus}`);
+        }
+        
+        const pageParsed = parseProductsResponse(pageText);
+        
+        // If TopTex returns a link even without result_in_file, that's weird but skip it
+        if (pageParsed.kind === "link") {
+          console.log(`[CATSYNC] Page ${page} returned a link, skipping to next page`);
+          page++;
+          continue;
+        }
+        
+        if (pageParsed.kind !== "items" || !pageParsed.items) {
+          console.log(`[CATSYNC] Page ${page}: no items (kind=${pageParsed.kind}), stopping.`);
+          break;
+        }
+        
+        const items = pageParsed.items;
+        if (items.length === 0) {
+          console.log(`[CATSYNC] Page ${page}: empty, stopping.`);
+          break;
+        }
+        
+        // Normalize and batch
+        for (const p of items) {
+          const n = normalize(p);
+          if (n.sku) batch.push({ ...n, synced_at: new Date().toISOString() });
+        }
+        
+        // Upsert when batch is full
+        if (batch.length >= UPSERT_BATCH_SIZE) {
+          await upsertBatch(batch);
+          total += batch.length;
+          batch = [];
           
           await supabase.from("sync_status").update({
-            status: "waiting_for_file",
-            s3_link: s3Link,
-            eta: eta || null,
-            error_message: `TopTex fichier (tentative ${attempt}/${MAX_GENERATE_RETRIES}, ETA: ${eta || "?"})...`,
+            products_count: total,
+            error_message: `Fallback pagination - Page ${page} - ${total} produits importés`,
           }).eq("id", jobId);
-
-          try {
-            await waitForS3File(s3Link, jobId);
-            
-            // File is ready, download it
-            await upd("downloading", { error_message: "Téléchargement du fichier..." });
-            const resp = await fetch(s3Link);
-            if (!resp.ok) throw new Error(`Download: ${resp.status}`);
-
-            await upd("syncing", { error_message: "Import en streaming..." });
-            const count = await streamParseAndUpsert(resp, jobId);
-            total = count;
-            break; // Success, exit retry loop
-            
-          } catch (e: any) {
-            if (e.retryGenerate && attempt < MAX_GENERATE_RETRIES) {
-              console.log(`[CATSYNC] Retry generate export (attempt ${attempt + 1})...`);
-              await supabase.from("sync_status").update({
-                error_message: `Fichier invalide (${e.message}). Nouvelle demande d'export (${attempt + 1}/${MAX_GENERATE_RETRIES})...`,
-              }).eq("id", jobId);
-              
-              // Request new export
-              const newExport = await requestGenerateExport(token, jobId);
-              s3Link = newExport.link;
-              eta = newExport.eta;
-              
-              await supabase.from("sync_status").update({
-                s3_link: s3Link,
-                eta: eta || null,
-              }).eq("id", jobId);
-              
-              continue; // Retry with new link
-            }
-            
-            // Max retries reached for file export - FALLBACK to pagination
-            if (e.retryGenerate) {
-              console.log(`[CATSYNC] ⚠️ File export failed after ${MAX_GENERATE_RETRIES} attempts. Falling back to pagination...`);
-              await supabase.from("sync_status").update({
-                status: "syncing",
-                error_message: `Fichier vide après ${MAX_GENERATE_RETRIES} tentatives. Passage en pagination directe...`,
-              }).eq("id", jobId);
-              
-              // Fallback: use pagination instead of file
-              let paginationTotal = 0;
-              let paginationPage = 1;
-              let paginationBatch: any[] = [];
-              
-              while (true) {
-                const paginationUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&display_prices=1&result_in_file=0&page_number=${paginationPage}&page_size=${PAGE_SIZE}`;
-                console.log(`[CATSYNC] Fallback pagination page ${paginationPage}: ${paginationUrl}`);
-                
-                const pRes = await toptexGet(paginationUrl, token);
-                console.log(`[CATSYNC] Fallback page ${paginationPage}: status=${pRes.status}, len=${pRes.text.length}`);
-                
-                if (pRes.status !== 200) {
-                  throw new Error(`Pagination fallback: HTTP ${pRes.status}`);
-                }
-                
-                const pParsed = parseProductsResponse(pRes.text);
-                
-                if (pParsed.kind === "link") {
-                  // Still getting a link even with result_in_file=0, this is weird
-                  console.error(`[CATSYNC] Still getting file link with result_in_file=0, giving up`);
-                  throw new Error("TopTex returns file link even with result_in_file=0");
-                }
-                
-                if (pParsed.kind === "unknown" || !pParsed.items) {
-                  console.log(`[CATSYNC] Fallback: unknown/empty response, stopping`);
-                  break;
-                }
-                
-                const items = pParsed.items;
-                if (items.length === 0) {
-                  console.log(`[CATSYNC] Fallback: no items on page ${paginationPage}, stop.`);
-                  break;
-                }
-                
-                for (const p of items) {
-                  const n = normalize(p);
-                  if (n.sku) paginationBatch.push({ ...n, synced_at: new Date().toISOString() });
-                }
-                
-                if (paginationBatch.length >= UPSERT_BATCH_SIZE) {
-                  await upsertBatch(paginationBatch);
-                  paginationTotal += paginationBatch.length;
-                  paginationBatch = [];
-                  
-                  await supabase.from("sync_status").update({
-                    products_count: paginationTotal,
-                    error_message: `Pagination page ${paginationPage} - ${paginationTotal} produits...`,
-                  }).eq("id", jobId);
-                }
-                
-                if (items.length < PAGE_SIZE) {
-                  console.log(`[CATSYNC] Fallback: page ${paginationPage} has ${items.length} < ${PAGE_SIZE}, stop.`);
-                  break;
-                }
-                
-                paginationPage++;
-                await new Promise((r) => setTimeout(r, 150));
-              }
-              
-              // Flush remaining
-              if (paginationBatch.length) {
-                await upsertBatch(paginationBatch);
-                paginationTotal += paginationBatch.length;
-              }
-              
-              total = paginationTotal;
-              console.log(`[CATSYNC] Fallback pagination complete: ${paginationTotal} products`);
-              break; // Exit file retry loop, continue to completion
-            }
-            
-            throw e; // Different error, propagate
-          }
+          
+          console.log(`[CATSYNC] Imported batch, total=${total}`);
         }
-        break; // Exit main pagination loop
+        
+        // Stop if last page
+        if (items.length < PAGE_SIZE) {
+          console.log(`[CATSYNC] Page ${page}: ${items.length} < ${PAGE_SIZE}, last page.`);
+          break;
+        }
+        
+        page++;
+        await new Promise(r => setTimeout(r, 100)); // Small delay between pages
       }
-
-      if (parsed.kind === "unknown") {
-        console.error(`[CATSYNC] Unknown response: ${parsed.rawPreview}`);
-        throw new Error("TopTex: réponse inconnue");
-      }
-
-      // items
-      const items = parsed.items || [];
-      if (items.length === 0) {
-        console.log(`[CATSYNC] No items on page ${page}, stop.`);
-        break;
-      }
-
-      for (const p of items) {
-        const n = normalize(p);
-        if (n.sku) batch.push({ ...n, synced_at: new Date().toISOString() });
-      }
-
-      if (batch.length >= UPSERT_BATCH_SIZE) {
+      
+      // Flush remaining batch
+      if (batch.length > 0) {
         await upsertBatch(batch);
         total += batch.length;
-        batch = [];
-
-        await supabase.from("sync_status").update({
-          products_count: total,
-          error_message: `Page ${page} - ${total} produits...`,
-        }).eq("id", jobId);
+        console.log(`[CATSYNC] Final batch flushed, total=${total}`);
       }
-
-      // stop condition
-      if (items.length < PAGE_SIZE) {
-        console.log(`[CATSYNC] Page ${page} smaller than page_size (${items.length}), stop.`);
-        break;
-      }
-
-      page++;
-      // small delay
-      await new Promise((r) => setTimeout(r, 150));
+      
+      await supabase.from("sync_status").update({
+        status: "completed",
+        products_count: total,
+        completed_at: new Date().toISOString(),
+        finished_in_ms: Date.now() - start,
+        error_message: `Import terminé : ${total} produits (${page} pages)`,
+      }).eq("id", jobId);
+      
+      console.log(`✅ [CATSYNC] Completed via pagination: ${total} products, ${page} pages, ${(Date.now() - start) / 1000}s`);
     }
-
-    if (batch.length) {
-      await upsertBatch(batch);
-      total += batch.length;
-    }
-
-    await supabase.from("sync_status").update({
-      status: "completed",
-      products_count: total,
-      completed_at: new Date().toISOString(),
-      finished_in_ms: Date.now() - start,
-      error_message: null,
-    }).eq("id", jobId);
-
-    console.log(`✅ [CATSYNC] Completed: ${total} products in ${(Date.now() - start) / 1000}s`);
+    
   } catch (e: any) {
     console.error("[CATSYNC] Error:", e);
     await supabase.from("sync_status").update({
