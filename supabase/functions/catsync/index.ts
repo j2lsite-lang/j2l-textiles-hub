@@ -28,7 +28,7 @@ const POLL_INTERVAL_MS = 5_000;
 const MAX_WAIT_MS = 2 * 60_000;
 const MIN_READY_SIZE_BYTES = 100 * 1024;
 const MAX_RETRIES = 10; // More retries with longer backoff
-const MAX_PAGE_ERRORS = 3; // Max consecutive page failures before skipping
+const LONG_PAUSE_SECONDS = 60; // Long pause after multiple failures on same page
 
 async function auth(): Promise<string> {
   console.log("[CATSYNC] Authenticating...");
@@ -469,63 +469,81 @@ async function syncCatalog(jobId: string) {
     }
     
     // Step 2: PAGINATION MODE - iterate through ALL pages until empty
+    // NEVER SKIP PAGES - retry indefinitely with pauses to ensure complete import
     if (usePagination) {
       console.log(`[CATSYNC] 📄 Starting PAGINATION mode (page_size=${PAGE_SIZE})`);
       
-      await upd("syncing", { error_message: "Fallback pagination - Démarrage..." });
+      await upd("syncing", { error_message: "Pagination - Démarrage..." });
       
       let page = 1;
       let total = 0;
       let batch: any[] = [];
-      let consecutiveErrors = 0;
-      let skippedPages: number[] = [];
+      let pageRetries = 0;
+      let longPauseCount = 0;
       let emptyPagesInRow = 0;
       const MAX_EMPTY_PAGES = 3; // Stop after 3 consecutive empty pages
+      const MAX_RETRIES_BEFORE_PAUSE = 10; // After 10 failures, take a long pause
+      const MAX_LONG_PAUSES = 5; // After 5 long pauses on same page, something is very wrong
       
-      // PAGINATION LOOP - NEVER STOP until empty pages
+      // PAGINATION LOOP - NEVER SKIP PAGES
       while (true) {
         const pageUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&page_number=${page}&page_size=${PAGE_SIZE}`;
-        console.log(`[CATSYNC] 📖 Page ${page}: fetching...`);
+        console.log(`[CATSYNC] 📖 Page ${page}: fetching... (retries=${pageRetries}, longPauses=${longPauseCount})`);
         
         const { status: pageStatus, text: pageText } = await toptexGet(pageUrl, token);
         console.log(`[CATSYNC] Page ${page}: status=${pageStatus}, len=${pageText.length}`);
         
-        // Handle errors with retry logic per page
+        // Handle errors - NEVER SKIP, always retry
         if (pageStatus !== 200) {
-          consecutiveErrors++;
-          console.log(`[CATSYNC] ⚠️ Page ${page} error (${consecutiveErrors}/${MAX_PAGE_ERRORS}): HTTP ${pageStatus}`);
+          pageRetries++;
+          console.log(`[CATSYNC] ⚠️ Page ${page} error (retry ${pageRetries}): HTTP ${pageStatus}`);
           
-          if (consecutiveErrors >= MAX_PAGE_ERRORS) {
-            // Skip this page and continue to next
-            console.log(`[CATSYNC] ⏭️ Skipping page ${page} after ${MAX_PAGE_ERRORS} failures, continuing...`);
-            skippedPages.push(page);
-            consecutiveErrors = 0;
-            page++;
+          // Update status with retry info
+          await supabase.from("sync_status").update({
+            error_message: `Page ${page} - Erreur HTTP ${pageStatus} - Tentative ${pageRetries} - ${total} produits`,
+          }).eq("id", jobId);
+          
+          if (pageRetries >= MAX_RETRIES_BEFORE_PAUSE) {
+            longPauseCount++;
             
-            // Update status
-            await supabase.from("sync_status").update({
-              error_message: `Page ${page} - ${total} produits (${skippedPages.length} pages ignorées)`,
-            }).eq("id", jobId);
-            
-            // Safety: if we've skipped 10 consecutive pages, something is very wrong
-            if (skippedPages.length >= 10 && skippedPages.slice(-10).every((p, i) => p === page - 10 + i)) {
-              console.log(`[CATSYNC] ❌ Too many consecutive skipped pages, stopping.`);
-              break;
+            if (longPauseCount > MAX_LONG_PAUSES) {
+              // After 5 long pauses (50+ retries), there's a serious issue
+              // Save state and stop - user can restart from this page
+              console.log(`[CATSYNC] ❌ Page ${page}: ${longPauseCount} long pauses (${pageRetries * longPauseCount}+ retries). Stopping to avoid infinite loop.`);
+              
+              await supabase.from("sync_status").update({
+                status: "failed",
+                error_message: `Échec page ${page} après ${longPauseCount} pauses longues. ${total} produits importés. Relancez pour reprendre.`,
+                products_count: total,
+                completed_at: new Date().toISOString(),
+                finished_in_ms: Date.now() - start,
+              }).eq("id", jobId);
+              
+              return; // Exit completely
             }
             
-            await new Promise(r => setTimeout(r, 5000)); // Wait 5s before next page
-            continue;
+            // Take a long pause (60s) then reset retry counter and try again
+            console.log(`[CATSYNC] ⏸️ Page ${page}: ${pageRetries} échecs. Pause longue ${LONG_PAUSE_SECONDS}s (pause #${longPauseCount})...`);
+            
+            await supabase.from("sync_status").update({
+              error_message: `Page ${page} - Pause ${LONG_PAUSE_SECONDS}s après ${pageRetries} échecs (pause #${longPauseCount}) - ${total} produits`,
+            }).eq("id", jobId);
+            
+            await new Promise(r => setTimeout(r, LONG_PAUSE_SECONDS * 1000));
+            pageRetries = 0; // Reset retry counter after long pause
+            continue; // Retry same page
           }
           
-          // Wait and retry same page
-          const delay = 3000 * consecutiveErrors;
+          // Short exponential backoff: 2s, 4s, 8s, 16s, 32s... capped at 30s
+          const delay = Math.min(2000 * Math.pow(2, pageRetries - 1), 30000);
           console.log(`[CATSYNC] Retrying page ${page} in ${delay / 1000}s...`);
           await new Promise(r => setTimeout(r, delay));
-          continue;
+          continue; // Retry same page
         }
         
-        // Success - reset error counter
-        consecutiveErrors = 0;
+        // Success - reset all error counters
+        pageRetries = 0;
+        longPauseCount = 0;
         
         const pageParsed = parseProductsResponse(pageText);
         
@@ -599,9 +617,7 @@ async function syncCatalog(jobId: string) {
         console.log(`[CATSYNC] ✓ Final batch flushed, total=${total}`);
       }
       
-      const summary = skippedPages.length > 0 
-        ? `Import terminé : ${total} produits (${page} pages, ${skippedPages.length} ignorées)`
-        : `Import terminé : ${total} produits (${page} pages)`;
+      const summary = `Import terminé : ${total} produits (${page} pages)`;
       
       await supabase.from("sync_status").update({
         status: "completed",
@@ -611,7 +627,7 @@ async function syncCatalog(jobId: string) {
         error_message: summary,
       }).eq("id", jobId);
       
-      console.log(`✅ [CATSYNC] Completed: ${total} products, ${page} pages, skipped=${skippedPages.length}, ${(Date.now() - start) / 1000}s`);
+      console.log(`✅ [CATSYNC] Completed: ${total} products, ${page} pages, ${(Date.now() - start) / 1000}s`);
     }
     
   } catch (e: any) {
