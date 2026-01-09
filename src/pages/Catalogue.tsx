@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SyncProgressBar } from '@/components/admin/SyncProgressBar';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { normalizeBrandKey, useToptexBrandLogos } from '@/hooks/useToptexBrandLogos';
 
 // Fallback mock products when API is unavailable
 const mockProducts = [
@@ -335,13 +336,15 @@ export default function Catalogue() {
   const { toast } = useToast();
   const { isAdmin } = useIsAdmin();
 
+  const { data: remoteBrandLogos } = useToptexBrandLogos();
+
   // Load dynamic categories/brands from DB
   const { data: attributesData } = useAttributes();
-  const categories = attributesData?.categories?.length 
-    ? ['Tous', ...attributesData.categories] 
+  const categories = attributesData?.categories?.length
+    ? ['Tous', ...attributesData.categories]
     : defaultCategories;
-  const brands = attributesData?.brands?.length 
-    ? ['Toutes', ...attributesData.brands] 
+  const brands = attributesData?.brands?.length
+    ? ['Toutes', ...attributesData.brands]
     : defaultBrands;
 
   // Avoid spamming resume calls
@@ -736,23 +739,30 @@ export default function Catalogue() {
 
                       {/* Grille des marques filtrées */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {filteredBrandsByLetter.filter(b => b !== 'Toutes').map((brand) => (
-                          <div
-                            key={brand}
-                            onClick={() => setSelectedBrand(brand)}
-                            className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-center h-20 hover:shadow-md hover:border-primary/30 transition-all duration-300 cursor-pointer"
-                          >
-                            {brandLogos[brand] ? (
-                              <img 
-                                src={brandLogos[brand]} 
-                                alt={brand} 
-                                className="max-h-12 max-w-full object-contain"
-                              />
-                            ) : (
-                              <span className="text-sm font-bold text-gray-700 text-center">{brand}</span>
-                            )}
-                          </div>
-                        ))}
+                        {filteredBrandsByLetter.filter(b => b !== 'Toutes').map((brand) => {
+                          const localLogo = brandLogos[brand];
+                          const remoteLogo = remoteBrandLogos?.[brand] || remoteBrandLogos?.[normalizeBrandKey(brand)];
+                          const logo = localLogo || remoteLogo;
+
+                          return (
+                            <div
+                              key={brand}
+                              onClick={() => setSelectedBrand(brand)}
+                              className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-center h-20 hover:shadow-md hover:border-primary/30 transition-all duration-300 cursor-pointer"
+                            >
+                              {logo ? (
+                                <img
+                                  src={logo}
+                                  alt={`Logo ${brand}`}
+                                  loading="lazy"
+                                  className="max-h-12 max-w-full object-contain"
+                                />
+                              ) : (
+                                <span className="text-sm font-bold text-gray-700 text-center">{brand}</span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                       
                       {filteredBrandsByLetter.filter(b => b !== 'Toutes').length === 0 && (
