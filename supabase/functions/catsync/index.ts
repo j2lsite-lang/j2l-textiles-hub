@@ -347,7 +347,7 @@ async function streamParseAndUpsert(response: Response, jobId: string): Promise<
  * Returns the S3 link and ETA.
  */
 async function requestGenerateExport(token: string, jobId: string): Promise<{ link: string; eta?: string }> {
-  const url = `${TOPTEX}/v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=1`;
+  const url = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&display_prices=1&result_in_file=1`;
   
   console.log(`[CATSYNC] Requesting generate export: ${url}`);
   
@@ -397,7 +397,7 @@ async function syncCatalog(jobId: string) {
     let batch: any[] = [];
 
     while (true) {
-      const url = `${TOPTEX}/v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=0&page_number=${page}&page_size=${PAGE_SIZE}`;
+      const url = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&display_prices=1&result_in_file=0&page_number=${page}&page_size=${PAGE_SIZE}`;
       console.log(`[CATSYNC] Fetch page ${page}: ${url}`);
 
       const { status, text } = await toptexGet(url, token);
@@ -458,7 +458,87 @@ async function syncCatalog(jobId: string) {
               
               continue; // Retry with new link
             }
-            throw e; // Max retries reached or different error
+            
+            // Max retries reached for file export - FALLBACK to pagination
+            if (e.retryGenerate) {
+              console.log(`[CATSYNC] ⚠️ File export failed after ${MAX_GENERATE_RETRIES} attempts. Falling back to pagination...`);
+              await supabase.from("sync_status").update({
+                status: "syncing",
+                error_message: `Fichier vide après ${MAX_GENERATE_RETRIES} tentatives. Passage en pagination directe...`,
+              }).eq("id", jobId);
+              
+              // Fallback: use pagination instead of file
+              let paginationTotal = 0;
+              let paginationPage = 1;
+              let paginationBatch: any[] = [];
+              
+              while (true) {
+                const paginationUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&display_prices=1&result_in_file=0&page_number=${paginationPage}&page_size=${PAGE_SIZE}`;
+                console.log(`[CATSYNC] Fallback pagination page ${paginationPage}: ${paginationUrl}`);
+                
+                const pRes = await toptexGet(paginationUrl, token);
+                console.log(`[CATSYNC] Fallback page ${paginationPage}: status=${pRes.status}, len=${pRes.text.length}`);
+                
+                if (pRes.status !== 200) {
+                  throw new Error(`Pagination fallback: HTTP ${pRes.status}`);
+                }
+                
+                const pParsed = parseProductsResponse(pRes.text);
+                
+                if (pParsed.kind === "link") {
+                  // Still getting a link even with result_in_file=0, this is weird
+                  console.error(`[CATSYNC] Still getting file link with result_in_file=0, giving up`);
+                  throw new Error("TopTex returns file link even with result_in_file=0");
+                }
+                
+                if (pParsed.kind === "unknown" || !pParsed.items) {
+                  console.log(`[CATSYNC] Fallback: unknown/empty response, stopping`);
+                  break;
+                }
+                
+                const items = pParsed.items;
+                if (items.length === 0) {
+                  console.log(`[CATSYNC] Fallback: no items on page ${paginationPage}, stop.`);
+                  break;
+                }
+                
+                for (const p of items) {
+                  const n = normalize(p);
+                  if (n.sku) paginationBatch.push({ ...n, synced_at: new Date().toISOString() });
+                }
+                
+                if (paginationBatch.length >= UPSERT_BATCH_SIZE) {
+                  await upsertBatch(paginationBatch);
+                  paginationTotal += paginationBatch.length;
+                  paginationBatch = [];
+                  
+                  await supabase.from("sync_status").update({
+                    products_count: paginationTotal,
+                    error_message: `Pagination page ${paginationPage} - ${paginationTotal} produits...`,
+                  }).eq("id", jobId);
+                }
+                
+                if (items.length < PAGE_SIZE) {
+                  console.log(`[CATSYNC] Fallback: page ${paginationPage} has ${items.length} < ${PAGE_SIZE}, stop.`);
+                  break;
+                }
+                
+                paginationPage++;
+                await new Promise((r) => setTimeout(r, 150));
+              }
+              
+              // Flush remaining
+              if (paginationBatch.length) {
+                await upsertBatch(paginationBatch);
+                paginationTotal += paginationBatch.length;
+              }
+              
+              total = paginationTotal;
+              console.log(`[CATSYNC] Fallback pagination complete: ${paginationTotal} products`);
+              break; // Exit file retry loop, continue to completion
+            }
+            
+            throw e; // Different error, propagate
           }
         }
         break; // Exit main pagination loop
