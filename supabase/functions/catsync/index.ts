@@ -27,9 +27,8 @@ const mask = (v: string) => {
 };
 
 // Configuration
+const PAGE_SIZE = 100; // Produits par page API
 const BATCH_SIZE = 100; // Produits par upsert batch
-const MAX_WAIT_TIME = 600000; // 10 minutes max d'attente pour le fichier S3
-const POLL_INTERVAL = 30000; // 30 secondes entre chaque vérification
 
 async function auth(): Promise<string> {
   console.log("[CATSYNC] Authenticating...");
@@ -71,58 +70,32 @@ async function auth(): Promise<string> {
   return token;
 }
 
-async function requestCatalogLink(token: string): Promise<{ link: string; eta: string }> {
-  console.log("[CATSYNC] Requesting catalog link...");
-
+// Récupérer une page de produits via l'API
+async function fetchProductPage(token: string, pageNumber: number): Promise<{ products: any[]; hasMore: boolean }> {
   const apiKey = envTrim("TOPTEX_API_KEY");
-  const url = `${TOPTEX}/v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=1`;
+  const url = `${TOPTEX}/v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=0&page_number=${pageNumber}&page_size=${PAGE_SIZE}`;
 
-  const tryFetch = (headers: Record<string, string>) =>
-    fetch(url, {
-      headers: {
-        "x-api-key": apiKey,
-        ...headers,
-      },
-    });
-
-  // 1) format actuel
-  let r = await tryFetch({ "x-toptex-authorization": token });
-  let txt = await r.text();
-
-  // 2) fallback si TopTex attend un format Bearer ou un header standard
-  if (!r.ok && (r.status === 401 || r.status === 403)) {
-    console.warn(
-      `[CATSYNC] Link request unauthorized with raw token (status=${r.status}). Retrying with Bearer formats...`,
-    );
-
-    // a) Bearer dans le header x-toptex-authorization
-    r = await tryFetch({ "x-toptex-authorization": `Bearer ${token}` });
-    txt = await r.text();
-
-    // b) Authorization standard
-    if (!r.ok && (r.status === 401 || r.status === 403)) {
-      r = await tryFetch({ Authorization: `Bearer ${token}` });
-      txt = await r.text();
-    }
-  }
+  const r = await fetch(url, {
+    headers: {
+      "x-api-key": apiKey,
+      "x-toptex-authorization": token,
+    },
+  });
 
   if (!r.ok) {
-    console.error(`[CATSYNC] Link request failed: ${r.status} - ${txt.slice(0, 500)}`);
-    throw new Error(`Link: ${r.status} - ${txt.slice(0, 200)}`);
+    const txt = await r.text();
+    console.error(`[CATSYNC] Page ${pageNumber} failed: ${r.status} - ${txt.slice(0, 300)}`);
+    throw new Error(`Page ${pageNumber}: ${r.status}`);
   }
 
-  let data: any;
-  try {
-    data = JSON.parse(txt);
-  } catch {
-    throw new Error(`Link: invalid JSON - ${txt.slice(0, 200)}`);
-  }
-
-  console.log(`[CATSYNC] Catalog link received, ETA: ${data.estimated_time_of_arrival}`);
-  return {
-    link: data.link,
-    eta: data.estimated_time_of_arrival || "unknown",
-  };
+  const data = await r.json();
+  
+  // L'API peut retourner un tableau directement ou un objet avec une propriété
+  const products = Array.isArray(data) ? data : (data.products || data.items || data.data || []);
+  const hasMore = products.length >= PAGE_SIZE;
+  
+  console.log(`[CATSYNC] Page ${pageNumber}: ${products.length} products, hasMore=${hasMore}`);
+  return { products, hasMore };
 }
 
 function normalize(p: any): any {
@@ -132,112 +105,21 @@ function normalize(p: any): any {
     brand: p.marque || p.brand || "", 
     category: p.famille || p.category || "", 
     description: p.description || "", 
+    composition: p.composition || "",
+    weight: p.poids || p.weight || "",
+    price_ht: parseFloat(p.prix_ht || p.price_ht || p.price || 0) || null,
     images: (p.images || []).map((i: any) => typeof i === "string" ? i : i?.url || ""), 
-    colors: (p.couleurs || []).map((c: any) => ({ name: c.nom || c, code: c.code || "" })), 
-    sizes: p.tailles || [], 
+    colors: (p.couleurs || p.colors || []).map((c: any) => ({ 
+      name: typeof c === "string" ? c : (c.nom || c.name || c), 
+      code: c.code || "" 
+    })), 
+    sizes: p.tailles || p.sizes || [], 
+    variants: p.declinaisons || p.variants || [],
     raw_data: p 
   };
 }
 
-// Parse le JSON en streaming pour éviter de tout charger en mémoire
-async function streamParseAndUpsert(response: Response, jobId: string): Promise<number> {
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response body");
-  
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let totalCount = 0;
-  let batch: any[] = [];
-  let inArray = false;
-  let depth = 0;
-  let objectBuffer = "";
-  let objectStart = false;
-  
-  console.log("[CATSYNC] Starting stream parsing...");
-  
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    
-    buffer += decoder.decode(value, { stream: true });
-    
-    // Parse caractère par caractère pour extraire les objets JSON
-    let i = 0;
-    while (i < buffer.length) {
-      const char = buffer[i];
-      
-      if (!inArray && char === '[') {
-        inArray = true;
-        i++;
-        continue;
-      }
-      
-      if (inArray) {
-        if (char === '{') {
-          if (depth === 0) objectStart = true;
-          depth++;
-          objectBuffer += char;
-        } else if (char === '}') {
-          depth--;
-          objectBuffer += char;
-          
-          if (depth === 0 && objectStart) {
-            // On a un objet complet
-            try {
-              const product = JSON.parse(objectBuffer);
-              const normalized = normalize(product);
-              if (normalized.sku) {
-                batch.push({ ...normalized, synced_at: new Date().toISOString() });
-              }
-              
-              // Upsert par batch
-              if (batch.length >= BATCH_SIZE) {
-                const { error } = await supabase.from("products").upsert(batch, { onConflict: "sku" });
-                if (error) {
-                  console.error(`[CATSYNC] Upsert error:`, error.message);
-                } else {
-                  totalCount += batch.length;
-                  // Mettre à jour le statut périodiquement
-                  if (totalCount % 1000 === 0) {
-                    console.log(`[CATSYNC] Progress: ${totalCount} products`);
-                    await supabase.from("sync_status").update({ 
-                      error_message: `${totalCount} produits synchronisés...`,
-                      products_count: totalCount
-                    }).eq("id", jobId);
-                  }
-                }
-                batch = [];
-              }
-            } catch (e) {
-              // Ignore les erreurs de parsing - objet mal formé
-            }
-            objectBuffer = "";
-            objectStart = false;
-          }
-        } else if (depth > 0) {
-          objectBuffer += char;
-        }
-      }
-      i++;
-    }
-    
-    // Garder le reste du buffer
-    buffer = buffer.slice(i);
-  }
-  
-  // Upsert le dernier batch
-  if (batch.length > 0) {
-    const { error } = await supabase.from("products").upsert(batch, { onConflict: "sku" });
-    if (!error) {
-      totalCount += batch.length;
-    }
-  }
-  
-  console.log(`[CATSYNC] Stream parsing complete: ${totalCount} products`);
-  return totalCount;
-}
-
-async function syncJob(jobId: string) {
+async function syncWithPagination(jobId: string) {
   const upd = (s: string, e: any = {}) => supabase.from("sync_status").update({ status: s, ...e }).eq("id", jobId);
   const start = Date.now();
   
@@ -246,82 +128,66 @@ async function syncJob(jobId: string) {
     await upd("authenticating");
     const token = await auth();
     
-    // 2. Demander le lien du catalogue
-    await upd("requesting_catalog");
-    const { link, eta } = await requestCatalogLink(token);
-    await supabase.from("sync_status").update({ s3_link: link, eta }).eq("id", jobId);
+    // 2. Synchronisation par pagination
+    await upd("syncing", { error_message: "Démarrage de la synchronisation par pagination..." });
     
-    // 3. Attendre que le fichier soit prêt (polling)
-    await upd("waiting_for_file", { error_message: `ETA: ${eta}` });
+    let pageNumber = 1;
+    let totalCount = 0;
+    let hasMore = true;
+    let batch: any[] = [];
     
-    let fileReady = false;
-    let pollCount = 0;
-    const maxPolls = Math.ceil(MAX_WAIT_TIME / POLL_INTERVAL);
-    
-    while (!fileReady && pollCount < maxPolls) {
-      pollCount++;
-      console.log(`[CATSYNC] Polling S3 file (attempt ${pollCount})...`);
+    while (hasMore) {
+      console.log(`[CATSYNC] Fetching page ${pageNumber}...`);
       
-      // Attendre avant de vérifier
-      await new Promise(r => setTimeout(r, POLL_INTERVAL));
+      const { products, hasMore: more } = await fetchProductPage(token, pageNumber);
+      hasMore = more;
       
-      try {
-        const headResponse = await fetch(link, { method: "HEAD" });
-
-        if (headResponse.ok) {
-          const contentLength = parseInt(headResponse.headers.get("content-length") || "0");
-          console.log(`[CATSYNC] S3 file available, size: ${contentLength} bytes`);
-
-          // Vérifier que le fichier fait au moins 1MB (pas vide)
-          if (contentLength > 1024 * 1024) {
-            await supabase.from("sync_status").update({
-              s3_content_length: contentLength,
-              s3_poll_count: pollCount,
-            }).eq("id", jobId);
-            fileReady = true;
-          } else {
-            console.log(`[CATSYNC] File too small (${contentLength}), waiting...`);
-            await supabase.from("sync_status").update({
-              s3_poll_count: pollCount,
-              error_message: `Fichier en cours de génération (${pollCount}/${maxPolls})...`,
-            }).eq("id", jobId);
-          }
-        } else {
-          // IMPORTANT: TopTex peut renvoyer 403 tant que l'objet S3 n'existe pas encore.
-          // Ce n'est pas forcément un lien expiré.
-          console.log(`[CATSYNC] S3 not ready yet (status=${headResponse.status})`);
-          await supabase.from("sync_status").update({
-            s3_poll_count: pollCount,
-            error_message: `Fichier non prêt (${headResponse.status}) (${pollCount}/${maxPolls})...`,
-          }).eq("id", jobId);
+      if (products.length === 0) {
+        console.log(`[CATSYNC] No products on page ${pageNumber}, stopping`);
+        break;
+      }
+      
+      // Normaliser les produits
+      for (const p of products) {
+        const normalized = normalize(p);
+        if (normalized.sku) {
+          batch.push({ ...normalized, synced_at: new Date().toISOString() });
         }
-      } catch (e: any) {
-        console.log(`[CATSYNC] Poll error: ${e.message}`);
+      }
+      
+      // Upsert par batch
+      if (batch.length >= BATCH_SIZE) {
+        const { error } = await supabase.from("products").upsert(batch, { onConflict: "sku" });
+        if (error) {
+          console.error(`[CATSYNC] Upsert error on page ${pageNumber}:`, error.message);
+        } else {
+          totalCount += batch.length;
+          console.log(`[CATSYNC] Upserted ${batch.length} products (total: ${totalCount})`);
+        }
+        batch = [];
+        
+        // Mettre à jour le statut
+        await supabase.from("sync_status").update({ 
+          error_message: `Page ${pageNumber} - ${totalCount} produits synchronisés...`,
+          products_count: totalCount
+        }).eq("id", jobId);
+      }
+      
+      pageNumber++;
+      
+      // Petite pause pour ne pas surcharger l'API
+      await new Promise(r => setTimeout(r, 200));
+    }
+    
+    // Upsert le dernier batch
+    if (batch.length > 0) {
+      const { error } = await supabase.from("products").upsert(batch, { onConflict: "sku" });
+      if (!error) {
+        totalCount += batch.length;
       }
     }
     
-    if (!fileReady) {
-      throw new Error(`File not ready after ${maxPolls} polls`);
-    }
-    
-    // 4. Télécharger et parser en streaming
-    await upd("downloading");
-    console.log("[CATSYNC] Starting download with streaming...");
-    
-    const response = await fetch(link);
-    if (!response.ok) {
-      throw new Error(`Download failed: ${response.status}`);
-    }
-    
-    await supabase.from("sync_status").update({ 
-      download_bytes: parseInt(response.headers.get("content-length") || "0")
-    }).eq("id", jobId);
-    
-    // 5. Parser et upserter en streaming
-    await upd("syncing", { error_message: "Parsing en streaming..." });
-    const totalCount = await streamParseAndUpsert(response, jobId);
-    
-    // 6. Terminé
+    // 3. Terminé
     await supabase.from("sync_status").update({ 
       status: "completed", 
       products_count: totalCount, 
@@ -330,7 +196,7 @@ async function syncJob(jobId: string) {
       error_message: null
     }).eq("id", jobId);
     
-    console.log(`✅ [CATSYNC] Completed: ${totalCount} products in ${Date.now() - start}ms`);
+    console.log(`✅ [CATSYNC] Completed: ${totalCount} products in ${(Date.now() - start) / 1000}s (${pageNumber - 1} pages)`);
     
   } catch (e: any) {
     console.error(`[CATSYNC] Error:`, e);
@@ -359,7 +225,7 @@ Deno.serve(async (req) => {
       status: jobs?.[0]?.status || "never", 
       product_count_db: count, 
       last_sync: jobs?.[0],
-      sync_method: "streaming"
+      sync_method: "pagination"
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   
@@ -374,7 +240,7 @@ Deno.serve(async (req) => {
     
     // Créer un nouveau job
     const { data: job } = await supabase.from("sync_status").insert({ 
-      sync_type: "catalog_streaming", 
+      sync_type: "catalog_pagination", 
       status: "started" 
     }).select().single();
     
@@ -386,12 +252,12 @@ Deno.serve(async (req) => {
     }
     
     // Lancer en background
-    ((globalThis as any).EdgeRuntime?.waitUntil || ((p: any) => p))(syncJob(job.id));
+    ((globalThis as any).EdgeRuntime?.waitUntil || ((p: any) => p))(syncWithPagination(job.id));
     
     return new Response(JSON.stringify({ 
       success: true, 
       job_id: job.id,
-      sync_method: "streaming"
+      sync_method: "pagination"
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   
