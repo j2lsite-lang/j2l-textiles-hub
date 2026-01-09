@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Filter, X, Loader2, ShoppingBag, AlertCircle } from 'lucide-react';
+import { Search, Filter, X, Loader2, ShoppingBag, AlertCircle, RefreshCw } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useCatalog } from '@/hooks/useTopTex';
 import { Product } from '@/lib/toptex-api';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 // Fallback mock products when API is unavailable
 const mockProducts = [
@@ -315,6 +317,77 @@ export default function Catalogue() {
   const [selectedLetter, setSelectedLetter] = useState('Tous');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  // Lancer la synchronisation du catalogue
+  const handleSync = async () => {
+    setIsSyncing(true);
+    setSyncStatus('Démarrage...');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('catsync', {
+        body: { action: 'start' }
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Synchronisation lancée",
+        description: "Le catalogue est en cours de mise à jour. Cela peut prendre quelques minutes.",
+      });
+      
+      setSyncStatus('En cours...');
+      
+      // Polling pour suivre la progression
+      const pollStatus = async () => {
+        const { data: statusData } = await supabase.functions.invoke('catsync', {
+          body: { action: 'status' }
+        });
+        
+        if (statusData?.last_sync) {
+          const status = statusData.last_sync.status;
+          const count = statusData.last_sync.products_count || 0;
+          
+          if (status === 'completed') {
+            setSyncStatus(null);
+            setIsSyncing(false);
+            toast({
+              title: "Synchronisation terminée",
+              description: `${count} produits synchronisés avec succès.`,
+            });
+            // Rafraîchir la page pour voir les nouveaux produits
+            window.location.reload();
+          } else if (status === 'failed') {
+            setSyncStatus(null);
+            setIsSyncing(false);
+            toast({
+              title: "Erreur de synchronisation",
+              description: statusData.last_sync.error_message || "Une erreur est survenue",
+              variant: "destructive",
+            });
+          } else {
+            // Toujours en cours
+            setSyncStatus(`${count} produits...`);
+            setTimeout(pollStatus, 3000);
+          }
+        }
+      };
+      
+      setTimeout(pollStatus, 2000);
+      
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      setIsSyncing(false);
+      setSyncStatus(null);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de lancer la synchronisation",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Filtrer les marques par lettre
   const filteredBrandsByLetter = brands.filter(b => {
@@ -401,7 +474,17 @@ export default function Catalogue() {
               />
             </form>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {/* Bouton Synchroniser */}
+              <Button 
+                variant="outline" 
+                onClick={handleSync}
+                disabled={isSyncing}
+                className="gap-2"
+              >
+                <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+                {isSyncing ? (syncStatus || 'Sync...') : 'Synchroniser'}
+              </Button>
               <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
                 <SheetTrigger asChild>
                   <Button variant="outline" className="lg:hidden">
