@@ -15,7 +15,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { useCatalog } from '@/hooks/useTopTex';
+import { useCatalog, useAttributes } from '@/hooks/useTopTex';
 import { Product } from '@/lib/toptex-api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -106,8 +106,9 @@ const mockProducts = [
   },
 ];
 
-const categories = ['Tous', 'T-shirts', 'Polos', 'Sweats', 'Vestes', 'Accessoires', 'Bagagerie'];
-const brands = ['Toutes', 'Stanley/Stella', 'James & Nicholson', 'B&C', 'Gildan', 'K-Up', 'Kimood'];
+// Default values - will be replaced by dynamic values from useAttributes hook
+const defaultCategories = ['Tous', 'T-shirts', 'Polos', 'Sweats', 'Vestes', 'Accessoires', 'Bagagerie'];
+const defaultBrands = ['Toutes', 'Stanley/Stella', 'James & Nicholson', 'B&C', 'Gildan', 'K-Up', 'Kimood'];
 
 function getColorStyle(colorName: string, colorCode?: string): string {
   if (colorCode && colorCode.startsWith('#')) return colorCode;
@@ -257,11 +258,15 @@ function FilterSidebar({
   setSelectedCategory,
   selectedBrand,
   setSelectedBrand,
+  categories,
+  brands,
 }: {
   selectedCategory: string;
   setSelectedCategory: (v: string) => void;
   selectedBrand: string;
   setSelectedBrand: (v: string) => void;
+  categories: string[];
+  brands: string[];
 }) {
   return (
     <div className="space-y-6">
@@ -323,6 +328,15 @@ export default function Catalogue() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const { toast } = useToast();
   const { isAdmin } = useIsAdmin();
+
+  // Load dynamic categories/brands from DB
+  const { data: attributesData } = useAttributes();
+  const categories = attributesData?.categories?.length 
+    ? ['Tous', ...attributesData.categories] 
+    : defaultCategories;
+  const brands = attributesData?.brands?.length 
+    ? ['Toutes', ...attributesData.brands] 
+    : defaultBrands;
 
   // Avoid spamming resume calls
   const lastAutoResumeAtRef = useRef<number>(0);
@@ -597,6 +611,8 @@ export default function Catalogue() {
                         setPage(1);
                         setIsFilterOpen(false);
                       }}
+                      categories={categories}
+                      brands={brands}
                     />
                   </div>
                 </SheetContent>
@@ -651,6 +667,8 @@ export default function Catalogue() {
                   setSelectedCategory={(v) => { setSelectedCategory(v); setPage(1); }}
                   selectedBrand={selectedBrand}
                   setSelectedBrand={(v) => { setSelectedBrand(v); setPage(1); }}
+                  categories={categories}
+                  brands={brands}
                 />
               </div>
             </aside>

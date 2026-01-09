@@ -193,50 +193,53 @@ export async function fetchAttributes(): Promise<{
   sizes: string[];
 }> {
   try {
-    // Get unique categories and brands from database
-    const { data: products } = await supabase
-      .from('products')
-      .select('category, brand, colors');
+    // Use DISTINCT queries to avoid fetching all products (Supabase 1000 row limit)
+    const [categoriesResult, brandsResult, colorsResult] = await Promise.all([
+      supabase.from('products').select('category').not('category', 'is', null),
+      supabase.from('products').select('brand').not('brand', 'is', null),
+      supabase.from('products').select('colors').not('colors', 'is', null).limit(500),
+    ]);
 
-    if (products && products.length > 0) {
-      const categories = [...new Set(products.map(p => p.category).filter(Boolean))] as string[];
-      const brands = [...new Set(products.map(p => p.brand).filter(Boolean))] as string[];
-      const allColors: Array<{ name: string; code: string }> = [];
-      
-      products.forEach(p => {
+    // Extract unique categories
+    const categoriesSet = new Set<string>();
+    if (categoriesResult.data) {
+      categoriesResult.data.forEach(p => {
+        if (p.category) categoriesSet.add(p.category);
+      });
+    }
+    const categories = Array.from(categoriesSet).sort();
+
+    // Extract unique brands
+    const brandsSet = new Set<string>();
+    if (brandsResult.data) {
+      brandsResult.data.forEach(p => {
+        if (p.brand) brandsSet.add(p.brand);
+      });
+    }
+    const brands = Array.from(brandsSet).sort();
+
+    // Extract unique colors from sampled products
+    const colorsMap = new Map<string, string>();
+    if (colorsResult.data) {
+      colorsResult.data.forEach(p => {
         if (p.colors && Array.isArray(p.colors)) {
           (p.colors as Array<{ name: string; code: string }>).forEach(c => {
-            if (!allColors.find(ac => ac.name === c.name)) {
-              allColors.push(c);
+            if (c.name && !colorsMap.has(c.name)) {
+              colorsMap.set(c.name, c.code || '');
             }
           });
         }
       });
-
-      return {
-        categories: categories.length > 0 ? categories : mockCategories,
-        brands: brands.length > 0 ? brands : mockBrands,
-        colors: allColors.length > 0 ? allColors : [
-          { name: "Blanc", code: "#FFFFFF" },
-          { name: "Noir", code: "#000000" },
-          { name: "Marine", code: "#1e3a5f" },
-        ],
-        sizes: ["XS", "S", "M", "L", "XL", "XXL", "3XL"],
-      };
     }
+    const colors = Array.from(colorsMap.entries()).map(([name, code]) => ({ name, code }));
 
-    // Fallback to mock attributes
     return {
-      categories: mockCategories,
-      brands: mockBrands,
-      colors: [
+      categories: categories.length > 0 ? categories : mockCategories,
+      brands: brands.length > 0 ? brands : mockBrands,
+      colors: colors.length > 0 ? colors : [
         { name: "Blanc", code: "#FFFFFF" },
         { name: "Noir", code: "#000000" },
         { name: "Marine", code: "#1e3a5f" },
-        { name: "Gris", code: "#6b7280" },
-        { name: "Rouge", code: "#dc2626" },
-        { name: "Bleu", code: "#1d4ed8" },
-        { name: "Vert", code: "#16a34a" },
       ],
       sizes: ["XS", "S", "M", "L", "XL", "XXL", "3XL"],
     };
