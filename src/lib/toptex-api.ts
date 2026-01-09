@@ -61,7 +61,31 @@ export async function fetchCatalog(filters: CatalogFilters = {}): Promise<Catalo
       dbQuery = dbQuery.or(`name.ilike.%${query}%,sku.ilike.%${query}%,brand.ilike.%${query}%`);
     }
     if (category && category !== 'Tous') {
-      dbQuery = dbQuery.ilike('category', `%${category}%`);
+      // Check if it's a smart sub-category (based on product name)
+      const smartCategories: Record<string, string[]> = {
+        'T-shirts': ['t-shirt', 'tee-shirt', 'tee shirt', 't shirt'],
+        'Polos': ['polo'],
+        'Sweats': ['sweat', 'hoodie', 'capuche'],
+        'Vestes': ['veste', 'jacket', 'softshell', 'parka', 'blouson', 'doudoune', 'manteau'],
+        'Chemises': ['chemise', 'blouse', 'shirt'],
+        'Pantalons': ['pantalon', 'jean', 'jogging', 'short', 'bermuda'],
+        'Casquettes': ['casquette', 'cap', 'bonnet', 'chapeau', 'bob', 'bandana'],
+        'Sacs': ['sac', 'bag', 'backpack', 'cabas', 'besace', 'pochette', 'trousse'],
+        'Serviettes': ['serviette', 'towel', 'drap', 'peignoir'],
+        'Tabliers': ['tablier', 'apron'],
+        'Gilets': ['gilet', 'bodywarmer', 'débardeur'],
+        'Accessoires': ['parapluie', 'cravate', 'foulard', 'écharpe', 'gant', 'ceinture'],
+      };
+      
+      const keywords = smartCategories[category];
+      if (keywords) {
+        // Search in product name for any of the keywords
+        const orConditions = keywords.map(k => `name.ilike.%${k}%`).join(',');
+        dbQuery = dbQuery.or(orConditions);
+      } else {
+        // Standard category filter
+        dbQuery = dbQuery.ilike('category', `%${category}%`);
+      }
     }
     if (brand && brand !== 'Toutes') {
       dbQuery = dbQuery.ilike('brand', `%${brand}%`);
@@ -186,6 +210,34 @@ export async function fetchProduct(sku: string): Promise<Product> {
   }
 }
 
+// Sous-catégories intelligentes basées sur le nom du produit
+const productTypeKeywords: Record<string, string[]> = {
+  'T-shirts': ['t-shirt', 'tee-shirt', 'tee shirt', 't shirt'],
+  'Polos': ['polo'],
+  'Sweats': ['sweat', 'hoodie', 'capuche'],
+  'Vestes': ['veste', 'jacket', 'softshell', 'parka', 'blouson', 'doudoune', 'manteau'],
+  'Chemises': ['chemise', 'blouse', 'shirt'],
+  'Pantalons': ['pantalon', 'jean', 'jogging', 'short', 'bermuda'],
+  'Casquettes': ['casquette', 'cap', 'bonnet', 'chapeau', 'bob', 'bandana'],
+  'Sacs': ['sac', 'bag', 'backpack', 'cabas', 'besace', 'pochette', 'trousse'],
+  'Serviettes': ['serviette', 'towel', 'drap', 'peignoir'],
+  'Tabliers': ['tablier', 'apron'],
+  'Gilets': ['gilet', 'bodywarmer', 'débardeur'],
+  'Accessoires': ['parapluie', 'cravate', 'foulard', 'écharpe', 'gant', 'ceinture'],
+};
+
+function detectProductType(productName: string): string | null {
+  const nameLower = productName.toLowerCase();
+  for (const [category, keywords] of Object.entries(productTypeKeywords)) {
+    for (const keyword of keywords) {
+      if (nameLower.includes(keyword)) {
+        return category;
+      }
+    }
+  }
+  return null;
+}
+
 export async function fetchAttributes(): Promise<{
   categories: string[];
   brands: string[];
@@ -193,21 +245,42 @@ export async function fetchAttributes(): Promise<{
   sizes: string[];
 }> {
   try {
-    // Use DISTINCT queries to avoid fetching all products (Supabase 1000 row limit)
-    const [categoriesResult, brandsResult, colorsResult] = await Promise.all([
-      supabase.from('products').select('category').not('category', 'is', null),
+    // Fetch product names to detect sub-categories, plus brands and colors
+    const [productsResult, brandsResult, colorsResult] = await Promise.all([
+      supabase.from('products').select('name, category').limit(1000),
       supabase.from('products').select('brand').not('brand', 'is', null),
       supabase.from('products').select('colors').not('colors', 'is', null).limit(500),
     ]);
 
-    // Extract unique categories
-    const categoriesSet = new Set<string>();
-    if (categoriesResult.data) {
-      categoriesResult.data.forEach(p => {
-        if (p.category) categoriesSet.add(p.category);
+    // Extract smart sub-categories from product names
+    const subCategoriesCount = new Map<string, number>();
+    const mainCategoriesSet = new Set<string>();
+    
+    if (productsResult.data) {
+      productsResult.data.forEach(p => {
+        // Add main category
+        if (p.category) mainCategoriesSet.add(p.category);
+        
+        // Detect product type from name
+        const productType = detectProductType(p.name);
+        if (productType) {
+          subCategoriesCount.set(productType, (subCategoriesCount.get(productType) || 0) + 1);
+        }
       });
     }
-    const categories = Array.from(categoriesSet).sort();
+    
+    // Build ordered categories: main sub-categories first, then other categories
+    const orderedSubCategories = Array.from(subCategoriesCount.entries())
+      .filter(([_, count]) => count >= 5) // Only show categories with at least 5 products
+      .sort((a, b) => b[1] - a[1]) // Sort by count
+      .map(([name]) => name);
+    
+    // Main categories that aren't covered by sub-categories
+    const remainingCategories = Array.from(mainCategoriesSet)
+      .filter(cat => !['Vêtements', 'Produits'].includes(cat)) // Skip generic ones
+      .sort();
+
+    const categories = [...orderedSubCategories, ...remainingCategories];
 
     // Extract unique brands
     const brandsSet = new Set<string>();
