@@ -80,11 +80,16 @@ export type Database = {
       sync_status: {
         Row: {
           completed_at: string | null
+          current_page: number
           download_bytes: number | null
           error_message: string | null
           eta: string | null
           finished_in_ms: number | null
+          heartbeat_at: string
           id: string
+          last_successful_page: number
+          next_retry_at: string | null
+          page_retry_attempt: number
           products_count: number | null
           s3_content_length: number | null
           s3_link: string | null
@@ -95,11 +100,16 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          current_page?: number
           download_bytes?: number | null
           error_message?: string | null
           eta?: string | null
           finished_in_ms?: number | null
+          heartbeat_at?: string
           id?: string
+          last_successful_page?: number
+          next_retry_at?: string | null
+          page_retry_attempt?: number
           products_count?: number | null
           s3_content_length?: number | null
           s3_link?: string | null
@@ -110,11 +120,16 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          current_page?: number
           download_bytes?: number | null
           error_message?: string | null
           eta?: string | null
           finished_in_ms?: number | null
+          heartbeat_at?: string
           id?: string
+          last_successful_page?: number
+          next_retry_at?: string | null
+          page_retry_attempt?: number
           products_count?: number | null
           s3_content_length?: number | null
           s3_link?: string | null

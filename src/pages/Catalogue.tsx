@@ -321,21 +321,40 @@ export default function Catalogue() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Lancer la synchronisation du catalogue
-  const handleSync = async () => {
+  // Lancer ou reprendre la synchronisation du catalogue
+  const handleSync = async (forceRestart = false) => {
     setIsSyncing(true);
     setSyncStatus('Démarrage...');
     
     try {
+      // First check status to see if we should resume
+      const { data: statusCheck } = await supabase.functions.invoke('catsync', {
+        body: { action: 'status' }
+      });
+      
+      let action = 'start';
+      if (!forceRestart && statusCheck?.last_sync) {
+        const lastSync = statusCheck.last_sync;
+        // If there's a stale syncing or paused job, try to resume
+        if (lastSync.status === 'syncing' || lastSync.status === 'paused') {
+          action = 'resume';
+          setSyncStatus(`Reprise depuis page ${(lastSync.last_successful_page || 0) + 1}...`);
+        }
+      }
+      
       const { data, error } = await supabase.functions.invoke('catsync', {
-        body: { action: 'start' }
+        body: { action: forceRestart ? 'force-restart' : action }
       });
       
       if (error) throw error;
       
+      const resumeInfo = data?.resumed 
+        ? ` (reprise page ${data.resume_from_page}, ${data.existing_products} produits existants)`
+        : '';
+      
       toast({
-        title: "Synchronisation lancée",
-        description: "Le catalogue est en cours de mise à jour. Cela peut prendre quelques minutes.",
+        title: data?.resumed ? "Synchronisation reprise" : "Synchronisation lancée",
+        description: `Le catalogue est en cours de mise à jour${resumeInfo}. Cela peut prendre plusieurs minutes.`,
       });
       
       setSyncStatus('En cours...');
@@ -350,7 +369,9 @@ export default function Catalogue() {
           const lastSync = statusData.last_sync;
           const status = lastSync.status;
           const count = lastSync.products_count || 0;
-          const pollCount = lastSync.s3_poll_count || 0;
+          const currentPage = lastSync.current_page || 0;
+          const lastSuccessfulPage = lastSync.last_successful_page || 0;
+          const retryAttempt = lastSync.page_retry_attempt || 0;
           const errMsg = lastSync.error_message || '';
           
           if (status === 'completed') {
@@ -367,7 +388,7 @@ export default function Catalogue() {
             } else {
               toast({
                 title: "Synchronisation terminée (0 produit)",
-                description: "Le job s'est terminé mais aucun produit n'a été importé. Relance la synchro; si ça persiste, c'est côté TopTex (fichier non disponible / lien expiré).",
+                description: "Le job s'est terminé mais aucun produit n'a été importé.",
                 variant: "destructive",
               });
             }
@@ -379,25 +400,36 @@ export default function Catalogue() {
               description: errMsg || "Une erreur est survenue",
               variant: "destructive",
             });
+          } else if (status === 'paused') {
+            setSyncStatus(null);
+            setIsSyncing(false);
+            toast({
+              title: "Synchronisation en pause",
+              description: `${count} produits importés. Cliquez sur Synchroniser pour reprendre.`,
+              variant: "default",
+            });
           } else {
-            // Toujours en cours - afficher plus de détails
-            let statusText = `${count} produits...`;
-            if (status === 'waiting_for_file') {
-              statusText = `Génération fichier (${pollCount}/90)...`;
-            } else if (status === 'downloading') {
-              statusText = 'Téléchargement...';
-            } else if (status === 'syncing' && count > 0) {
-              statusText = `Import: ${count} produits...`;
-            } else if (errMsg) {
+            // Toujours en cours - afficher progression détaillée
+            let statusText = `Page ${currentPage}`;
+            if (retryAttempt > 0) {
+              statusText += ` (tentative ${retryAttempt})`;
+            }
+            statusText += ` - ${count} produits`;
+            
+            if (errMsg && !errMsg.startsWith('Page')) {
               statusText = errMsg;
             }
+            
             setSyncStatus(statusText);
-            setTimeout(pollStatus, 3000);
+            setTimeout(pollStatus, 2000); // Poll every 2s for faster updates
           }
+        } else {
+          // No status data, keep polling
+          setTimeout(pollStatus, 3000);
         }
       };
       
-      setTimeout(pollStatus, 2000);
+      setTimeout(pollStatus, 1500);
       
     } catch (error: any) {
       console.error('Sync error:', error);
@@ -500,7 +532,7 @@ export default function Catalogue() {
               {/* Bouton Synchroniser */}
               <Button 
                 variant="outline" 
-                onClick={handleSync}
+                onClick={() => handleSync()}
                 disabled={isSyncing}
                 className="gap-2"
               >
