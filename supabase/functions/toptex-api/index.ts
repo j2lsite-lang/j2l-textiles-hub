@@ -216,6 +216,91 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ========== GET /test - Direct TopTex API test ==========
+    if (action === "test") {
+      const TOPTEX_BASE = (Deno.env.get("TOPTEX_BASE_URL") || "").trim().replace(/\/+$/, "");
+      const TOPTEX_KEY = (Deno.env.get("TOPTEX_API_KEY") || "").trim();
+      const TOPTEX_SECRET = (Deno.env.get("TOPTEX_API_SECRET") || "").trim();
+
+      if (!TOPTEX_BASE || !TOPTEX_KEY || !TOPTEX_SECRET) {
+        return jsonResponse({ 
+          error: "Missing TopTex credentials",
+          has_base: !!TOPTEX_BASE,
+          has_key: !!TOPTEX_KEY,
+          has_secret: !!TOPTEX_SECRET
+        }, 500);
+      }
+
+      // Step 1: Authenticate to get token
+      const authUrl = `${TOPTEX_BASE}/v2/auth`;
+      console.log(`[TEST] Auth: POST ${authUrl}`);
+      
+      const authRes = await fetch(authUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": TOPTEX_KEY },
+        body: JSON.stringify({ api_secret: TOPTEX_SECRET }),
+      });
+      const authText = await authRes.text();
+      console.log(`[TEST] Auth response: status=${authRes.status}, body=${authText.slice(0, 300)}`);
+
+      if (!authRes.ok) {
+        return jsonResponse({
+          step: "auth",
+          status: authRes.status,
+          error: authText.slice(0, 500)
+        }, authRes.status);
+      }
+
+      let token = "";
+      try {
+        const authJson = JSON.parse(authText);
+        token = authJson.access_token || authJson.token || "";
+      } catch {
+        return jsonResponse({ step: "auth", error: "Cannot parse auth response", body: authText.slice(0, 300) }, 500);
+      }
+
+      if (!token) {
+        return jsonResponse({ step: "auth", error: "No token in response", body: authText.slice(0, 300) }, 500);
+      }
+
+      // Step 2: Call /v2/products/all with usage_right=b2b_uniquement
+      const testUrl = `${TOPTEX_BASE}/v2/products/all?usage_right=b2b_uniquement&page_number=1&page_size=40`;
+      console.log(`[TEST] Products: GET ${testUrl}`);
+
+      const prodRes = await fetch(testUrl, {
+        method: "GET",
+        headers: {
+          "x-api-key": TOPTEX_KEY,
+          "x-toptex-authorization": token,
+          "Accept": "application/json",
+        },
+      });
+      const prodText = await prodRes.text();
+      console.log(`[TEST] Products response: status=${prodRes.status}, len=${prodText.length}, body=${prodText.slice(0, 500)}`);
+
+      let prodData: any = null;
+      try {
+        prodData = JSON.parse(prodText);
+      } catch {
+        prodData = { raw: prodText.slice(0, 1000) };
+      }
+
+      const productCount = Array.isArray(prodData) ? prodData.length : 
+                           Array.isArray(prodData?.items) ? prodData.items.length :
+                           Array.isArray(prodData?.products) ? prodData.products.length : 0;
+
+      return jsonResponse({
+        step: "products",
+        status: prodRes.status,
+        productCount,
+        sample: Array.isArray(prodData) ? prodData.slice(0, 2) : 
+                Array.isArray(prodData?.items) ? prodData.items.slice(0, 2) :
+                Array.isArray(prodData?.products) ? prodData.products.slice(0, 2) :
+                prodData,
+        url: testUrl
+      });
+    }
+
     return jsonResponse({ error: "Unknown action" }, 400);
 
   } catch (err: unknown) {
