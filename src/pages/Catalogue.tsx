@@ -166,22 +166,28 @@ import russellLogo from '@/assets/brands/russell.jpg';
 import solsLogo from '@/assets/brands/sols.jpg';
 import stanleyLogo from '@/assets/brands/stanley-stella.jpg';
 
-// Liste des marques avec leurs logos (ordre alphabétique)
+// Liste des marques avec leurs logos (mapping complet avec toutes les variantes de noms)
 const brandLogos: Record<string, string> = {
+  // Noms exacts de TopTex
   'B&C': bcLogo,
+  'BagBase®': bagbaseLogo,
   'BagBase': bagbaseLogo,
   'Fruit of the Loom': fruitLogo,
   'Gildan': gildanLogo,
-  'James & Nicholson': jamesLogo,
   'Kariban': karibanLogo,
+  'Kariban Premium': karibanLogo,
   'Kimood': kimoodLogo,
+  'K-up': kupLogo,
   'K-Up': kupLogo,
   'Native Spirit': nativeSpiritLogo,
+  'PROACT®': proactLogo,
+  'PROACT': proactLogo,
   'Proact': proactLogo,
   'Result': resultLogo,
   'Russell': russellLogo,
   "Sol's": solsLogo,
   'Stanley/Stella': stanleyLogo,
+  'James & Nicholson': jamesLogo,
 };
 
 function ProductCard({ product }: { product: DisplayProduct }) {
