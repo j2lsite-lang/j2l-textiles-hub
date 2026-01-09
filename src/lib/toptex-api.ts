@@ -245,58 +245,84 @@ export async function fetchAttributes(): Promise<{
   sizes: string[];
 }> {
   try {
-    // Fetch product names to detect sub-categories, plus brands and colors
-    const [productsResult, brandsResult, colorsResult] = await Promise.all([
-      supabase.from('products').select('name, category').limit(1000),
-      supabase.from('products').select('brand').not('brand', 'is', null),
-      supabase.from('products').select('colors').not('colors', 'is', null).limit(500),
-    ]);
+    // 1) Compute smart category counts in DB (no 1000-row limit issue)
+    const preferredOrder = [
+      'T-shirts',
+      'Polos',
+      'Sweats',
+      'Vestes',
+      'Chemises',
+      'Pantalons',
+      'Gilets',
+      'Sacs',
+      'Casquettes',
+      'Accessoires',
+      'Serviettes',
+      'Tabliers',
+    ];
 
-    // Extract smart sub-categories from product names
-    const subCategoriesCount = new Map<string, number>();
+    const smartCounts = await Promise.all(
+      Object.entries(productTypeKeywords).map(async ([smartCat, keywords]) => {
+        const orConditions = keywords.map((k) => `name.ilike.%${k}%`).join(',');
+        const { count } = await supabase
+          .from('products')
+          .select('id', { count: 'exact', head: true })
+          .or(orConditions);
+        return [smartCat, count ?? 0] as const;
+      })
+    );
+
+    const orderedSubCategories = smartCounts
+      .filter(([_, count]) => count >= 5)
+      .sort((a, b) => {
+        const ia = preferredOrder.indexOf(a[0]);
+        const ib = preferredOrder.indexOf(b[0]);
+        const pa = ia === -1 ? 999 : ia;
+        const pb = ib === -1 ? 999 : ib;
+        if (pa !== pb) return pa - pb;
+        return b[1] - a[1];
+      })
+      .map(([name]) => name);
+
+    // 2) Get remaining "main" categories (TopTex hierarchy: often 'Vêtements')
+    const categoriesResult = await supabase
+      .from('products')
+      .select('category')
+      .not('category', 'is', null)
+      .limit(1000);
+
     const mainCategoriesSet = new Set<string>();
-    
-    if (productsResult.data) {
-      productsResult.data.forEach(p => {
-        // Add main category
+    if (categoriesResult.data) {
+      categoriesResult.data.forEach((p) => {
         if (p.category) mainCategoriesSet.add(p.category);
-        
-        // Detect product type from name
-        const productType = detectProductType(p.name);
-        if (productType) {
-          subCategoriesCount.set(productType, (subCategoriesCount.get(productType) || 0) + 1);
-        }
       });
     }
-    
-    // Build ordered categories: main sub-categories first, then other categories
-    const orderedSubCategories = Array.from(subCategoriesCount.entries())
-      .filter(([_, count]) => count >= 5) // Only show categories with at least 5 products
-      .sort((a, b) => b[1] - a[1]) // Sort by count
-      .map(([name]) => name);
-    
-    // Main categories that aren't covered by sub-categories
+
     const remainingCategories = Array.from(mainCategoriesSet)
-      .filter(cat => !['Vêtements', 'Produits'].includes(cat)) // Skip generic ones
+      .filter((cat) => !['Vêtements', 'Produits'].includes(cat))
       .sort();
 
     const categories = [...orderedSubCategories, ...remainingCategories];
 
-    // Extract unique brands
+    // 3) Brands + sampled colors
+    const [brandsResult, colorsResult] = await Promise.all([
+      supabase.from('products').select('brand').not('brand', 'is', null).limit(1000),
+      supabase.from('products').select('colors').not('colors', 'is', null).limit(500),
+    ]);
+
     const brandsSet = new Set<string>();
     if (brandsResult.data) {
-      brandsResult.data.forEach(p => {
+      brandsResult.data.forEach((p) => {
         if (p.brand) brandsSet.add(p.brand);
       });
     }
     const brands = Array.from(brandsSet).sort();
 
-    // Extract unique colors from sampled products
     const colorsMap = new Map<string, string>();
     if (colorsResult.data) {
-      colorsResult.data.forEach(p => {
+      colorsResult.data.forEach((p) => {
         if (p.colors && Array.isArray(p.colors)) {
-          (p.colors as Array<{ name: string; code: string }>).forEach(c => {
+          (p.colors as Array<{ name: string; code: string }>).forEach((c) => {
             if (c.name && !colorsMap.has(c.name)) {
               colorsMap.set(c.name, c.code || '');
             }
@@ -309,12 +335,15 @@ export async function fetchAttributes(): Promise<{
     return {
       categories: categories.length > 0 ? categories : mockCategories,
       brands: brands.length > 0 ? brands : mockBrands,
-      colors: colors.length > 0 ? colors : [
-        { name: "Blanc", code: "#FFFFFF" },
-        { name: "Noir", code: "#000000" },
-        { name: "Marine", code: "#1e3a5f" },
-      ],
-      sizes: ["XS", "S", "M", "L", "XL", "XXL", "3XL"],
+      colors:
+        colors.length > 0
+          ? colors
+          : [
+              { name: 'Blanc', code: '#FFFFFF' },
+              { name: 'Noir', code: '#000000' },
+              { name: 'Marine', code: '#1e3a5f' },
+            ],
+      sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
     };
   } catch (error) {
     console.warn('Error fetching attributes:', error);
@@ -322,11 +351,11 @@ export async function fetchAttributes(): Promise<{
       categories: mockCategories,
       brands: mockBrands,
       colors: [
-        { name: "Blanc", code: "#FFFFFF" },
-        { name: "Noir", code: "#000000" },
-        { name: "Marine", code: "#1e3a5f" },
+        { name: 'Blanc', code: '#FFFFFF' },
+        { name: 'Noir', code: '#000000' },
+        { name: 'Marine', code: '#1e3a5f' },
       ],
-      sizes: ["XS", "S", "M", "L", "XL", "XXL", "3XL"],
+      sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
     };
   }
 }
