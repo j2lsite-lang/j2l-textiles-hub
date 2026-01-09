@@ -266,7 +266,11 @@ function normalize(p: any): any {
 async function upsertBatch(rows: any[]) {
   if (!rows.length) return;
   const { error } = await supabase.from("products").upsert(rows, { onConflict: "sku" });
-  if (error) throw new Error(`DB upsert: ${error.message}`);
+  if (error) {
+    // Handle error properly even if message is undefined
+    const errMsg = error.message || error.details || error.hint || JSON.stringify(error) || 'Unknown upsert error';
+    throw new Error(`DB upsert: ${errMsg}`);
+  }
 }
 
 /**
