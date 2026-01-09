@@ -218,27 +218,29 @@ Deno.serve(async (req) => {
 
     // ========== GET /test - Direct TopTex API test ==========
     if (action === "test") {
-      const TOPTEX_BASE = (Deno.env.get("TOPTEX_BASE_URL") || "").trim().replace(/\/+$/, "");
+      // Use same base URL and credentials as catsync
+      const TOPTEX_BASE = "https://api.toptex.io";
       const TOPTEX_KEY = (Deno.env.get("TOPTEX_API_KEY") || "").trim();
-      const TOPTEX_SECRET = (Deno.env.get("TOPTEX_API_SECRET") || "").trim();
+      const TOPTEX_USER = (Deno.env.get("TOPTEX_USERNAME") || "").trim();
+      const TOPTEX_PASS = (Deno.env.get("TOPTEX_PASSWORD") || "").trim();
 
-      if (!TOPTEX_BASE || !TOPTEX_KEY || !TOPTEX_SECRET) {
+      if (!TOPTEX_KEY || !TOPTEX_USER || !TOPTEX_PASS) {
         return jsonResponse({ 
           error: "Missing TopTex credentials",
-          has_base: !!TOPTEX_BASE,
           has_key: !!TOPTEX_KEY,
-          has_secret: !!TOPTEX_SECRET
+          has_user: !!TOPTEX_USER,
+          has_pass: !!TOPTEX_PASS
         }, 500);
       }
 
-      // Step 1: Authenticate to get token
-      const authUrl = `${TOPTEX_BASE}/v2/auth`;
+      // Step 1: Authenticate using /v3/authenticate (same as catsync)
+      const authUrl = `${TOPTEX_BASE}/v3/authenticate`;
       console.log(`[TEST] Auth: POST ${authUrl}`);
       
       const authRes = await fetch(authUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": TOPTEX_KEY },
-        body: JSON.stringify({ api_secret: TOPTEX_SECRET }),
+        body: JSON.stringify({ username: TOPTEX_USER, password: TOPTEX_PASS }),
       });
       const authText = await authRes.text();
       console.log(`[TEST] Auth response: status=${authRes.status}, body=${authText.slice(0, 300)}`);
@@ -254,7 +256,7 @@ Deno.serve(async (req) => {
       let token = "";
       try {
         const authJson = JSON.parse(authText);
-        token = authJson.access_token || authJson.token || "";
+        token = authJson.token || authJson.jeton || authJson.access_token || "";
       } catch {
         return jsonResponse({ step: "auth", error: "Cannot parse auth response", body: authText.slice(0, 300) }, 500);
       }
@@ -263,11 +265,15 @@ Deno.serve(async (req) => {
         return jsonResponse({ step: "auth", error: "No token in response", body: authText.slice(0, 300) }, 500);
       }
 
+      console.log(`[TEST] Auth OK, token_len=${token.length}`);
+
       // Step 2: Call /v2/products/all with usage_right=b2b_uniquement
+      // Try multiple auth header formats
       const testUrl = `${TOPTEX_BASE}/v2/products/all?usage_right=b2b_uniquement&page_number=1&page_size=40`;
       console.log(`[TEST] Products: GET ${testUrl}`);
 
-      const prodRes = await fetch(testUrl, {
+      // Try x-toptex-authorization first
+      let prodRes = await fetch(testUrl, {
         method: "GET",
         headers: {
           "x-api-key": TOPTEX_KEY,
@@ -275,7 +281,39 @@ Deno.serve(async (req) => {
           "Accept": "application/json",
         },
       });
-      const prodText = await prodRes.text();
+      let prodText = await prodRes.text();
+      console.log(`[TEST] Products (x-toptex-authorization): status=${prodRes.status}, body=${prodText.slice(0, 200)}`);
+
+      // If 401/403, try Authorization: Bearer
+      if (prodRes.status === 401 || prodRes.status === 403) {
+        console.log(`[TEST] Retrying with Authorization: Bearer`);
+        prodRes = await fetch(testUrl, {
+          method: "GET",
+          headers: {
+            "x-api-key": TOPTEX_KEY,
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json",
+          },
+        });
+        prodText = await prodRes.text();
+        console.log(`[TEST] Products (Bearer): status=${prodRes.status}, body=${prodText.slice(0, 200)}`);
+      }
+
+      // If still 401/403, try /v3/products/all
+      if (prodRes.status === 401 || prodRes.status === 403) {
+        const testUrlV3 = `${TOPTEX_BASE}/v3/products/all?usage_right=b2b_uniquement&page_number=1&page_size=40`;
+        console.log(`[TEST] Trying /v3: GET ${testUrlV3}`);
+        prodRes = await fetch(testUrlV3, {
+          method: "GET",
+          headers: {
+            "x-api-key": TOPTEX_KEY,
+            "x-toptex-authorization": token,
+            "Accept": "application/json",
+          },
+        });
+        prodText = await prodRes.text();
+        console.log(`[TEST] Products (v3): status=${prodRes.status}, body=${prodText.slice(0, 200)}`);
+      }
       console.log(`[TEST] Products response: status=${prodRes.status}, len=${prodText.length}, body=${prodText.slice(0, 500)}`);
 
       let prodData: any = null;
