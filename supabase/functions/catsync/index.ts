@@ -22,11 +22,12 @@ const envTrim = (key: string) => {
 };
 
 // Config
-const PAGE_SIZE = 100; // Keep reasonable to avoid timeouts
-const UPSERT_BATCH_SIZE = 200;
+const PAGE_SIZE = 50; // Reduced to avoid timeouts (100 caused 504)
+const UPSERT_BATCH_SIZE = 100;
 const POLL_INTERVAL_MS = 5_000;
 const MAX_WAIT_MS = 2 * 60_000;
 const MIN_READY_SIZE_BYTES = 100 * 1024;
+const MAX_RETRIES = 3;
 
 async function auth(): Promise<string> {
   console.log("[CATSYNC] Authenticating...");
@@ -61,7 +62,7 @@ async function auth(): Promise<string> {
   return token;
 }
 
-async function toptexGet(url: string, token: string): Promise<{ status: number; text: string }> {
+async function toptexGet(url: string, token: string, retries = MAX_RETRIES): Promise<{ status: number; text: string }> {
   const apiKey = envTrim("TOPTEX_API_KEY");
 
   const tryFetch = (headers: Record<string, string>) =>
@@ -72,22 +73,36 @@ async function toptexGet(url: string, token: string): Promise<{ status: number; 
       },
     });
 
-  // 1) header "x-toptex-authorization": token
-  let r = await tryFetch({ "x-toptex-authorization": token });
-  let txt = await r.text();
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    // 1) header "x-toptex-authorization": token
+    let r = await tryFetch({ "x-toptex-authorization": token });
+    let txt = await r.text();
 
-  // 2) retries with Bearer forms if unauthorized
-  if (!r.ok && (r.status === 401 || r.status === 403)) {
-    r = await tryFetch({ "x-toptex-authorization": `Bearer ${token}` });
-    txt = await r.text();
-
+    // 2) retries with Bearer forms if unauthorized
     if (!r.ok && (r.status === 401 || r.status === 403)) {
-      r = await tryFetch({ Authorization: `Bearer ${token}` });
+      r = await tryFetch({ "x-toptex-authorization": `Bearer ${token}` });
       txt = await r.text();
+
+      if (!r.ok && (r.status === 401 || r.status === 403)) {
+        r = await tryFetch({ Authorization: `Bearer ${token}` });
+        txt = await r.text();
+      }
     }
+
+    // Retry on timeout errors with exponential backoff
+    if (r.status === 504 || r.status === 502 || r.status === 503) {
+      if (attempt < retries) {
+        const delay = 1000 * Math.pow(2, attempt); // 2s, 4s, 8s
+        console.log(`[CATSYNC] HTTP ${r.status} on attempt ${attempt}, retrying in ${delay}ms...`);
+        await new Promise(res => setTimeout(res, delay));
+        continue;
+      }
+    }
+
+    return { status: r.status, text: txt };
   }
 
-  return { status: r.status, text: txt };
+  return { status: 504, text: "Max retries exceeded" };
 }
 
 type PageResponse =
@@ -120,22 +135,45 @@ function parseProductsResponse(txt: string): PageResponse {
 }
 
 function normalize(p: any): any {
+  // TopTex uses catalogReference as SKU, designation for name in multiple languages
+  const sku = p.catalogReference || p.reference || p.sku || "";
+  const designation = p.designation || {};
+  const name = typeof designation === "string" ? designation : (designation.fr || designation.en || p.name || sku);
+  
+  // Extract first image from colors packshots
+  const images: string[] = [];
+  if (Array.isArray(p.colors)) {
+    for (const c of p.colors) {
+      if (c.packshots) {
+        for (const key of Object.keys(c.packshots)) {
+          const ps = c.packshots[key];
+          if (ps?.url_packshot) images.push(ps.url_packshot);
+          else if (ps?.url) images.push(ps.url);
+        }
+      }
+    }
+  }
+  
+  // Extract colors with hex codes
+  const colors = (p.colors || []).map((c: any) => {
+    const colorName = c.colors?.fr || c.colors?.en || c.name || "";
+    const hexCode = c.colorsHexa?.[0] ? `#${c.colorsHexa[0]}` : "";
+    return { name: colorName, code: hexCode };
+  });
+  
   return {
-    sku: p.reference || p.sku || "",
-    name: p.designation || p.name || "",
-    brand: p.marque || p.brand || "",
-    category: p.famille || p.category || "",
-    description: p.description || "",
-    composition: p.composition || "",
-    weight: p.poids || p.weight || "",
-    price_ht: p.prix_ht != null ? Number(p.prix_ht) : (p.price_ht != null ? Number(p.price_ht) : null),
-    images: (p.images || []).map((i: any) => (typeof i === "string" ? i : i?.url || "")),
-    colors: (p.couleurs || p.colors || []).map((c: any) => ({
-      name: typeof c === "string" ? c : (c.nom || c.name || c),
-      code: c.code || "",
-    })),
-    sizes: p.tailles || p.sizes || [],
-    variants: p.declinaisons || p.variants || [],
+    sku,
+    name,
+    brand: p.brand || p.marque || "",
+    category: p.family?.fr || p.family?.en || p.famille || p.category || "",
+    description: typeof p.description === "object" ? (p.description?.fr || p.description?.en || "") : (p.description || ""),
+    composition: typeof p.composition === "object" ? (p.composition?.fr || p.composition?.en || "") : (p.composition || ""),
+    weight: p.averageWeight || p.poids || p.weight || "",
+    price_ht: null, // Not available without display_prices
+    images: images.slice(0, 10),
+    colors,
+    sizes: [],
+    variants: [],
     raw_data: p,
   };
 }
@@ -428,7 +466,8 @@ async function syncCatalog(jobId: string) {
       let batch: any[] = [];
       
       while (true) {
-        const pageUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&display_prices=1&page_number=${page}&page_size=${PAGE_SIZE}`;
+        // NOTE: Removed display_prices=1 as it causes 504 timeouts on TopTex API
+        const pageUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&page_number=${page}&page_size=${PAGE_SIZE}`;
         console.log(`[CATSYNC] Pagination page ${page}: ${pageUrl}`);
         
         const { status: pageStatus, text: pageText } = await toptexGet(pageUrl, token);
