@@ -1,8 +1,9 @@
+import { useMemo } from 'react';
+
 // Mapping complet des marques TopTex vers leurs logos officiels sur cdn.toptex.com
 // Basé sur les URLs récupérées de https://www.toptex.fr/marques
 
 const TOPTEX_BRAND_LOGOS: Record<string, string> = {
-  // A
   // B
   'B&C': 'https://cdn.toptex.com/logos/B&C_LOGO_24.jpg?w=480',
   'BagBase': 'https://cdn.toptex.com/logos/BAGBASE_LOGO.jpg?w=480',
@@ -95,10 +96,14 @@ export function normalizeBrandKey(input: string): string {
 }
 
 export function useToptexBrandLogos(): { data: Record<string, string> } {
-  // Build normalized lookup
-  const map: Record<string, string> = { ...TOPTEX_BRAND_LOGOS };
-  for (const [name, url] of Object.entries(TOPTEX_BRAND_LOGOS)) {
-    map[normalizeBrandKey(name)] = url;
-  }
-  return { data: map };
+  // Use useMemo to maintain hook consistency
+  const data = useMemo(() => {
+    const map: Record<string, string> = { ...TOPTEX_BRAND_LOGOS };
+    for (const [name, url] of Object.entries(TOPTEX_BRAND_LOGOS)) {
+      map[normalizeBrandKey(name)] = url;
+    }
+    return map;
+  }, []);
+  
+  return { data };
 }
