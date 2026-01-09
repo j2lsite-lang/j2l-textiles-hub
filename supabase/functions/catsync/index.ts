@@ -386,6 +386,11 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
 
   const start = Date.now();
 
+  // TopTex usually has about 10,000+ products at 20 per page = ~500+ pages
+  // We'll update this estimate as we go
+  const INITIAL_ESTIMATED_PAGES = 500;
+  let estimatedTotalPages = INITIAL_ESTIMATED_PAGES;
+
   try {
     // Initialize token manager for this sync session
     tokenManager = new TokenManager();
@@ -401,6 +406,7 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
       current_page: startPage,
       last_successful_page: startPage > 1 ? startPage - 1 : 0,
       products_count: startTotal,
+      estimated_total_pages: estimatedTotalPages,
     });
     
     let page = startPage;
@@ -541,6 +547,15 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
         console.log(`[CATSYNC] ✓ Imported batch, total=${total}`);
       }
       
+      // Dynamically update estimated total pages based on current progress
+      // TopTex catalog is ~10,000+ products, estimate grows if we're past initial estimate
+      if (page >= estimatedTotalPages - 10) {
+        estimatedTotalPages = page + 100; // Add buffer
+        await supabase.from("sync_status").update({
+          estimated_total_pages: estimatedTotalPages
+        }).eq("id", jobId);
+      }
+      
       // Mark page as successful
       await markPageSuccess(jobId, page, total + batch.length);
       lastHeartbeat = Date.now();
@@ -548,6 +563,8 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
       // Stop if last page (partial page)
       if (items.length < PAGE_SIZE) {
         console.log(`[CATSYNC] Page ${page}: ${items.length} < ${PAGE_SIZE}, last page reached.`);
+        // Set final estimated pages to actual
+        estimatedTotalPages = page;
         break;
       }
       
@@ -572,6 +589,7 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
       error_message: summary,
       current_page: page,
       last_successful_page: page,
+      estimated_total_pages: page, // Final actual page count
     }).eq("id", jobId);
     
     console.log(`✅ [CATSYNC] Completed: ${total} products, ${page} pages, ${(Date.now() - start) / 1000}s`);

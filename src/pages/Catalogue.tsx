@@ -19,6 +19,8 @@ import { useCatalog } from '@/hooks/useTopTex';
 import { Product } from '@/lib/toptex-api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { SyncProgressBar } from '@/components/admin/SyncProgressBar';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 // Fallback mock products when API is unavailable
 const mockProducts = [
@@ -320,10 +322,16 @@ export default function Catalogue() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const { toast } = useToast();
+  const { isAdmin } = useIsAdmin();
 
   // Avoid spamming resume calls
   const lastAutoResumeAtRef = useRef<number>(0);
   const AUTO_RESUME_COOLDOWN_MS = 60_000;
+
+  // Callback when sync completes
+  const handleSyncComplete = () => {
+    window.location.reload();
+  };
 
   // Lancer ou reprendre la synchronisation du catalogue
   const handleSync = async (forceRestart = false) => {
@@ -522,6 +530,13 @@ export default function Catalogue() {
             title="Nos produits textiles"
             description="Explorez notre sélection de vêtements et accessoires personnalisables"
           />
+
+          {/* Admin Progress Bar */}
+          {isAdmin && (
+            <div className="mt-6">
+              <SyncProgressBar onSyncComplete={handleSyncComplete} />
+            </div>
+          )}
 
           {/* API Error Notice */}
           {error && (
