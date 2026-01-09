@@ -27,6 +27,7 @@ const UPSERT_BATCH_SIZE = 200;
 const POLL_INTERVAL_MS = 10_000;
 const MAX_WAIT_MS = 15 * 60_000; // 15 minutes max (TopTex peut être long)
 const MIN_READY_SIZE_BYTES = 100 * 1024; // 100KB
+const MAX_TINY_FILE_POLLS = 10; // If file stays <= 2 bytes for 10 polls, fail & retry generate
 
 async function auth(): Promise<string> {
   console.log("[CATSYNC] Authenticating...");
@@ -146,12 +147,13 @@ async function upsertBatch(rows: any[]) {
   if (error) throw new Error(`DB upsert: ${error.message}`);
 }
 
+/**
+ * Wait for S3 file to be ready. Returns size and poll count.
+ * If the file stays tiny (<=2 bytes) for MAX_TINY_FILE_POLLS polls, throws with "retry_generate" flag.
+ */
 async function waitForS3File(link: string, jobId: string): Promise<{ size: number; polls: number }> {
   const maxPolls = Math.ceil(MAX_WAIT_MS / POLL_INTERVAL_MS);
-
-  // IMPORTANT: Le lien S3 pré-signé est (souvent) signé pour GET.
-  // Un HEAD peut renvoyer 403 même si le fichier existe.
-  // => On "probe" avec un GET Range (0-0) pour vérifier la disponibilité sans télécharger.
+  let tinyFilePollCount = 0;
 
   for (let poll = 1; poll <= maxPolls; poll++) {
     console.log(`[CATSYNC] Polling S3 (${poll}/${maxPolls})...`);
@@ -159,57 +161,91 @@ async function waitForS3File(link: string, jobId: string): Promise<{ size: numbe
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
 
     try {
+      // Probe with Range 0-2047 to get content preview
       const probe = await fetch(link, {
         method: "GET",
         headers: {
-          // Ne récupère qu'1 octet si le fichier existe
-          Range: "bytes=0-0",
+          Range: "bytes=0-2047",
         },
       });
 
       // 206 = Partial Content (ok), 200 = ok, 416 peut arriver si range invalide mais objet existant
       const ok = probe.ok || probe.status === 206 || probe.status === 416;
 
+      // Get total size from Content-Range: bytes 0-X/TOTAL
+      const cr = probe.headers.get("content-range") || "";
+      const m = cr.match(/\/(\d+)$/);
+      const sizeFromCR = m ? parseInt(m[1], 10) : 0;
+      const sizeFromCL = parseInt(probe.headers.get("content-length") || "0", 10);
+      const size = Math.max(sizeFromCR, sizeFromCL);
+
+      // Read content preview (up to 2KB)
+      let contentPreview = "";
+      try {
+        contentPreview = await probe.text();
+      } catch {
+        // ignore
+      }
+
+      console.log(`[CATSYNC] S3 probe: status=${probe.status}, size=${size}, cr='${cr}', content='${contentPreview.slice(0, 200)}'`);
+
       if (ok) {
-        // Tentative de récupérer la taille totale via Content-Range: bytes 0-0/123456
-        const cr = probe.headers.get("content-range") || "";
-        const m = cr.match(/\/(\d+)$/);
-        const sizeFromCR = m ? parseInt(m[1], 10) : 0;
-        const sizeFromCL = parseInt(probe.headers.get("content-length") || "0", 10);
-        const size = Math.max(sizeFromCR, sizeFromCL);
-
-        console.log(`[CATSYNC] S3 probe OK, status=${probe.status}, size=${size} (cr='${cr}')`);
-
         await supabase
           .from("sync_status")
           .update({
             s3_poll_count: poll,
             s3_content_length: size || null,
             error_message: size
-              ? `Fichier prêt (${Math.round(size / 1024)} KB)`
-              : "Fichier prêt (taille inconnue)",
+              ? `Fichier: ${Math.round(size / 1024)} KB - ${contentPreview.slice(0, 100)}`
+              : `Fichier prêt - ${contentPreview.slice(0, 100)}`,
           })
           .eq("id", jobId);
 
-        if (!size || size >= MIN_READY_SIZE_BYTES) return { size, polls: poll };
-      }
+        // Check if file is ready (>= MIN_READY_SIZE_BYTES)
+        if (size >= MIN_READY_SIZE_BYTES) {
+          return { size, polls: poll };
+        }
 
-      // Not ready / not accessible
-      let preview = "";
-      try {
-        preview = (await probe.text()).slice(0, 200);
-      } catch {
-        // ignore
-      }
+        // File is tiny (<= 2 bytes) - could be placeholder, [], or error
+        if (size <= 2) {
+          tinyFilePollCount++;
+          console.log(`[CATSYNC] Tiny file detected (${size} bytes, content='${contentPreview}'). Count: ${tinyFilePollCount}/${MAX_TINY_FILE_POLLS}`);
 
-      await supabase
-        .from("sync_status")
-        .update({
-          s3_poll_count: poll,
-          error_message: `Génération en cours (${probe.status}) (${poll}/${maxPolls})...${preview ? ` ${preview}` : ""}`,
-        })
-        .eq("id", jobId);
+          if (tinyFilePollCount >= MAX_TINY_FILE_POLLS) {
+            // Analyze content to give better error message
+            const trimmed = contentPreview.trim();
+            let reason = "Fichier vide/placeholder";
+            if (trimmed === "[]") {
+              reason = "Fichier vide (tableau JSON vide [])";
+            } else if (trimmed.startsWith("<")) {
+              reason = `Erreur XML: ${trimmed.slice(0, 150)}`;
+            } else if (trimmed === "OK" || trimmed === "ok") {
+              reason = "Fichier placeholder (OK)";
+            } else if (trimmed.length > 0) {
+              reason = `Contenu inattendu: ${trimmed.slice(0, 100)}`;
+            }
+
+            const error = new Error(`${reason}. Fichier reste à ${size} bytes après ${tinyFilePollCount} polls. Retry generate.`);
+            (error as any).retryGenerate = true;
+            (error as any).contentPreview = contentPreview;
+            throw error;
+          }
+        } else {
+          // File is growing, reset tiny counter
+          tinyFilePollCount = 0;
+        }
+      } else {
+        // Not accessible
+        await supabase
+          .from("sync_status")
+          .update({
+            s3_poll_count: poll,
+            error_message: `Génération en cours (${probe.status}) (${poll}/${maxPolls})... ${contentPreview.slice(0, 100)}`,
+          })
+          .eq("id", jobId);
+      }
     } catch (e: any) {
+      if (e.retryGenerate) throw e; // Re-throw retry errors
       console.log(`[CATSYNC] Poll error: ${e?.message || e}`);
     }
   }
@@ -306,11 +342,48 @@ async function streamParseAndUpsert(response: Response, jobId: string): Promise<
   return totalCount;
 }
 
+/**
+ * Request a new export file from TopTex API.
+ * Returns the S3 link and ETA.
+ */
+async function requestGenerateExport(token: string, jobId: string): Promise<{ link: string; eta?: string }> {
+  const url = `${TOPTEX}/v3/products/all?usage_right=b2b_b2c&display_prices=1&result_in_file=1`;
+  
+  console.log(`[CATSYNC] Requesting generate export: ${url}`);
+  
+  const { status, text } = await toptexGet(url, token);
+  
+  console.log(`[CATSYNC] Generate export response: status=${status}, len=${text.length}, body=${text.slice(0, 500)}`);
+  
+  await supabase.from("sync_status").update({
+    error_message: `Generate export: HTTP ${status} - ${text.slice(0, 200)}`,
+  }).eq("id", jobId);
+  
+  if (status !== 200) {
+    throw new Error(`Generate export failed: HTTP ${status} - ${text.slice(0, 300)}`);
+  }
+  
+  const parsed = parseProductsResponse(text);
+  
+  if (parsed.kind === "link") {
+    console.log(`[CATSYNC] Got S3 link: ${parsed.link.slice(0, 100)}... ETA: ${parsed.eta || "?"}`);
+    return { link: parsed.link, eta: parsed.eta };
+  }
+  
+  if (parsed.kind === "items" && parsed.items.length > 0) {
+    // TopTex returned items directly instead of a link - unexpected but handle it
+    throw new Error("TopTex returned items directly instead of file link");
+  }
+  
+  throw new Error(`Generate export: unexpected response kind=${parsed.kind}`);
+}
+
 async function syncCatalog(jobId: string) {
   const upd = (status: string, extra: any = {}) =>
     supabase.from("sync_status").update({ status, ...extra }).eq("id", jobId);
 
   const start = Date.now();
+  const MAX_GENERATE_RETRIES = 3;
 
   try {
     await upd("authenticating");
@@ -339,24 +412,56 @@ async function syncCatalog(jobId: string) {
       console.log(`[CATSYNC] Parsed kind: ${parsed.kind}`);
 
       if (parsed.kind === "link") {
-        // Fallback to S3 stream
-        await supabase.from("sync_status").update({
-          status: "waiting_for_file",
-          s3_link: parsed.link,
-          eta: parsed.eta || null,
-          error_message: `TopTex fournit un fichier (ETA: ${parsed.eta || "?"})...`,
-        }).eq("id", jobId);
+        // TopTex wants to use file export - handle with retry logic
+        let s3Link = parsed.link;
+        let eta = parsed.eta;
+        
+        for (let attempt = 1; attempt <= MAX_GENERATE_RETRIES; attempt++) {
+          console.log(`[CATSYNC] File export attempt ${attempt}/${MAX_GENERATE_RETRIES}`);
+          
+          await supabase.from("sync_status").update({
+            status: "waiting_for_file",
+            s3_link: s3Link,
+            eta: eta || null,
+            error_message: `TopTex fichier (tentative ${attempt}/${MAX_GENERATE_RETRIES}, ETA: ${eta || "?"})...`,
+          }).eq("id", jobId);
 
-        await waitForS3File(parsed.link, jobId);
+          try {
+            await waitForS3File(s3Link, jobId);
+            
+            // File is ready, download it
+            await upd("downloading", { error_message: "Téléchargement du fichier..." });
+            const resp = await fetch(s3Link);
+            if (!resp.ok) throw new Error(`Download: ${resp.status}`);
 
-        await upd("downloading", { error_message: "Téléchargement du fichier..." });
-        const resp = await fetch(parsed.link);
-        if (!resp.ok) throw new Error(`Download: ${resp.status}`);
-
-        await upd("syncing", { error_message: "Import en streaming..." });
-        const count = await streamParseAndUpsert(resp, jobId);
-        total = count;
-        break;
+            await upd("syncing", { error_message: "Import en streaming..." });
+            const count = await streamParseAndUpsert(resp, jobId);
+            total = count;
+            break; // Success, exit retry loop
+            
+          } catch (e: any) {
+            if (e.retryGenerate && attempt < MAX_GENERATE_RETRIES) {
+              console.log(`[CATSYNC] Retry generate export (attempt ${attempt + 1})...`);
+              await supabase.from("sync_status").update({
+                error_message: `Fichier invalide (${e.message}). Nouvelle demande d'export (${attempt + 1}/${MAX_GENERATE_RETRIES})...`,
+              }).eq("id", jobId);
+              
+              // Request new export
+              const newExport = await requestGenerateExport(token, jobId);
+              s3Link = newExport.link;
+              eta = newExport.eta;
+              
+              await supabase.from("sync_status").update({
+                s3_link: s3Link,
+                eta: eta || null,
+              }).eq("id", jobId);
+              
+              continue; // Retry with new link
+            }
+            throw e; // Max retries reached or different error
+          }
+        }
+        break; // Exit main pagination loop
       }
 
       if (parsed.kind === "unknown") {
