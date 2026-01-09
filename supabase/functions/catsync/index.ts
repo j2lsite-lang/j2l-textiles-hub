@@ -21,13 +21,14 @@ const envTrim = (key: string) => {
   return t;
 };
 
-// Config
-const PAGE_SIZE = 50; // Reduced to avoid timeouts (100 caused 504)
+// Config - optimized for reliability
+const PAGE_SIZE = 30; // Small page size to avoid 504 timeouts
 const UPSERT_BATCH_SIZE = 100;
 const POLL_INTERVAL_MS = 5_000;
 const MAX_WAIT_MS = 2 * 60_000;
 const MIN_READY_SIZE_BYTES = 100 * 1024;
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 10; // More retries with longer backoff
+const MAX_PAGE_ERRORS = 3; // Max consecutive page failures before skipping
 
 async function auth(): Promise<string> {
   console.log("[CATSYNC] Authenticating...");
@@ -74,35 +75,47 @@ async function toptexGet(url: string, token: string, retries = MAX_RETRIES): Pro
     });
 
   for (let attempt = 1; attempt <= retries; attempt++) {
-    // 1) header "x-toptex-authorization": token
-    let r = await tryFetch({ "x-toptex-authorization": token });
-    let txt = await r.text();
+    try {
+      // 1) header "x-toptex-authorization": token
+      let r = await tryFetch({ "x-toptex-authorization": token });
+      let txt = await r.text();
 
-    // 2) retries with Bearer forms if unauthorized
-    if (!r.ok && (r.status === 401 || r.status === 403)) {
-      r = await tryFetch({ "x-toptex-authorization": `Bearer ${token}` });
-      txt = await r.text();
-
+      // 2) retries with Bearer forms if unauthorized
       if (!r.ok && (r.status === 401 || r.status === 403)) {
-        r = await tryFetch({ Authorization: `Bearer ${token}` });
+        r = await tryFetch({ "x-toptex-authorization": `Bearer ${token}` });
         txt = await r.text();
-      }
-    }
 
-    // Retry on timeout errors with exponential backoff
-    if (r.status === 504 || r.status === 502 || r.status === 503) {
+        if (!r.ok && (r.status === 401 || r.status === 403)) {
+          r = await tryFetch({ Authorization: `Bearer ${token}` });
+          txt = await r.text();
+        }
+      }
+
+      // Retry on timeout/server errors with exponential backoff
+      if (r.status === 504 || r.status === 502 || r.status === 503 || r.status === 500) {
+        if (attempt < retries) {
+          // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 64s... capped at 60s
+          const delay = Math.min(1000 * Math.pow(2, attempt), 60000);
+          console.log(`[CATSYNC] HTTP ${r.status} on attempt ${attempt}/${retries}, retrying in ${delay / 1000}s...`);
+          await new Promise(res => setTimeout(res, delay));
+          continue;
+        }
+      }
+
+      return { status: r.status, text: txt };
+    } catch (fetchError: any) {
+      // Network errors - retry with backoff
       if (attempt < retries) {
-        const delay = 1000 * Math.pow(2, attempt); // 2s, 4s, 8s
-        console.log(`[CATSYNC] HTTP ${r.status} on attempt ${attempt}, retrying in ${delay}ms...`);
+        const delay = Math.min(1000 * Math.pow(2, attempt), 60000);
+        console.log(`[CATSYNC] Network error on attempt ${attempt}/${retries}: ${fetchError?.message}, retrying in ${delay / 1000}s...`);
         await new Promise(res => setTimeout(res, delay));
         continue;
       }
+      return { status: 0, text: `Network error: ${fetchError?.message}` };
     }
-
-    return { status: r.status, text: txt };
   }
 
-  return { status: 504, text: "Max retries exceeded" };
+  return { status: 504, text: `Max retries (${retries}) exceeded` };
 }
 
 type PageResponse =
@@ -455,7 +468,7 @@ async function syncCatalog(jobId: string) {
       usePagination = true;
     }
     
-    // Step 2: PAGINATION MODE
+    // Step 2: PAGINATION MODE - iterate through ALL pages until empty
     if (usePagination) {
       console.log(`[CATSYNC] 📄 Starting PAGINATION mode (page_size=${PAGE_SIZE})`);
       
@@ -464,22 +477,59 @@ async function syncCatalog(jobId: string) {
       let page = 1;
       let total = 0;
       let batch: any[] = [];
+      let consecutiveErrors = 0;
+      let skippedPages: number[] = [];
+      let emptyPagesInRow = 0;
+      const MAX_EMPTY_PAGES = 3; // Stop after 3 consecutive empty pages
       
+      // PAGINATION LOOP - NEVER STOP until empty pages
       while (true) {
-        // NOTE: Removed display_prices=1 as it causes 504 timeouts on TopTex API
         const pageUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&page_number=${page}&page_size=${PAGE_SIZE}`;
-        console.log(`[CATSYNC] Pagination page ${page}: ${pageUrl}`);
+        console.log(`[CATSYNC] 📖 Page ${page}: fetching...`);
         
         const { status: pageStatus, text: pageText } = await toptexGet(pageUrl, token);
         console.log(`[CATSYNC] Page ${page}: status=${pageStatus}, len=${pageText.length}`);
         
+        // Handle errors with retry logic per page
         if (pageStatus !== 200) {
-          throw new Error(`Pagination page ${page}: HTTP ${pageStatus}`);
+          consecutiveErrors++;
+          console.log(`[CATSYNC] ⚠️ Page ${page} error (${consecutiveErrors}/${MAX_PAGE_ERRORS}): HTTP ${pageStatus}`);
+          
+          if (consecutiveErrors >= MAX_PAGE_ERRORS) {
+            // Skip this page and continue to next
+            console.log(`[CATSYNC] ⏭️ Skipping page ${page} after ${MAX_PAGE_ERRORS} failures, continuing...`);
+            skippedPages.push(page);
+            consecutiveErrors = 0;
+            page++;
+            
+            // Update status
+            await supabase.from("sync_status").update({
+              error_message: `Page ${page} - ${total} produits (${skippedPages.length} pages ignorées)`,
+            }).eq("id", jobId);
+            
+            // Safety: if we've skipped 10 consecutive pages, something is very wrong
+            if (skippedPages.length >= 10 && skippedPages.slice(-10).every((p, i) => p === page - 10 + i)) {
+              console.log(`[CATSYNC] ❌ Too many consecutive skipped pages, stopping.`);
+              break;
+            }
+            
+            await new Promise(r => setTimeout(r, 5000)); // Wait 5s before next page
+            continue;
+          }
+          
+          // Wait and retry same page
+          const delay = 3000 * consecutiveErrors;
+          console.log(`[CATSYNC] Retrying page ${page} in ${delay / 1000}s...`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
         }
+        
+        // Success - reset error counter
+        consecutiveErrors = 0;
         
         const pageParsed = parseProductsResponse(pageText);
         
-        // If TopTex returns a link even without result_in_file, that's weird but skip it
+        // If TopTex returns a link, skip to next page
         if (pageParsed.kind === "link") {
           console.log(`[CATSYNC] Page ${page} returned a link, skipping to next page`);
           page++;
@@ -487,15 +537,30 @@ async function syncCatalog(jobId: string) {
         }
         
         if (pageParsed.kind !== "items" || !pageParsed.items) {
-          console.log(`[CATSYNC] Page ${page}: no items (kind=${pageParsed.kind}), stopping.`);
-          break;
+          console.log(`[CATSYNC] Page ${page}: no items (kind=${pageParsed.kind})`);
+          emptyPagesInRow++;
+          if (emptyPagesInRow >= MAX_EMPTY_PAGES) {
+            console.log(`[CATSYNC] ${MAX_EMPTY_PAGES} empty pages in a row, stopping.`);
+            break;
+          }
+          page++;
+          continue;
         }
         
         const items = pageParsed.items;
         if (items.length === 0) {
-          console.log(`[CATSYNC] Page ${page}: empty, stopping.`);
-          break;
+          console.log(`[CATSYNC] Page ${page}: empty array`);
+          emptyPagesInRow++;
+          if (emptyPagesInRow >= MAX_EMPTY_PAGES) {
+            console.log(`[CATSYNC] ${MAX_EMPTY_PAGES} empty pages in a row, stopping.`);
+            break;
+          }
+          page++;
+          continue;
         }
+        
+        // Reset empty counter on success
+        emptyPagesInRow = 0;
         
         // Normalize and batch
         for (const p of items) {
@@ -508,41 +573,45 @@ async function syncCatalog(jobId: string) {
           await upsertBatch(batch);
           total += batch.length;
           batch = [];
-          
-          await supabase.from("sync_status").update({
-            products_count: total,
-            error_message: `Fallback pagination - Page ${page} - ${total} produits importés`,
-          }).eq("id", jobId);
-          
-          console.log(`[CATSYNC] Imported batch, total=${total}`);
+          console.log(`[CATSYNC] ✓ Imported batch, total=${total}`);
         }
         
-        // Stop if last page
+        // Update progress after each page
+        await supabase.from("sync_status").update({
+          products_count: total + batch.length,
+          error_message: `Pagination - Page ${page} - ${total + batch.length} produits importés`,
+        }).eq("id", jobId);
+        
+        // Stop if last page (partial page)
         if (items.length < PAGE_SIZE) {
-          console.log(`[CATSYNC] Page ${page}: ${items.length} < ${PAGE_SIZE}, last page.`);
+          console.log(`[CATSYNC] Page ${page}: ${items.length} < ${PAGE_SIZE}, last page reached.`);
           break;
         }
         
         page++;
-        await new Promise(r => setTimeout(r, 100)); // Small delay between pages
+        await new Promise(r => setTimeout(r, 200)); // Small delay between pages
       }
       
       // Flush remaining batch
       if (batch.length > 0) {
         await upsertBatch(batch);
         total += batch.length;
-        console.log(`[CATSYNC] Final batch flushed, total=${total}`);
+        console.log(`[CATSYNC] ✓ Final batch flushed, total=${total}`);
       }
+      
+      const summary = skippedPages.length > 0 
+        ? `Import terminé : ${total} produits (${page} pages, ${skippedPages.length} ignorées)`
+        : `Import terminé : ${total} produits (${page} pages)`;
       
       await supabase.from("sync_status").update({
         status: "completed",
         products_count: total,
         completed_at: new Date().toISOString(),
         finished_in_ms: Date.now() - start,
-        error_message: `Import terminé : ${total} produits (${page} pages)`,
+        error_message: summary,
       }).eq("id", jobId);
       
-      console.log(`✅ [CATSYNC] Completed via pagination: ${total} products, ${page} pages, ${(Date.now() - start) / 1000}s`);
+      console.log(`✅ [CATSYNC] Completed: ${total} products, ${page} pages, skipped=${skippedPages.length}, ${(Date.now() - start) / 1000}s`);
     }
     
   } catch (e: any) {
