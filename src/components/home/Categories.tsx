@@ -2,13 +2,13 @@ import { Link } from 'react-router-dom';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
 
-// Import product images
-import poloImg from '@/assets/categories/polo-pro.jpg';
-import workwearImg from '@/assets/categories/workwear-pro.jpg';
-import gastroImg from '@/assets/categories/gastro-pro.jpg';
-import sportImg from '@/assets/categories/sport-pro.jpg';
-import corporateImg from '@/assets/categories/corporate-pro.jpg';
-import hivisImg from '@/assets/categories/hivis-pro.jpg';
+// Import lifestyle images with people
+import poloImg from '@/assets/categories/polo-lifestyle.jpg';
+import workwearImg from '@/assets/categories/workwear-lifestyle.jpg';
+import gastroImg from '@/assets/categories/gastro-lifestyle.jpg';
+import sportImg from '@/assets/categories/sport-lifestyle.jpg';
+import corporateImg from '@/assets/categories/corporate-lifestyle.jpg';
+import hivisImg from '@/assets/categories/hivis-lifestyle.jpg';
 
 const categories = [
   {
@@ -24,7 +24,7 @@ const categories = [
   {
     image: corporateImg,
     name: 'Corporate',
-    query: 'corporate',
+    query: 'chemise',
   },
   {
     image: sportImg,
