@@ -62,38 +62,111 @@ async function auth(): Promise<string> {
   return token;
 }
 
-async function toptexGet(url: string, token: string, retries = MAX_RETRIES): Promise<{ status: number; text: string }> {
+/**
+ * Token manager to handle auto-refresh on 401/403
+ */
+class TokenManager {
+  private token: string = "";
+  private refreshCount: number = 0;
+  private maxRefreshes: number = 5; // Max re-auths per sync session
+  
+  async getToken(forceRefresh = false): Promise<string> {
+    if (!this.token || forceRefresh) {
+      if (this.refreshCount >= this.maxRefreshes) {
+        throw new Error(`Max token refreshes (${this.maxRefreshes}) exceeded - possible auth issue`);
+      }
+      console.log(`[CATSYNC] 🔑 ${forceRefresh ? "Re-authenticating" : "Authenticating"} (refresh #${this.refreshCount + 1})...`);
+      this.token = await auth();
+      this.refreshCount++;
+    }
+    return this.token;
+  }
+  
+  invalidate() {
+    console.log("[CATSYNC] 🔄 Token invalidated, will refresh on next request");
+    this.token = "";
+  }
+}
+
+// Global token manager for the sync session
+let tokenManager: TokenManager;
+
+async function toptexGet(
+  url: string, 
+  retries = MAX_RETRIES
+): Promise<{ status: number; text: string }> {
   const apiKey = envTrim("TOPTEX_API_KEY");
 
-  const tryFetch = (headers: Record<string, string>) =>
-    fetch(url, {
-      headers: {
-        "x-api-key": apiKey,
-        ...headers,
-      },
-    });
+  const tryFetch = async (tokenValue: string, headerStyle: "x-toptex" | "x-toptex-bearer" | "auth-bearer") => {
+    const headers: Record<string, string> = { "x-api-key": apiKey };
+    
+    if (headerStyle === "x-toptex") {
+      headers["x-toptex-authorization"] = tokenValue;
+    } else if (headerStyle === "x-toptex-bearer") {
+      headers["x-toptex-authorization"] = `Bearer ${tokenValue}`;
+    } else {
+      headers["Authorization"] = `Bearer ${tokenValue}`;
+    }
+    
+    return fetch(url, { headers });
+  };
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      // 1) header "x-toptex-authorization": token
-      let r = await tryFetch({ "x-toptex-authorization": token });
+      const token = await tokenManager.getToken();
+      
+      // Try different auth header styles
+      let r = await tryFetch(token, "x-toptex");
       let txt = await r.text();
 
-      // 2) retries with Bearer forms if unauthorized
-      if (!r.ok && (r.status === 401 || r.status === 403)) {
-        r = await tryFetch({ "x-toptex-authorization": `Bearer ${token}` });
+      // If 401/403 with first style, try other styles
+      if (r.status === 401 || r.status === 403) {
+        r = await tryFetch(token, "x-toptex-bearer");
         txt = await r.text();
 
-        if (!r.ok && (r.status === 401 || r.status === 403)) {
-          r = await tryFetch({ Authorization: `Bearer ${token}` });
+        if (r.status === 401 || r.status === 403) {
+          r = await tryFetch(token, "auth-bearer");
           txt = await r.text();
+        }
+      }
+
+      // If still 401/403 after all header styles, token is likely expired
+      // Refresh token and retry
+      if (r.status === 401 || r.status === 403) {
+        console.log(`[CATSYNC] ⚠️ HTTP ${r.status} - Token expired, refreshing... (attempt ${attempt}/${retries})`);
+        tokenManager.invalidate();
+        
+        // Get fresh token and retry immediately
+        const newToken = await tokenManager.getToken(true);
+        
+        // Try all header styles with new token
+        r = await tryFetch(newToken, "x-toptex");
+        txt = await r.text();
+        
+        if (r.status === 401 || r.status === 403) {
+          r = await tryFetch(newToken, "x-toptex-bearer");
+          txt = await r.text();
+        }
+        
+        if (r.status === 401 || r.status === 403) {
+          r = await tryFetch(newToken, "auth-bearer");
+          txt = await r.text();
+        }
+        
+        // If still failing after refresh, continue retry loop
+        if (r.status === 401 || r.status === 403) {
+          if (attempt < retries) {
+            const delay = Math.min(2000 * Math.pow(2, attempt - 1), 30000);
+            console.log(`[CATSYNC] Still HTTP ${r.status} after token refresh, retrying in ${delay / 1000}s...`);
+            await new Promise(res => setTimeout(res, delay));
+            continue;
+          }
         }
       }
 
       // Retry on timeout/server errors with exponential backoff
       if (r.status === 504 || r.status === 502 || r.status === 503 || r.status === 500) {
         if (attempt < retries) {
-          // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 60s (capped)
           const delay = Math.min(2000 * Math.pow(2, attempt - 1), 60000);
           console.log(`[CATSYNC] HTTP ${r.status} on attempt ${attempt}/${retries}, retrying in ${delay / 1000}s...`);
           await new Promise(res => setTimeout(res, delay));
@@ -267,8 +340,12 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
   const start = Date.now();
 
   try {
+    // Initialize token manager for this sync session
+    tokenManager = new TokenManager();
+    
     await upd("authenticating");
-    const token = await auth();
+    // Pre-authenticate to validate credentials
+    await tokenManager.getToken();
 
     console.log(`[CATSYNC] 📄 Starting PAGINATION mode from page ${startPage} (already have ${startTotal} products)`);
     
@@ -302,7 +379,7 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
       const pageUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&page_number=${page}&page_size=${PAGE_SIZE}`;
       console.log(`[CATSYNC] 📖 Page ${page}: fetching... (retries=${pageRetries}, longPauses=${longPauseCount}, total=${total})`);
       
-      const { status: pageStatus, text: pageText } = await toptexGet(pageUrl, token);
+      const { status: pageStatus, text: pageText } = await toptexGet(pageUrl);
       console.log(`[CATSYNC] Page ${page}: status=${pageStatus}, len=${pageText.length}`);
       
       // Handle errors - NEVER SKIP, always retry
