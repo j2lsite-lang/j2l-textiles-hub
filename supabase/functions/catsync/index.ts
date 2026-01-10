@@ -283,16 +283,17 @@ function roundToTenCents(price: number): number {
 
 /**
  * Image priority scoring - higher = better quality/relevance
- * For TopTex products, prioritize FACE (front) packshots as main image
- * These are the product images shown on toptex.fr
+ * For TopTex products, prioritize LIFESTYLE/MODEL images as main image
+ * (like TopTex shows on their product pages)
+ * Then FACE/FRONT packshots as fallback
  */
 const IMAGE_PRIORITY: Record<string, number> = {
-  "FACE": 100,      // Front view = main product image (like TopTex shows)
-  "FRONT": 100,
-  "LIFESTYLE": 90,
-  "MODEL": 85,
-  "MANNEQUIN": 85,
-  "AMBIANCE": 80,
+  "LIFESTYLE": 100,   // Best: lifestyle photo with model (like TopTex main display)
+  "MODEL": 100,       // Model wearing the product
+  "MANNEQUIN": 95,    // Mannequin display
+  "AMBIANCE": 90,     // Ambiance/context shots
+  "FACE": 80,         // Front packshot (fallback if no lifestyle)
+  "FRONT": 80,
   "FACE SIDE": 70,
   "SIDE": 60,
   "BACK": 50,
