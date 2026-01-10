@@ -1,6 +1,12 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getMockCatalog, getMockProduct, mockCategories, mockBrands } from './mock-products';
 
+export interface ProductColor {
+  name: string;
+  code: string;
+  images?: string[];
+}
+
 export interface Product {
   sku: string;
   name: string;
@@ -10,7 +16,7 @@ export interface Product {
   composition?: string;
   weight?: string;
   images: string[];
-  colors: Array<{ name: string; code: string }>;
+  colors: ProductColor[];
   sizes: string[];
   variants?: Array<{
     sku: string;
@@ -197,6 +203,14 @@ export async function fetchProduct(sku: string): Promise<Product> {
       .single();
 
     if (dbProduct && !dbError) {
+      // Parse colors with their images
+      const rawColors = (dbProduct.colors as Array<{ name: string; code: string; images?: string[] }>) || [];
+      const colors: ProductColor[] = rawColors.map(c => ({
+        name: c.name || '',
+        code: c.code || '',
+        images: c.images || [],
+      }));
+
       return {
         sku: dbProduct.sku,
         name: dbProduct.name,
@@ -206,7 +220,7 @@ export async function fetchProduct(sku: string): Promise<Product> {
         composition: dbProduct.composition || '',
         weight: dbProduct.weight || '',
         images: (dbProduct.images as string[]) || [],
-        colors: (dbProduct.colors as Array<{ name: string; code: string }>) || [],
+        colors,
         sizes: (dbProduct.sizes as string[]) || [],
         variants: (dbProduct.variants as any[]) || [],
         priceHT: dbProduct.price_ht ? Number(dbProduct.price_ht) : null,

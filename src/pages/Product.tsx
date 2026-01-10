@@ -120,7 +120,7 @@ export default function Product() {
   const isUsingMock = !apiProduct;
   
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedColor, setSelectedColor] = useState<{ name: string; code?: string } | null>(null);
+  const [selectedColor, setSelectedColor] = useState<{ name: string; code?: string; images?: string[] } | null>(null);
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(25);
   
@@ -140,6 +140,11 @@ export default function Product() {
       setSelectedColor(product.colors[0]);
     }
   }, [product, selectedColor]);
+
+  // Reset image index when color changes
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [selectedColor]);
 
   const handleAddToQuote = () => {
     if (!selectedSize) {
@@ -208,13 +213,28 @@ export default function Product() {
     );
   }
 
-  const displayImages = product.images?.length > 0 
-    ? product.images 
+  // Build carousel images: lifestyle (product.images) + packshots of selected color
+  const lifestyleImages = product.images?.length > 0 ? product.images : [];
+  const colorPackshots = selectedColor?.images || [];
+  
+  // Combine: lifestyle first, then color-specific packshots (avoid duplicates)
+  const allCarouselImages = [...lifestyleImages];
+  for (const ps of colorPackshots) {
+    if (!allCarouselImages.includes(ps)) {
+      allCarouselImages.push(ps);
+    }
+  }
+  
+  const displayImages = allCarouselImages.length > 0 
+    ? allCarouselImages 
     : ['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop'];
 
   const displayColors = product.colors?.length > 0 ? product.colors : mockProduct.colors;
   const displaySizes = product.sizes?.length > 0 ? product.sizes : mockProduct.sizes;
   const indicativePriceRanges = buildIndicativePriceRanges(product.priceHT ?? null);
+
+  // Scrollable thumbnail strip for many images
+  const showScrollableThumbs = displayImages.length > 5;
 
   return (
     <Layout>
@@ -242,33 +262,41 @@ export default function Product() {
           )}
 
           <div className="grid lg:grid-cols-2 gap-12">
-            {/* Images */}
+            {/* Images Carousel */}
             <div className="space-y-4">
-              <div className="aspect-square rounded-2xl overflow-hidden bg-secondary/50">
+              {/* Main image */}
+              <div className="aspect-square rounded-2xl overflow-hidden bg-white border border-gray-100">
                 <img
                   src={displayImages[selectedImage]}
                   alt={product.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain p-4"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop';
                   }}
                 />
               </div>
+
+              {/* Thumbnail strip */}
               {displayImages.length > 1 && (
-                <div className="flex gap-3">
+                <div className={cn(
+                  "flex gap-2",
+                  showScrollableThumbs && "overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300"
+                )}>
                   {displayImages.map((img, i) => (
                     <button
                       key={i}
                       onClick={() => setSelectedImage(i)}
                       className={cn(
-                        'w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors',
-                        selectedImage === i ? 'border-primary' : 'border-transparent'
+                        'flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all bg-white',
+                        selectedImage === i 
+                          ? 'border-primary ring-2 ring-primary/20' 
+                          : 'border-gray-200 hover:border-primary/50'
                       )}
                     >
                       <img 
                         src={img} 
                         alt="" 
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain p-1"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
                         }}
@@ -276,6 +304,14 @@ export default function Product() {
                     </button>
                   ))}
                 </div>
+              )}
+
+              {/* Image count indicator */}
+              {displayImages.length > 1 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  {selectedImage + 1} / {displayImages.length} images
+                  {selectedColor && ` • ${selectedColor.name}`}
+                </p>
               )}
             </div>
 
