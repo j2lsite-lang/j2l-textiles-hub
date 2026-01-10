@@ -183,7 +183,7 @@ function ProductCard({ product }: { product: DisplayProduct }) {
           </h3>
           <div className="flex items-center justify-between">
             <span className="text-base font-bold text-primary">
-              {product.priceHT ? `${product.priceHT.toFixed(2)} € HT` : 'Sur devis'}
+              {product.priceHT ? `${(Math.round(product.priceHT * 10) / 10).toFixed(2).replace('.', ',')} € HT` : 'Sur devis'}
             </span>
             <div className="flex gap-1">
               {displayColors.map((color, i) => (
