@@ -26,22 +26,32 @@ async function getProductsFromDB(supabase: any, options: {
   query?: string;
   category?: string;
   brand?: string;
+  family?: string;
+  subfamily?: string;
   page?: number;
   limit?: number;
 }): Promise<{ products: any[]; total: number }> {
-  const { query, category, brand, page = 1, limit = 24 } = options;
+  const { query, category, brand, family, subfamily, page = 1, limit = 24 } = options;
   const offset = (page - 1) * limit;
 
   let qb = supabase.from("products").select("*", { count: "exact" });
 
   if (query) {
-    qb = qb.or(`name.ilike.%${query}%,sku.ilike.%${query}%,brand.ilike.%${query}%`);
+    qb = qb.or(`name.ilike.%${query}%,sku.ilike.%${query}%,brand.ilike.%${query}%,category.ilike.%${query}%`);
   }
   if (category && category !== "Tous") {
-    qb = qb.eq("category", category);
+    qb = qb.ilike("category", `%${category}%`);
   }
   if (brand && brand !== "Toutes") {
-    qb = qb.eq("brand", brand);
+    qb = qb.ilike("brand", `%${brand}%`);
+  }
+  // Family filter: search in category field
+  if (family) {
+    qb = qb.ilike("category", `%${family}%`);
+  }
+  // Subfamily filter: more specific search in category field
+  if (subfamily) {
+    qb = qb.ilike("category", `%${subfamily}%`);
   }
 
   const { data, count, error } = await qb
@@ -56,22 +66,52 @@ async function getProductsFromDB(supabase: any, options: {
 async function getAttributesFromDB(supabase: any): Promise<{
   categories: string[];
   brands: string[];
+  families: string[];
+  subfamilies: string[];
 }> {
-  const { data: products } = await supabase
-    .from("products")
-    .select("category, brand");
-
+  // Paginate to avoid 1000-row limit
   const categories = new Set<string>();
   const brands = new Set<string>();
+  const families = new Set<string>();
+  const subfamilies = new Set<string>();
+  
+  let from = 0;
+  const batchSize = 1000;
+  
+  while (true) {
+    const { data: products } = await supabase
+      .from("products")
+      .select("category, brand")
+      .range(from, from + batchSize - 1);
 
-  (products || []).forEach((p: any) => {
-    if (p.category) categories.add(p.category);
-    if (p.brand) brands.add(p.brand);
-  });
+    if (!products || products.length === 0) break;
+
+    products.forEach((p: any) => {
+      if (p.category) {
+        categories.add(p.category.trim());
+        // Detect family/subfamily from category string (often "Family > Subfamily")
+        if (p.category.includes('>')) {
+          const [fam, sub] = p.category.split('>').map((s: string) => s.trim());
+          if (fam) families.add(fam);
+          if (sub) subfamilies.add(sub);
+        } else {
+          families.add(p.category.trim());
+        }
+      }
+      if (p.brand) brands.add(p.brand.trim());
+    });
+
+    if (products.length < batchSize) break;
+    from += batchSize;
+  }
+
+  const sortFr = (a: string, b: string) => a.localeCompare(b, 'fr', { sensitivity: 'base' });
 
   return {
-    categories: Array.from(categories).sort(),
-    brands: Array.from(brands).sort(),
+    categories: Array.from(categories).sort(sortFr),
+    brands: Array.from(brands).sort(sortFr),
+    families: Array.from(families).sort(sortFr),
+    subfamilies: Array.from(subfamilies).sort(sortFr),
   };
 }
 
@@ -111,8 +151,10 @@ Deno.serve(async (req) => {
     const sku = body.sku || url.searchParams.get("sku");
     const category = body.category || url.searchParams.get("category");
     const brand = body.brand || url.searchParams.get("brand");
+    const family = body.family || url.searchParams.get("family");
+    const subfamily = body.subfamily || url.searchParams.get("subfamily");
 
-    console.log(`[API] action=${action}, page=${page}, query=${query || "none"}`);
+    console.log(`[API] action=${action}, page=${page}, query=${query || "none"}, family=${family || "none"}, subfamily=${subfamily || "none"}`);
 
     // ========== GET /catalog - Database only ==========
     if (action === "catalog" || action === "search") {
@@ -130,7 +172,7 @@ Deno.serve(async (req) => {
       }
 
       const { products, total } = await getProductsFromDB(supabase, {
-        query, category, brand, page, limit
+        query, category, brand, family, subfamily, page, limit
       });
 
       return jsonResponse({
