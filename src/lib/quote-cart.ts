@@ -10,6 +10,10 @@ export interface QuoteItem {
   size: string;
   quantity: number;
   addedAt: string;
+  // Marquage options
+  markingType?: string;
+  markingLocation?: string;
+  markingNotes?: string;
 }
 
 const CART_KEY = 'j2l-quote-cart';
