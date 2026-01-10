@@ -339,7 +339,7 @@ export default function Catalogue() {
 
   // Avoid spamming resume calls
   const lastAutoResumeAtRef = useRef<number>(0);
-  const AUTO_RESUME_COOLDOWN_MS = 60_000;
+  const AUTO_RESUME_COOLDOWN_MS = 10_000; // 10s (sync runs in short chunks server-side)
 
   // Callback when sync completes
   const handleSyncComplete = () => {

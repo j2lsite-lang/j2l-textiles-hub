@@ -27,7 +27,14 @@ const UPSERT_BATCH_SIZE = 50;
 const MAX_RETRIES = 15; // More retries for robustness
 const LONG_PAUSE_SECONDS = 60; // Long pause after multiple failures
 const HEARTBEAT_INTERVAL_MS = 10_000; // Update heartbeat every 10s
-const MAX_IDLE_MS = 5 * 60_000; // Consider job stale if no heartbeat for 5min
+
+// If no heartbeat for too long, consider the job dead and allow resume.
+// Keep this fairly low so the UI can recover quickly if the runtime kills the task.
+const MAX_IDLE_MS = 120_000; // 2 minutes
+
+// Avoid platform CPU/runtime limits by slicing work into short chunks.
+// The UI will auto-resume when the job goes into "paused".
+const TIME_SLICE_MS = 25_000;
 
 async function auth(): Promise<string> {
   console.log("[CATSYNC] Authenticating...");
@@ -729,7 +736,31 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
       // Mark page as successful
       await markPageSuccess(jobId, page, total + batch.length);
       lastHeartbeat = Date.now();
-      
+
+      // Time-slice to avoid CPU/runtime limits: persist progress and let the UI resume.
+      if (Date.now() - start > TIME_SLICE_MS) {
+        // Flush any remaining batch so we don't redo work on resume
+        if (batch.length > 0) {
+          await upsertBatch(batch);
+          total += batch.length;
+          batch = [];
+        }
+
+        const nextPage = page + 1;
+        await supabase.from("sync_status").update({
+          status: "paused",
+          heartbeat_at: new Date().toISOString(),
+          current_page: nextPage,
+          last_successful_page: page,
+          products_count: total,
+          page_retry_attempt: 0,
+          error_message: `Pause auto (sécurité) — reprise page ${nextPage} — ${total} produits`,
+        }).eq("id", jobId);
+
+        console.log(`[CATSYNC] ⏸️ Time-slice reached, pausing at next page ${nextPage} (total=${total})`);
+        return;
+      }
+
       // Stop if last page (partial page)
       if (items.length < PAGE_SIZE) {
         console.log(`[CATSYNC] Page ${page}: ${items.length} < ${PAGE_SIZE}, last page reached.`);
@@ -737,7 +768,7 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
         estimatedTotalPages = page;
         break;
       }
-      
+
       page++;
       await new Promise(r => setTimeout(r, 300)); // Small delay between pages
     }
