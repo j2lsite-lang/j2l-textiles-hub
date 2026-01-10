@@ -47,12 +47,26 @@ const mockProduct = {
   stock: null,
 };
 
-const priceRanges = [
-  { min: 1, max: 24, price: '12,50 €' },
-  { min: 25, max: 49, price: '10,80 €' },
-  { min: 50, max: 99, price: '9,20 €' },
-  { min: 100, max: null, price: 'Sur devis' },
-];
+function formatPriceEUR(price: number): string {
+  return `${(Math.round(price * 10) / 10).toFixed(2).replace('.', ',')} €`;
+}
+
+type IndicativeRange = { min: number; max: number | null; priceLabel: string };
+
+function buildIndicativePriceRanges(basePriceHT: number | null | undefined): IndicativeRange[] {
+  // On affiche le prix importé (déjà converti + coef) comme "à partir de".
+  // Les paliers suivants restent sur devis car ils dépendent du marquage/quantités.
+  const base = typeof basePriceHT === 'number' && isFinite(basePriceHT) && basePriceHT > 0
+    ? `${formatPriceEUR(basePriceHT)} HT`
+    : 'Sur devis';
+
+  return [
+    { min: 1, max: 24, priceLabel: base },
+    { min: 25, max: 49, priceLabel: 'Sur devis' },
+    { min: 50, max: 99, priceLabel: 'Sur devis' },
+    { min: 100, max: null, priceLabel: 'Sur devis' },
+  ];
+}
 
 const sizeGuide = {
   headers: ['Taille', 'Largeur (cm)', 'Longueur (cm)'],
@@ -200,6 +214,7 @@ export default function Product() {
 
   const displayColors = product.colors?.length > 0 ? product.colors : mockProduct.colors;
   const displaySizes = product.sizes?.length > 0 ? product.sizes : mockProduct.sizes;
+  const indicativePriceRanges = buildIndicativePriceRanges(product.priceHT ?? null);
 
   return (
     <Layout>
@@ -287,12 +302,12 @@ export default function Product() {
                   Tarifs indicatifs (HT)
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {priceRanges.map((range, i) => (
+                  {indicativePriceRanges.map((range, i) => (
                     <div key={i} className="text-center p-2 rounded-lg bg-secondary/50">
                       <p className="text-xs text-muted-foreground">
                         {range.max ? `${range.min}-${range.max}` : `${range.min}+`} pcs
                       </p>
-                      <p className="font-semibold text-primary">{range.price}</p>
+                      <p className="font-semibold text-primary">{range.priceLabel}</p>
                     </div>
                   ))}
                 </div>
