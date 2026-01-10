@@ -285,38 +285,25 @@ export async function fetchAttributes(): Promise<{
       .map(([name]) => name);
 
     // 2) Get remaining "main" categories (TopTex hierarchy: often 'Vêtements')
-    const categoriesResult = await supabase
-      .from('products')
-      .select('category')
-      .not('category', 'is', null)
-      .limit(1000);
+    // IMPORTANT: on pagine pour éviter la limite implicite de 1000 lignes.
+    const allCategories = await fetchUniqueColumnValues('category');
 
-    const mainCategoriesSet = new Set<string>();
-    if (categoriesResult.data) {
-      categoriesResult.data.forEach((p) => {
-        if (p.category) mainCategoriesSet.add(p.category);
-      });
-    }
-
-    const remainingCategories = Array.from(mainCategoriesSet)
+    const remainingCategories = allCategories
       .filter((cat) => !['Vêtements', 'Produits'].includes(cat))
-      .sort();
+      .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
 
-    const categories = [...orderedSubCategories, ...remainingCategories];
+    const categories = [
+      ...orderedSubCategories,
+      ...remainingCategories.filter((c) => !orderedSubCategories.includes(c)),
+    ];
 
-    // 3) Brands + sampled colors
-    const [brandsResult, colorsResult] = await Promise.all([
-      supabase.from('products').select('brand').not('brand', 'is', null).limit(1000),
+    // 3) Brands (paginées) + sampled colors
+    const [allBrands, colorsResult] = await Promise.all([
+      fetchUniqueColumnValues('brand'),
       supabase.from('products').select('colors').not('colors', 'is', null).limit(500),
     ]);
 
-    const brandsSet = new Set<string>();
-    if (brandsResult.data) {
-      brandsResult.data.forEach((p) => {
-        if (p.brand) brandsSet.add(p.brand);
-      });
-    }
-    const brands = Array.from(brandsSet).sort();
+    const brands = allBrands.sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
 
     const colorsMap = new Map<string, string>();
     if (colorsResult.data) {

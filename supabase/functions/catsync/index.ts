@@ -657,7 +657,12 @@ Deno.serve(async (req) => {
   }
 
   if (action === "start" || action === "force-restart" || action === "resume") {
-    if (action === "resume") {
+    // ✅ Robust behavior:
+    // - "resume" resumes if possible
+    // - "start" behaves like "resume if possible", otherwise creates a fresh job
+    // - ONLY "force-restart" cancels existing jobs
+
+    if (action !== "force-restart") {
       const decision = await getResumeDecision();
 
       if (decision.kind === "active") {
@@ -675,7 +680,7 @@ Deno.serve(async (req) => {
 
       if (decision.kind === "resume") {
         console.log(
-          `[CATSYNC] Resuming job ${decision.id} from page ${decision.startPage} (reason=${decision.reason})`,
+          `[CATSYNC] Resuming job ${decision.id} from page ${decision.startPage} (reason=${decision.reason}, requested=${action})`,
         );
 
         ((globalThis as any).EdgeRuntime?.waitUntil || ((p: any) => p))(
@@ -695,10 +700,10 @@ Deno.serve(async (req) => {
         );
       }
 
-      // No resumable job found -> fall through and create a fresh job
+      // decision.kind === "none" -> create new job below
     }
 
-    if (action === "force-restart" || action === "start") {
+    if (action === "force-restart") {
       // Cancel any existing running jobs
       await supabase
         .from("sync_status")
