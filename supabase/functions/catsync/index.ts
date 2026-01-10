@@ -241,18 +241,22 @@ function parsePrice(priceStr: string | number | null | undefined): number | null
 }
 
 /**
- * Extract the best price from product data
- * Priority: publicUnitPrice from first color/size variant
+ * Extract the MINIMUM price from product data across all colors/sizes
+ * This gives the "à partir de" price
  */
-function extractPrice(p: any): number | null {
-  // Try to get price from colors[].sizes[].publicUnitPrice
+function extractMinPrice(p: any): number | null {
+  let minPrice: number | null = null;
+  
+  // Find minimum publicUnitPrice across ALL colors and sizes
   if (Array.isArray(p.colors)) {
     for (const color of p.colors) {
       if (Array.isArray(color.sizes)) {
         for (const size of color.sizes) {
           const price = parsePrice(size.publicUnitPrice);
           if (price !== null && price > 0) {
-            return price;
+            if (minPrice === null || price < minPrice) {
+              minPrice = price;
+            }
           }
         }
       }
@@ -260,12 +264,21 @@ function extractPrice(p: any): number | null {
   }
   
   // Fallback: try direct price fields
-  const directPrice = parsePrice(p.publicUnitPrice || p.price || p.prix);
-  if (directPrice !== null && directPrice > 0) {
-    return directPrice;
+  if (minPrice === null) {
+    const directPrice = parsePrice(p.publicUnitPrice || p.price || p.prix);
+    if (directPrice !== null && directPrice > 0) {
+      minPrice = directPrice;
+    }
   }
   
-  return null;
+  return minPrice;
+}
+
+/**
+ * Round price to nearest 0.10€
+ */
+function roundToTenCents(price: number): number {
+  return Math.round(price * 10) / 10;
 }
 
 /**
@@ -382,9 +395,12 @@ function normalize(p: any): any {
     }
   }
   
-  // Extract and apply price coefficient
-  const rawPrice = extractPrice(p);
-  const priceHT = rawPrice !== null ? Math.round(rawPrice * PRICE_COEFFICIENT * 100) / 100 : null;
+  // Extract minimum price, round to 0.10€, then apply coefficient ×1.5
+  const rawMinPrice = extractMinPrice(p);
+  // Round raw price to nearest 0.10€, then apply coefficient
+  const priceHT = rawMinPrice !== null 
+    ? roundToTenCents(roundToTenCents(rawMinPrice) * PRICE_COEFFICIENT) 
+    : null;
   
   // Extract family/subfamily/world for proper filtering
   const familyFr = p.family?.fr || p.famille || "";
