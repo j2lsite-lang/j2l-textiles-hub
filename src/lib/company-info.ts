@@ -13,7 +13,7 @@ export const COMPANY_INFO = {
   
   phone: '03 29 30 44 79',
   phoneLink: '+33329304479',
-  email: 'j2ltextiles@gmail.com',
+  email: 'contact@j2lpublicite.fr',
   
   // Legal
   siret: '508 858 784 00046',
