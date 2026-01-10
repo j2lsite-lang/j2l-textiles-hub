@@ -20,56 +20,57 @@ import sportImg from '@/assets/categories/sport-pro.jpg';
 import corporateImg from '@/assets/categories/corporate-pro.jpg';
 import hivisImg from '@/assets/categories/hivis-pro.jpg';
 
-// Mapping univers vers des termes de recherche cohérents
+// Mapping univers - utilise des filtres par catégorie pour des résultats fiables
+// On utilise le paramètre 'cat' pour filtrer par nom de produit (smart categories)
 const universList = [
   {
     name: 'Workwear',
     image: workwearImg,
     subcategories: [
-      { label: 'Vêtements de travail', query: 'travail' },
-      { label: 'Vestes & Blousons', query: 'veste blouson' },
-      { label: 'Pantalons de travail', query: 'pantalon travail' },
-      { label: 'EPI & Sécurité', query: 'sécurité protection' },
+      { label: 'Vestes & Blousons', cat: 'Vestes' },
+      { label: 'Pantalons', cat: 'Pantalons' },
+      { label: 'Gilets', cat: 'Gilets' },
+      { label: 'Accessoires', cat: 'Accessoires' },
     ]
   },
   {
     name: 'Hospitality',
     image: gastroImg,
     subcategories: [
-      { label: 'Cuisine & Restauration', query: 'cuisine restauration' },
-      { label: 'Tabliers', query: 'tablier' },
-      { label: 'Vestes de cuisine', query: 'veste cuisine' },
-      { label: 'Santé & Médical', query: 'médical santé' },
+      { label: 'Tabliers', cat: 'Tabliers' },
+      { label: 'Serviettes', cat: 'Serviettes' },
+      { label: 'Chemises', cat: 'Chemises' },
+      { label: 'Pantalons', cat: 'Pantalons' },
     ]
   },
   {
     name: 'Corporate',
     image: corporateImg,
     subcategories: [
-      { label: 'Chemises', query: 'chemise' },
-      { label: 'Polos', query: 'polo' },
-      { label: 'Costumes & Gilets', query: 'costume gilet' },
-      { label: 'Accessoires', query: 'cravate foulard' },
+      { label: 'Chemises', cat: 'Chemises' },
+      { label: 'Polos', cat: 'Polos' },
+      { label: 'Gilets', cat: 'Gilets' },
+      { label: 'Accessoires', cat: 'Accessoires' },
     ]
   },
   {
     name: 'Sport',
     image: sportImg,
     subcategories: [
-      { label: 'T-shirts techniques', query: 'sport technique' },
-      { label: 'Maillots', query: 'maillot sport' },
-      { label: 'Shorts & Pantalons', query: 'short sport' },
-      { label: 'Survêtements', query: 'survêtement jogging' },
+      { label: 'T-shirts', cat: 'T-shirts' },
+      { label: 'Sweats', cat: 'Sweats' },
+      { label: 'Pantalons & Shorts', cat: 'Pantalons' },
+      { label: 'Sacs', cat: 'Sacs' },
     ]
   },
   {
     name: 'Haute Visibilité',
     image: hivisImg,
     subcategories: [
-      { label: 'Vestes haute visibilité', query: 'haute visibilité veste' },
-      { label: 'Gilets fluo', query: 'gilet fluo visibilité' },
-      { label: 'Pantalons HV', query: 'pantalon haute visibilité' },
-      { label: 'Accessoires HV', query: 'accessoire visibilité' },
+      { label: 'Vestes HV', cat: 'Vestes' },
+      { label: 'Gilets HV', cat: 'Gilets' },
+      { label: 'Pantalons HV', cat: 'Pantalons' },
+      { label: 'Accessoires', cat: 'Accessoires' },
     ]
   },
 ];
@@ -175,7 +176,7 @@ export function Header() {
                       <div key={univers.name} className="w-48 p-4 border-r last:border-r-0 border-border">
                           {/* Category Image */}
                           <Link 
-                            to={`/catalogue?q=${encodeURIComponent(univers.subcategories[0]?.query || univers.name)}`}
+                            to={`/catalogue?cat=${encodeURIComponent(univers.subcategories[0]?.cat || '')}`}
                             className="block mb-3 overflow-hidden rounded-lg border-2 border-primary/20 hover:border-primary transition-colors"
                           >
                             <img 
@@ -193,7 +194,7 @@ export function Header() {
                             {univers.subcategories.map((sub) => (
                               <li key={sub.label}>
                                 <Link
-                                  to={`/catalogue?q=${encodeURIComponent(sub.query)}`}
+                                  to={`/catalogue?cat=${encodeURIComponent(sub.cat)}`}
                                   className="text-sm text-primary hover:text-accent transition-colors"
                                 >
                                   {sub.label}

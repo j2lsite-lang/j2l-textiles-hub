@@ -230,7 +230,7 @@ function parsePrice(priceStr: string | number | null | undefined): number | null
   if (typeof priceStr === "number") return priceStr;
   
   // Remove currency symbols and whitespace
-  const cleaned = priceStr.replace(/[€$\s]/g, "").trim();
+  const cleaned = String(priceStr).replace(/[€$\s]/g, "").trim();
   if (!cleaned) return null;
   
   // Handle European format (comma as decimal separator)
@@ -268,31 +268,98 @@ function extractPrice(p: any): number | null {
   return null;
 }
 
+/**
+ * Image priority scoring - higher = better quality/relevance
+ * Prioritize lifestyle/model images over packshots
+ */
+const IMAGE_PRIORITY: Record<string, number> = {
+  "LIFESTYLE": 100,
+  "MODEL": 90,
+  "MANNEQUIN": 90,
+  "AMBIANCE": 85,
+  "FRONT": 80,
+  "FACE": 75,
+  "FACE SIDE": 70,
+  "SIDE": 60,
+  "BACK": 50,
+  "DETAIL": 40,
+  "ZOOM": 30,
+};
+
+function getImagePriority(key: string): number {
+  const upperKey = key.toUpperCase();
+  for (const [pattern, score] of Object.entries(IMAGE_PRIORITY)) {
+    if (upperKey.includes(pattern)) return score;
+  }
+  return 10; // Default low priority
+}
+
+/**
+ * Extract best images from product with priority:
+ * 1. Lifestyle/model/front images first
+ * 2. Keep images organized by color for variants
+ */
+function extractImages(p: any): { mainImages: string[]; colorImages: Record<string, string[]> } {
+  const allImages: Array<{ url: string; priority: number; colorName: string }> = [];
+  const colorImages: Record<string, string[]> = {};
+  
+  if (Array.isArray(p.colors)) {
+    for (const c of p.colors) {
+      const colorName = c.colors?.fr || c.colors?.en || c.name || "default";
+      colorImages[colorName] = [];
+      
+      if (c.packshots && typeof c.packshots === "object") {
+        // Sort packshot keys by priority
+        const sortedKeys = Object.keys(c.packshots).sort((a, b) => 
+          getImagePriority(b) - getImagePriority(a)
+        );
+        
+        for (const key of sortedKeys) {
+          const ps = c.packshots[key];
+          // Prefer url over url_packshot (url is often higher res from media server)
+          const url = ps?.url || ps?.url_packshot;
+          if (url) {
+            allImages.push({ url, priority: getImagePriority(key), colorName });
+            colorImages[colorName].push(url);
+          }
+        }
+      }
+    }
+  }
+  
+  // Sort all images by priority and dedupe
+  allImages.sort((a, b) => b.priority - a.priority);
+  const seen = new Set<string>();
+  const mainImages: string[] = [];
+  for (const img of allImages) {
+    if (!seen.has(img.url)) {
+      seen.add(img.url);
+      mainImages.push(img.url);
+    }
+    if (mainImages.length >= 15) break;
+  }
+  
+  return { mainImages, colorImages };
+}
+
 function normalize(p: any): any {
   // TopTex uses catalogReference as SKU, designation for name in multiple languages
   const sku = p.catalogReference || p.reference || p.sku || "";
   const designation = p.designation || {};
   const name = typeof designation === "string" ? designation : (designation.fr || designation.en || p.name || sku);
   
-  // Extract first image from colors packshots
-  const images: string[] = [];
-  if (Array.isArray(p.colors)) {
-    for (const c of p.colors) {
-      if (c.packshots) {
-        for (const key of Object.keys(c.packshots)) {
-          const ps = c.packshots[key];
-          if (ps?.url_packshot) images.push(ps.url_packshot);
-          else if (ps?.url) images.push(ps.url);
-        }
-      }
-    }
-  }
+  // Extract images with priority (lifestyle/model first)
+  const { mainImages, colorImages } = extractImages(p);
   
-  // Extract colors with hex codes
+  // Extract colors with hex codes and their images
   const colors = (p.colors || []).map((c: any) => {
     const colorName = c.colors?.fr || c.colors?.en || c.name || "";
     const hexCode = c.colorsHexa?.[0] ? `#${c.colorsHexa[0]}` : "";
-    return { name: colorName, code: hexCode };
+    return { 
+      name: colorName, 
+      code: hexCode,
+      images: colorImages[colorName] || []
+    };
   });
   
   // Extract sizes from all color variants
@@ -311,16 +378,24 @@ function normalize(p: any): any {
   const rawPrice = extractPrice(p);
   const priceHT = rawPrice !== null ? Math.round(rawPrice * PRICE_COEFFICIENT * 100) / 100 : null;
   
+  // Extract family/subfamily/world for proper filtering
+  const familyFr = p.family?.fr || p.famille || "";
+  const subFamilyFr = p.sub_family?.fr || p.subFamily?.fr || p.subfamily?.fr || "";
+  const worldFr = p.world?.fr || "";
+  
   return {
     sku,
     name,
     brand: p.brand || p.marque || "",
-    category: p.family?.fr || p.family?.en || p.famille || p.category || "",
+    category: familyFr || p.category || "",
+    family_fr: familyFr,
+    sub_family_fr: subFamilyFr,
+    world_fr: worldFr,
     description: typeof p.description === "object" ? (p.description?.fr || p.description?.en || "") : (p.description || ""),
     composition: typeof p.composition === "object" ? (p.composition?.fr || p.composition?.en || "") : (p.composition || ""),
     weight: p.averageWeight || p.poids || p.weight || "",
     price_ht: priceHT,
-    images: images.slice(0, 10),
+    images: mainImages,
     colors,
     sizes: Array.from(sizesSet),
     variants: [],
