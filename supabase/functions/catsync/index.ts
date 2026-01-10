@@ -410,11 +410,14 @@ function normalize(p: any): any {
     }
   }
   
-  // Extract minimum price, round to 0.10€, then apply coefficient ×1.5
+  // Extract minimum price from API
+  // NOTE: TopTex API returns prices that are 2x higher than the actual purchase price shown on their website
+  // So we divide by 2 to get the real purchase price, then apply coefficient ×1.5
   const rawMinPrice = extractMinPrice(p);
-  // Round raw price to nearest 0.10€, then apply coefficient
-  const priceHT = rawMinPrice !== null 
-    ? roundToTenCents(roundToTenCents(rawMinPrice) * PRICE_COEFFICIENT) 
+  const realPurchasePrice = rawMinPrice !== null ? rawMinPrice / 2 : null;
+  // Round real purchase price to nearest 0.10€, then apply coefficient
+  const priceHT = realPurchasePrice !== null 
+    ? roundToTenCents(roundToTenCents(realPurchasePrice) * PRICE_COEFFICIENT) 
     : null;
   
   // Extract family/subfamily/world for proper filtering
