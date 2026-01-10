@@ -289,85 +289,92 @@ function roundToTenCents(price: number): number {
 }
 
 /**
- * Image priority scoring - higher = better quality/relevance
- * For TopTex products, prioritize LIFESTYLE/MODEL images as main image
- * (like TopTex shows on their product pages)
- * Then FACE/FRONT packshots as fallback
- */
-const IMAGE_PRIORITY: Record<string, number> = {
-  "LIFESTYLE": 100,   // Best: lifestyle photo with model (like TopTex main display)
-  "MODEL": 100,       // Model wearing the product
-  "MANNEQUIN": 95,    // Mannequin display
-  "AMBIANCE": 90,     // Ambiance/context shots
-  "FACE": 80,         // Front packshot (fallback if no lifestyle)
-  "FRONT": 80,
-  "FACE SIDE": 70,
-  "SIDE": 60,
-  "BACK": 50,
-  "DETAIL": 40,
-  "ZOOM": 30,
-};
-
-function getImagePriority(key: string): number {
-  const upperKey = key.toUpperCase();
-  // Exact match first
-  if (IMAGE_PRIORITY[upperKey] !== undefined) {
-    return IMAGE_PRIORITY[upperKey];
-  }
-  // Partial match
-  for (const [pattern, score] of Object.entries(IMAGE_PRIORITY)) {
-    if (upperKey.includes(pattern)) return score;
-  }
-  return 10; // Default low priority
-}
-
-/**
  * Extract best images from product with priority:
- * 1. FACE/FRONT packshots first (main product image like TopTex shows)
- * 2. Use CDN packshot URLs (url_packshot) which are the actual product images
+ * 1. LIFESTYLE/pictures (raw_data.images[].url_image) - photos with models like TopTex shows
+ * 2. Packshots FACE/FRONT as fallback (détourés)
  * 3. Keep images organized by color for variants
  */
 function extractImages(p: any): { mainImages: string[]; colorImages: Record<string, string[]> } {
-  const allImages: Array<{ url: string; priority: number; colorName: string }> = [];
+  const lifestyleImages: string[] = [];
+  const packshotImages: Array<{ url: string; priority: number; colorName: string }> = [];
   const colorImages: Record<string, string[]> = {};
-  
+
+  // Priority scoring for packshots (lower is less preferred)
+  const PACKSHOT_PRIORITY: Record<string, number> = {
+    "FACE": 80,
+    "FRONT": 80,
+    "FACE SIDE": 70,
+    "SIDE": 60,
+    "BACK": 50,
+    "DETAIL": 40,
+    "ZOOM": 30,
+  };
+
+  const getPackshotPriority = (key: string): number => {
+    const upperKey = key.toUpperCase();
+    if (PACKSHOT_PRIORITY[upperKey] !== undefined) return PACKSHOT_PRIORITY[upperKey];
+    for (const [pattern, score] of Object.entries(PACKSHOT_PRIORITY)) {
+      if (upperKey.includes(pattern)) return score;
+    }
+    return 10;
+  };
+
+  // 1. Extract LIFESTYLE images from raw_data.images (photos with models)
+  if (Array.isArray(p.images)) {
+    for (const img of p.images) {
+      const url = img?.url_image || img?.url;
+      if (url && typeof url === "string") {
+        lifestyleImages.push(url);
+      }
+    }
+  }
+
+  // 2. Extract packshots per color (fallback & variant images)
   if (Array.isArray(p.colors)) {
     for (const c of p.colors) {
       const colorName = c.colors?.fr || c.colors?.en || c.name || "default";
       colorImages[colorName] = [];
-      
+
       if (c.packshots && typeof c.packshots === "object") {
-        // Sort packshot keys by priority - FACE first
-        const sortedKeys = Object.keys(c.packshots).sort((a, b) => 
-          getImagePriority(b) - getImagePriority(a)
+        const sortedKeys = Object.keys(c.packshots).sort(
+          (a, b) => getPackshotPriority(b) - getPackshotPriority(a)
         );
-        
+
         for (const key of sortedKeys) {
           const ps = c.packshots[key];
-          // PRIORITÉ: url_packshot du CDN TopTex (images packshot réelles du produit)
-          // Fallback sur url media server seulement si url_packshot n'existe pas
           const url = ps?.url_packshot || ps?.url;
           if (url) {
-            allImages.push({ url, priority: getImagePriority(key), colorName });
+            packshotImages.push({ url, priority: getPackshotPriority(key), colorName });
             colorImages[colorName].push(url);
           }
         }
       }
     }
   }
-  
-  // Sort all images by priority (FACE first) and dedupe
-  allImages.sort((a, b) => b.priority - a.priority);
+
+  // Build final mainImages: lifestyle first, then best packshots
   const seen = new Set<string>();
   const mainImages: string[] = [];
-  for (const img of allImages) {
+
+  // Add lifestyle images first (priority)
+  for (const url of lifestyleImages) {
+    if (!seen.has(url)) {
+      seen.add(url);
+      mainImages.push(url);
+    }
+    if (mainImages.length >= 15) break;
+  }
+
+  // Fill with packshots if room left
+  packshotImages.sort((a, b) => b.priority - a.priority);
+  for (const img of packshotImages) {
+    if (mainImages.length >= 15) break;
     if (!seen.has(img.url)) {
       seen.add(img.url);
       mainImages.push(img.url);
     }
-    if (mainImages.length >= 15) break;
   }
-  
+
   return { mainImages, colorImages };
 }
 
