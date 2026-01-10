@@ -309,9 +309,18 @@ export default function Catalogue() {
   const categories = attributesData?.categories?.length
     ? ['Tous', ...attributesData.categories]
     : defaultCategories;
-  const brands = attributesData?.brands?.length
-    ? ['Toutes', ...attributesData.brands]
-    : defaultBrands;
+
+  // Brands: trim + tri FR + dédoublonnage pour que le filtre A-Z soit fiable
+  const rawBrands = attributesData?.brands?.length
+    ? attributesData.brands
+    : defaultBrands.filter((b) => b !== 'Toutes');
+
+  const brands = [
+    'Toutes',
+    ...Array.from(
+      new Set(rawBrands.map((b) => (typeof b === 'string' ? b.trim() : '')).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' })),
+  ];
 
   // Avoid spamming resume calls
   const lastAutoResumeAtRef = useRef<number>(0);
@@ -458,11 +467,20 @@ export default function Catalogue() {
     }
   };
 
+  const getBrandInitial = (brand: string) => {
+    const cleaned = (brand || '')
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const m = cleaned.match(/[A-Za-z]/);
+    return (m?.[0] || '').toUpperCase();
+  };
+
   // Filtrer les marques par lettre
-  const filteredBrandsByLetter = brands.filter(b => {
+  const filteredBrandsByLetter = brands.filter((b) => {
     if (b === 'Toutes') return true;
     if (selectedLetter === 'Tous') return true;
-    return b.charAt(0).toUpperCase() === selectedLetter;
+    return getBrandInitial(b) === selectedLetter;
   });
 
   // Fetch from TopTex API
@@ -682,7 +700,9 @@ export default function Catalogue() {
                       <div className="flex flex-wrap gap-1 mb-6">
                         {alphabet.map((letter) => {
                           // Vérifier si des marques commencent par cette lettre
-                          const hasBrands = letter === 'Tous' || brands.some(b => b !== 'Toutes' && b.charAt(0).toUpperCase() === letter);
+                          const hasBrands =
+                            letter === 'Tous' ||
+                            brands.some((b) => b !== 'Toutes' && getBrandInitial(b) === letter);
                           return (
                             <button
                               key={letter}
