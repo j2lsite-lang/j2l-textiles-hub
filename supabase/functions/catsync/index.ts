@@ -219,6 +219,55 @@ function parseProductsResponse(txt: string): PageResponse {
   return { kind: "unknown", rawPreview: JSON.stringify(data).slice(0, 500) };
 }
 
+// Coefficient de marge à appliquer sur le prix d'achat
+const PRICE_COEFFICIENT = 1.5;
+
+/**
+ * Parse price from TopTex format like "38,52 €" or "12.50" to number
+ */
+function parsePrice(priceStr: string | number | null | undefined): number | null {
+  if (priceStr == null) return null;
+  if (typeof priceStr === "number") return priceStr;
+  
+  // Remove currency symbols and whitespace
+  const cleaned = priceStr.replace(/[€$\s]/g, "").trim();
+  if (!cleaned) return null;
+  
+  // Handle European format (comma as decimal separator)
+  const normalized = cleaned.replace(",", ".");
+  const num = parseFloat(normalized);
+  
+  return isNaN(num) ? null : num;
+}
+
+/**
+ * Extract the best price from product data
+ * Priority: publicUnitPrice from first color/size variant
+ */
+function extractPrice(p: any): number | null {
+  // Try to get price from colors[].sizes[].publicUnitPrice
+  if (Array.isArray(p.colors)) {
+    for (const color of p.colors) {
+      if (Array.isArray(color.sizes)) {
+        for (const size of color.sizes) {
+          const price = parsePrice(size.publicUnitPrice);
+          if (price !== null && price > 0) {
+            return price;
+          }
+        }
+      }
+    }
+  }
+  
+  // Fallback: try direct price fields
+  const directPrice = parsePrice(p.publicUnitPrice || p.price || p.prix);
+  if (directPrice !== null && directPrice > 0) {
+    return directPrice;
+  }
+  
+  return null;
+}
+
 function normalize(p: any): any {
   // TopTex uses catalogReference as SKU, designation for name in multiple languages
   const sku = p.catalogReference || p.reference || p.sku || "";
@@ -246,6 +295,22 @@ function normalize(p: any): any {
     return { name: colorName, code: hexCode };
   });
   
+  // Extract sizes from all color variants
+  const sizesSet = new Set<string>();
+  if (Array.isArray(p.colors)) {
+    for (const c of p.colors) {
+      if (Array.isArray(c.sizes)) {
+        for (const s of c.sizes) {
+          if (s.size) sizesSet.add(s.size);
+        }
+      }
+    }
+  }
+  
+  // Extract and apply price coefficient
+  const rawPrice = extractPrice(p);
+  const priceHT = rawPrice !== null ? Math.round(rawPrice * PRICE_COEFFICIENT * 100) / 100 : null;
+  
   return {
     sku,
     name,
@@ -254,10 +319,10 @@ function normalize(p: any): any {
     description: typeof p.description === "object" ? (p.description?.fr || p.description?.en || "") : (p.description || ""),
     composition: typeof p.composition === "object" ? (p.composition?.fr || p.composition?.en || "") : (p.composition || ""),
     weight: p.averageWeight || p.poids || p.weight || "",
-    price_ht: null, // Not available without display_prices
+    price_ht: priceHT,
     images: images.slice(0, 10),
     colors,
-    sizes: [],
+    sizes: Array.from(sizesSet),
     variants: [],
     raw_data: p,
   };
@@ -419,7 +484,7 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
     let pageRetries = 0;
     let longPauseCount = 0;
     let emptyPagesInRow = 0;
-    const MAX_EMPTY_PAGES = 3; // Stop after 3 consecutive empty pages
+    const MAX_EMPTY_PAGES = 5; // Stop after 5 consecutive empty pages (increased for safety)
     const MAX_RETRIES_BEFORE_PAUSE = 10; // After 10 failures, take a long pause
     const MAX_LONG_PAUSES = 10; // More pauses before giving up
     
@@ -433,7 +498,8 @@ async function syncCatalog(jobId: string, startPage: number = 1, startTotal: num
         lastHeartbeat = Date.now();
       }
       
-      const pageUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_uniquement&page_number=${page}&page_size=${PAGE_SIZE}`;
+      // Use b2b_b2c for maximum product access
+      const pageUrl = `${TOPTEX}/v3/products/all?usage_right=b2b_b2c&page_number=${page}&page_size=${PAGE_SIZE}`;
       console.log(`[CATSYNC] 📖 Page ${page}: fetching... (retries=${pageRetries}, longPauses=${longPauseCount}, total=${total})`);
       
       const { status: pageStatus, text: pageText } = await toptexGet(pageUrl);
