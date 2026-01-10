@@ -238,6 +238,41 @@ function detectProductType(productName: string): string | null {
   return null;
 }
 
+type ProductColumn = 'brand' | 'category';
+
+async function fetchUniqueColumnValues(column: ProductColumn, batchSize = 1000): Promise<string[]> {
+  const values = new Set<string>();
+  let from = 0;
+  const MAX_ROWS = 50_000; // garde-fou
+
+  while (from < MAX_ROWS) {
+    const to = from + batchSize - 1;
+    const { data, error } = await supabase
+      .from('products')
+      .select(column)
+      .not(column, 'is', null)
+      .range(from, to);
+
+    if (error) throw error;
+
+    const rows = (data as any[]) || [];
+    if (rows.length === 0) break;
+
+    for (const row of rows) {
+      const v = row?.[column];
+      if (typeof v === 'string') {
+        const trimmed = v.trim();
+        if (trimmed) values.add(trimmed);
+      }
+    }
+
+    if (rows.length < batchSize) break;
+    from += batchSize;
+  }
+
+  return Array.from(values);
+}
+
 export async function fetchAttributes(): Promise<{
   categories: string[];
   brands: string[];
