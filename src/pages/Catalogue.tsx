@@ -300,6 +300,15 @@ export default function Catalogue() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Synchroniser searchQuery avec le paramètre URL ?q=
+  useEffect(() => {
+    const urlQuery = searchParams.get('q') || '';
+    if (urlQuery !== searchQuery) {
+      setSearchQuery(urlQuery);
+      setPage(1);
+    }
+  }, [searchParams]);
   const { isAdmin } = useIsAdmin();
 
   const { data: remoteBrandLogos } = useToptexBrandLogos();
