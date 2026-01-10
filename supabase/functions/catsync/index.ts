@@ -270,15 +270,16 @@ function extractPrice(p: any): number | null {
 
 /**
  * Image priority scoring - higher = better quality/relevance
- * Prioritize lifestyle/model images over packshots
+ * For TopTex products, prioritize FACE (front) packshots as main image
+ * These are the product images shown on toptex.fr
  */
 const IMAGE_PRIORITY: Record<string, number> = {
-  "LIFESTYLE": 100,
-  "MODEL": 90,
-  "MANNEQUIN": 90,
-  "AMBIANCE": 85,
-  "FRONT": 80,
-  "FACE": 75,
+  "FACE": 100,      // Front view = main product image (like TopTex shows)
+  "FRONT": 100,
+  "LIFESTYLE": 90,
+  "MODEL": 85,
+  "MANNEQUIN": 85,
+  "AMBIANCE": 80,
   "FACE SIDE": 70,
   "SIDE": 60,
   "BACK": 50,
@@ -288,6 +289,11 @@ const IMAGE_PRIORITY: Record<string, number> = {
 
 function getImagePriority(key: string): number {
   const upperKey = key.toUpperCase();
+  // Exact match first
+  if (IMAGE_PRIORITY[upperKey] !== undefined) {
+    return IMAGE_PRIORITY[upperKey];
+  }
+  // Partial match
   for (const [pattern, score] of Object.entries(IMAGE_PRIORITY)) {
     if (upperKey.includes(pattern)) return score;
   }
@@ -296,8 +302,9 @@ function getImagePriority(key: string): number {
 
 /**
  * Extract best images from product with priority:
- * 1. Lifestyle/model/front images first
- * 2. Keep images organized by color for variants
+ * 1. FACE/FRONT packshots first (main product image like TopTex shows)
+ * 2. Use CDN packshot URLs (url_packshot) which are the actual product images
+ * 3. Keep images organized by color for variants
  */
 function extractImages(p: any): { mainImages: string[]; colorImages: Record<string, string[]> } {
   const allImages: Array<{ url: string; priority: number; colorName: string }> = [];
@@ -309,15 +316,16 @@ function extractImages(p: any): { mainImages: string[]; colorImages: Record<stri
       colorImages[colorName] = [];
       
       if (c.packshots && typeof c.packshots === "object") {
-        // Sort packshot keys by priority
+        // Sort packshot keys by priority - FACE first
         const sortedKeys = Object.keys(c.packshots).sort((a, b) => 
           getImagePriority(b) - getImagePriority(a)
         );
         
         for (const key of sortedKeys) {
           const ps = c.packshots[key];
-          // Prefer url over url_packshot (url is often higher res from media server)
-          const url = ps?.url || ps?.url_packshot;
+          // PRIORITÉ: url_packshot du CDN TopTex (images packshot réelles du produit)
+          // Fallback sur url media server seulement si url_packshot n'existe pas
+          const url = ps?.url_packshot || ps?.url;
           if (url) {
             allImages.push({ url, priority: getImagePriority(key), colorName });
             colorImages[colorName].push(url);
@@ -327,7 +335,7 @@ function extractImages(p: any): { mainImages: string[]; colorImages: Record<stri
     }
   }
   
-  // Sort all images by priority and dedupe
+  // Sort all images by priority (FACE first) and dedupe
   allImages.sort((a, b) => b.priority - a.priority);
   const seen = new Set<string>();
   const mainImages: string[] = [];
