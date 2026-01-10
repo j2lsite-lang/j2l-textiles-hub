@@ -269,14 +269,14 @@ export function Header() {
             </nav>
 
             {/* Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Link to="/catalogue" className="hidden sm:flex">
                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary hover:bg-secondary">
                   <Search className="h-5 w-5" />
                 </Button>
               </Link>
 
-              <Link to="/devis" className="relative">
+              <Link to="/devis" className="relative z-10">
                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary hover:bg-secondary">
                   <ShoppingBag className="h-5 w-5" />
                   {itemCount > 0 && (
@@ -287,8 +287,10 @@ export function Header() {
                 </Button>
               </Link>
 
-              {/* Callback Modal */}
-              <CallbackModal />
+              {/* Callback Modal - hidden on mobile */}
+              <div className="hidden md:block">
+                <CallbackModal />
+              </div>
 
               <Link to="/devis" className="hidden sm:block">
                 <Button className="font-semibold accent-gradient text-white border-0 shadow-accent hover:shadow-lg hover:-translate-y-0.5 transition-all">
