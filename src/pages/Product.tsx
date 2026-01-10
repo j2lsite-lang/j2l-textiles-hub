@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { ChevronLeft, Plus, Minus, ShoppingBag, Ruler, Check, Info, Loader2, AlertCircle } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useProduct } from '@/hooks/useTopTex';
+import { ProductMarkingOptions } from '@/components/product/ProductMarkingOptions';
+import { ProductShareButtons } from '@/components/product/ProductShareButtons';
 import {
   Dialog,
   DialogContent,
@@ -92,6 +94,7 @@ function getColorStyle(colorName: string, colorCode?: string): string {
 
 export default function Product() {
   const { sku } = useParams();
+  const location = useLocation();
   const { addItem } = useQuoteCart();
   const { toast } = useToast();
   
@@ -106,6 +109,16 @@ export default function Product() {
   const [selectedColor, setSelectedColor] = useState<{ name: string; code?: string } | null>(null);
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(25);
+  
+  // Marking options state
+  const [markingType, setMarkingType] = useState('');
+  const [markingLocation, setMarkingLocation] = useState('');
+  const [markingNotes, setMarkingNotes] = useState('');
+  
+  // Get full product URL for sharing
+  const productUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}${location.pathname}` 
+    : '';
 
   // Set default color when product loads
   useEffect(() => {
@@ -133,6 +146,24 @@ export default function Product() {
       return;
     }
 
+    if (!markingType) {
+      toast({
+        title: 'Sélectionnez un type de marquage',
+        description: 'Veuillez choisir un type de marquage avant d\'ajouter au devis.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!markingLocation) {
+      toast({
+        title: 'Sélectionnez un emplacement',
+        description: 'Veuillez choisir un emplacement de marquage avant d\'ajouter au devis.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     addItem({
       sku: product.sku,
       name: product.name,
@@ -142,11 +173,14 @@ export default function Product() {
       colorCode: selectedColor.code,
       size: selectedSize,
       quantity,
+      markingType,
+      markingLocation,
+      markingNotes,
     });
 
     toast({
       title: 'Ajouté au devis',
-      description: `${quantity}x ${product.name} (${selectedColor.name}, ${selectedSize})`,
+      description: `${quantity}x ${product.name} (${selectedColor.name}, ${selectedSize}) - ${markingType}`,
     });
   };
 
@@ -383,6 +417,18 @@ export default function Product() {
                 </div>
               </div>
 
+              {/* Marking Options */}
+              <div className="border-t pt-6">
+                <ProductMarkingOptions
+                  markingType={markingType}
+                  markingLocation={markingLocation}
+                  markingNotes={markingNotes}
+                  onMarkingTypeChange={setMarkingType}
+                  onMarkingLocationChange={setMarkingLocation}
+                  onMarkingNotesChange={setMarkingNotes}
+                />
+              </div>
+
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <Button size="lg" className="flex-1" onClick={handleAddToQuote}>
@@ -394,6 +440,15 @@ export default function Product() {
                     Voir mon devis
                   </Button>
                 </Link>
+              </div>
+
+              {/* Share Buttons */}
+              <div className="border-t pt-6">
+                <ProductShareButtons
+                  productName={product.name}
+                  productUrl={productUrl}
+                  productImage={product.images?.[0]}
+                />
               </div>
 
               {/* Specs */}

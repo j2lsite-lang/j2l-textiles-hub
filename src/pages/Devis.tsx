@@ -71,9 +71,16 @@ export default function Devis() {
 
     try {
       // Préparer les infos produits pour l'email
-      const productDetails = items.map(item => 
-        `${item.name} (Réf: ${item.sku}) - ${item.color} / ${item.size} - Qté: ${item.quantity}`
-      ).join('\n');
+      const productDetails = items.map(item => {
+        let line = `${item.name} (Réf: ${item.sku}) - ${item.color} / ${item.size} - Qté: ${item.quantity}`;
+        if (item.markingType) {
+          line += `\n  → Marquage: ${item.markingType} - Emplacement: ${item.markingLocation || 'Non précisé'}`;
+          if (item.markingNotes) {
+            line += `\n  → Notes: ${item.markingNotes}`;
+          }
+        }
+        return line;
+      }).join('\n\n');
       
       const firstItem = items[0];
       const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -219,6 +226,18 @@ ${productDetails}
                             {item.color} / {item.size}
                           </span>
                         </div>
+                        {item.markingType && (
+                          <div className="mt-2 text-xs space-y-0.5">
+                            <p className="text-primary font-medium">
+                              {item.markingType} • {item.markingLocation}
+                            </p>
+                            {item.markingNotes && (
+                              <p className="text-muted-foreground italic">
+                                {item.markingNotes}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col items-end justify-between">
                         <Button
