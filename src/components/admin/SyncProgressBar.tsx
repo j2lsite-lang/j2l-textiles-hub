@@ -73,7 +73,7 @@ export function SyncProgressBar({ onSyncComplete }: SyncProgressBarProps) {
     };
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 2000);
+    const interval = setInterval(fetchStatus, 5000); // Poll every 5s instead of 2s
     return () => clearInterval(interval);
   }, [isAdmin, onSyncComplete, syncStatus?.status]);
 

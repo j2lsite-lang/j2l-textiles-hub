@@ -420,16 +420,13 @@ export default function Catalogue() {
               variant: "destructive",
             });
           } else {
-            // Auto-reprise si le job est en pause ou semble bloqué (heartbeat trop ancien)
+            // Afficher progression - NE PAS auto-resume pendant un sync actif
             const heartbeatAt = lastSync.heartbeat_at ? new Date(lastSync.heartbeat_at).getTime() : 0;
             const secondsSinceHeartbeat = heartbeatAt ? Math.round((Date.now() - heartbeatAt) / 1000) : null;
-            const recommended = statusData?.recommended_action as string | null | undefined;
 
-            const shouldAutoResume =
-              (status === 'paused') ||
-              (status === 'syncing' && (recommended === 'resume' || (secondsSinceHeartbeat != null && secondsSinceHeartbeat > 90)));
-
-            if (shouldAutoResume) {
+            // Auto-reprise UNIQUEMENT si paused (pas si syncing - on laisse faire)
+            // Cela évite d'interrompre le traitement en cours
+            if (status === 'paused') {
               const now = Date.now();
               if (now - lastAutoResumeAtRef.current > AUTO_RESUME_COOLDOWN_MS) {
                 lastAutoResumeAtRef.current = now;
@@ -438,15 +435,15 @@ export default function Catalogue() {
               }
             }
 
-            // Toujours en cours - afficher progression détaillée
+            // Afficher progression détaillée
             let statusText = `Page ${currentPage}`;
             if (retryAttempt > 0) {
               statusText += ` (tentative ${retryAttempt})`;
             }
             statusText += ` - ${count} produits`;
 
-            if (secondsSinceHeartbeat != null && secondsSinceHeartbeat > 20) {
-              statusText += ` (dernier signal il y a ${secondsSinceHeartbeat}s)`;
+            if (secondsSinceHeartbeat != null && secondsSinceHeartbeat > 30) {
+              statusText += ` (signal ${secondsSinceHeartbeat}s)`;
             }
 
             if (errMsg && !errMsg.startsWith('Page')) {
@@ -454,7 +451,7 @@ export default function Catalogue() {
             }
 
             setSyncStatus(statusText);
-            setTimeout(pollStatus, 2000); // Poll every 2s for faster updates
+            setTimeout(pollStatus, 3000); // Poll every 3s (not 2s to reduce load)
           }
         } else {
           // No status data, keep polling
