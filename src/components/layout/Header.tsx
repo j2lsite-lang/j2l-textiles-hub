@@ -20,53 +20,56 @@ import sportImg from '@/assets/categories/sport-pro.jpg';
 import corporateImg from '@/assets/categories/corporate-pro.jpg';
 import hivisImg from '@/assets/categories/hivis-pro.jpg';
 
+// Mapping univers vers des termes de recherche cohérents
 const universList = [
   {
     name: 'Workwear',
     image: workwearImg,
     subcategories: [
-      { label: 'Distribution - Logistique', query: 'workwear' },
-      { label: 'Industrie - Sécurité - BTP', query: 'workwear' },
-      { label: 'Jardinerie - Bricolage', query: 'workwear' },
-      { label: 'EPI', query: 'workwear' },
+      { label: 'Vêtements de travail', query: 'travail' },
+      { label: 'Vestes & Blousons', query: 'veste blouson' },
+      { label: 'Pantalons de travail', query: 'pantalon travail' },
+      { label: 'EPI & Sécurité', query: 'sécurité protection' },
     ]
   },
   {
     name: 'Hospitality',
     image: gastroImg,
     subcategories: [
-      { label: 'CHR Métiers de bouche', query: 'hospitality' },
-      { label: 'Santé - Beauté - Hygiène', query: 'hospitality' },
-      { label: 'Accueil', query: 'hospitality' },
-      { label: 'Artisanat - Commerce', query: 'hospitality' },
+      { label: 'Cuisine & Restauration', query: 'cuisine restauration' },
+      { label: 'Tabliers', query: 'tablier' },
+      { label: 'Vestes de cuisine', query: 'veste cuisine' },
+      { label: 'Santé & Médical', query: 'médical santé' },
     ]
   },
   {
-    name: 'Création / Événementiel',
+    name: 'Corporate',
     image: corporateImg,
     subcategories: [
-      { label: 'Créateur de marques', query: 'evenementiel' },
-      { label: 'Université - BDE - écoles', query: 'evenementiel' },
-      { label: 'Media Merchandising', query: 'evenementiel' },
-      { label: 'Tourisme - Culture', query: 'evenementiel' },
+      { label: 'Chemises', query: 'chemise' },
+      { label: 'Polos', query: 'polo' },
+      { label: 'Costumes & Gilets', query: 'costume gilet' },
+      { label: 'Accessoires', query: 'cravate foulard' },
     ]
   },
   {
     name: 'Sport',
     image: sportImg,
     subcategories: [
-      { label: 'Sports collectifs', query: 'sport' },
-      { label: 'Sports individuels', query: 'sport' },
-      { label: 'Matériel de sport', query: 'sport' },
+      { label: 'T-shirts techniques', query: 'sport technique' },
+      { label: 'Maillots', query: 'maillot sport' },
+      { label: 'Shorts & Pantalons', query: 'short sport' },
+      { label: 'Survêtements', query: 'survêtement jogging' },
     ]
   },
   {
     name: 'Haute Visibilité',
     image: hivisImg,
     subcategories: [
-      { label: 'Vestes haute visibilité', query: 'hivis' },
-      { label: 'Pantalons', query: 'hivis' },
-      { label: 'Accessoires', query: 'hivis' },
+      { label: 'Vestes haute visibilité', query: 'haute visibilité veste' },
+      { label: 'Gilets fluo', query: 'gilet fluo visibilité' },
+      { label: 'Pantalons HV', query: 'pantalon haute visibilité' },
+      { label: 'Accessoires HV', query: 'accessoire visibilité' },
     ]
   },
 ];
@@ -169,10 +172,10 @@ export function Header() {
                   <div className="bg-white">
                     <div className="flex gap-0">
                       {universList.map((univers) => (
-                        <div key={univers.name} className="w-48 p-4 border-r last:border-r-0 border-border">
+                      <div key={univers.name} className="w-48 p-4 border-r last:border-r-0 border-border">
                           {/* Category Image */}
                           <Link 
-                            to={`/catalogue?category=${univers.subcategories[0]?.query || ''}`}
+                            to={`/catalogue?q=${encodeURIComponent(univers.subcategories[0]?.query || univers.name)}`}
                             className="block mb-3 overflow-hidden rounded-lg border-2 border-primary/20 hover:border-primary transition-colors"
                           >
                             <img 
@@ -190,7 +193,7 @@ export function Header() {
                             {univers.subcategories.map((sub) => (
                               <li key={sub.label}>
                                 <Link
-                                  to={`/catalogue?category=${sub.query}`}
+                                  to={`/catalogue?q=${encodeURIComponent(sub.query)}`}
                                   className="text-sm text-primary hover:text-accent transition-colors"
                                 >
                                   {sub.label}

@@ -43,12 +43,14 @@ export interface CatalogFilters {
   query?: string;
   category?: string;
   brand?: string;
+  family?: string;
+  subfamily?: string;
   page?: number;
   limit?: number;
 }
 
 export async function fetchCatalog(filters: CatalogFilters = {}): Promise<CatalogResponse> {
-  const { query, category, brand, page = 1, limit = 24 } = filters;
+  const { query, category, brand, family, subfamily, page = 1, limit = 24 } = filters;
 
   try {
     // First, try to fetch from local database (synced products)
@@ -89,6 +91,14 @@ export async function fetchCatalog(filters: CatalogFilters = {}): Promise<Catalo
     }
     if (brand && brand !== 'Toutes') {
       dbQuery = dbQuery.ilike('brand', `%${brand}%`);
+    }
+    // Family filter
+    if (family) {
+      dbQuery = dbQuery.ilike('category', `%${family}%`);
+    }
+    // Subfamily filter
+    if (subfamily) {
+      dbQuery = dbQuery.ilike('category', `%${subfamily}%`);
     }
 
     // Pagination

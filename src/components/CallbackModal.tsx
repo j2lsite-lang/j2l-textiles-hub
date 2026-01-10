@@ -39,7 +39,7 @@ export function CallbackModal() {
     try {
       await sendEmail({
         nom: formData.name,
-        email: 'rappel@j2ltextiles.fr',
+        email: 'j2ltextiles@gmail.com',
         telephone: formData.phone,
         message: `Demande de rappel téléphonique`,
         page: 'Bouton Être rappelé',
