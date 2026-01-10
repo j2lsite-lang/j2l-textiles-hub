@@ -226,8 +226,7 @@ function parseProductsResponse(txt: string): PageResponse {
   return { kind: "unknown", rawPreview: JSON.stringify(data).slice(0, 500) };
 }
 
-// Coefficient de marge à appliquer sur le prix d'achat
-const PRICE_COEFFICIENT = 1.5;
+// Note: TopTex API prices already include margin, no coefficient needed
 
 /**
  * Parse price from TopTex format like "38,52 €" or "12.50" to number
@@ -282,10 +281,10 @@ function extractMinPrice(p: any): number | null {
 }
 
 /**
- * Round price to nearest 0.10€
+ * Round price to nearest 0.50€
  */
-function roundToTenCents(price: number): number {
-  return Math.round(price * 10) / 10;
+function roundToFiftyCents(price: number): number {
+  return Math.round(price * 2) / 2;
 }
 
 /**
@@ -410,14 +409,11 @@ function normalize(p: any): any {
     }
   }
   
-  // Extract minimum price from API
-  // NOTE: TopTex API returns prices that are 2x higher than the actual purchase price shown on their website
-  // So we divide by 2 to get the real purchase price, then apply coefficient ×1.5
+  // Extract minimum price from API - margin is already included in TopTex prices
+  // Just round to nearest 0.50€
   const rawMinPrice = extractMinPrice(p);
-  const realPurchasePrice = rawMinPrice !== null ? rawMinPrice / 2 : null;
-  // Round real purchase price to nearest 0.10€, then apply coefficient
-  const priceHT = realPurchasePrice !== null 
-    ? roundToTenCents(roundToTenCents(realPurchasePrice) * PRICE_COEFFICIENT) 
+  const priceHT = rawMinPrice !== null 
+    ? roundToFiftyCents(rawMinPrice) 
     : null;
   
   // Extract family/subfamily/world for proper filtering
