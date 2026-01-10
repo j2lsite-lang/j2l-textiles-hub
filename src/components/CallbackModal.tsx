@@ -13,7 +13,12 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
-export function CallbackModal() {
+interface CallbackModalProps {
+  productRef?: string;
+  productName?: string;
+}
+
+export function CallbackModal({ productRef, productName }: CallbackModalProps = {}) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,12 +42,16 @@ export function CallbackModal() {
     setIsSubmitting(true);
 
     try {
+      const productInfo = productRef ? `\n\nProduit concerné: ${productRef}${productName ? ` - ${productName}` : ''}` : '';
+      
       await sendEmail({
         nom: formData.name,
-        email: 'j2ltextiles@gmail.com',
+        email: 'contact@j2lpublicite.fr',
         telephone: formData.phone,
-        message: `Demande de rappel téléphonique`,
-        page: 'Bouton Être rappelé',
+        message: `Demande de rappel téléphonique${productInfo}`,
+        product_ref: productRef || '',
+        product_name: productName || '',
+        page: productRef ? `Fiche produit ${productRef}` : 'Bouton Être rappelé',
       });
 
       toast({
