@@ -45,12 +45,13 @@ export interface CatalogFilters {
   brand?: string;
   family?: string;
   subfamily?: string;
+  world?: string;
   page?: number;
   limit?: number;
 }
 
 export async function fetchCatalog(filters: CatalogFilters = {}): Promise<CatalogResponse> {
-  const { query, category, brand, family, subfamily, page = 1, limit = 24 } = filters;
+  const { query, category, brand, family, subfamily, world, page = 1, limit = 24 } = filters;
 
   try {
     // First, try to fetch from local database (synced products)
@@ -60,7 +61,8 @@ export async function fetchCatalog(filters: CatalogFilters = {}): Promise<Catalo
 
     // Apply filters
     if (query) {
-      dbQuery = dbQuery.or(`name.ilike.%${query}%,sku.ilike.%${query}%,brand.ilike.%${query}%`);
+      // Search in name, sku, brand, AND family/subfamily fields
+      dbQuery = dbQuery.or(`name.ilike.%${query}%,sku.ilike.%${query}%,brand.ilike.%${query}%,family_fr.ilike.%${query}%,sub_family_fr.ilike.%${query}%`);
     }
     if (category && category !== 'Tous') {
       // Check if it's a smart sub-category (based on product name)
@@ -85,20 +87,24 @@ export async function fetchCatalog(filters: CatalogFilters = {}): Promise<Catalo
         const orConditions = keywords.map(k => `name.ilike.%${k}%`).join(',');
         dbQuery = dbQuery.or(orConditions);
       } else {
-        // Standard category filter
-        dbQuery = dbQuery.ilike('category', `%${category}%`);
+        // Standard category filter - search in family_fr OR sub_family_fr OR category
+        dbQuery = dbQuery.or(`category.ilike.%${category}%,family_fr.ilike.%${category}%,sub_family_fr.ilike.%${category}%`);
       }
     }
     if (brand && brand !== 'Toutes') {
       dbQuery = dbQuery.ilike('brand', `%${brand}%`);
     }
-    // Family filter
+    // Family filter (from Univers menu)
     if (family) {
-      dbQuery = dbQuery.ilike('category', `%${family}%`);
+      dbQuery = dbQuery.ilike('family_fr', `%${family}%`);
     }
     // Subfamily filter
     if (subfamily) {
-      dbQuery = dbQuery.ilike('category', `%${subfamily}%`);
+      dbQuery = dbQuery.ilike('sub_family_fr', `%${subfamily}%`);
+    }
+    // World filter
+    if (world) {
+      dbQuery = dbQuery.ilike('world_fr', `%${world}%`);
     }
 
     // Pagination

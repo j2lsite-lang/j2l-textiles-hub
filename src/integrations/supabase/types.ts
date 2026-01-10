@@ -22,6 +22,7 @@ export type Database = {
           composition: string | null
           created_at: string
           description: string | null
+          family_fr: string | null
           id: string
           images: Json | null
           name: string
@@ -30,10 +31,12 @@ export type Database = {
           sizes: Json | null
           sku: string
           stock: number | null
+          sub_family_fr: string | null
           synced_at: string
           updated_at: string
           variants: Json | null
           weight: string | null
+          world_fr: string | null
         }
         Insert: {
           brand?: string | null
@@ -42,6 +45,7 @@ export type Database = {
           composition?: string | null
           created_at?: string
           description?: string | null
+          family_fr?: string | null
           id?: string
           images?: Json | null
           name: string
@@ -50,10 +54,12 @@ export type Database = {
           sizes?: Json | null
           sku: string
           stock?: number | null
+          sub_family_fr?: string | null
           synced_at?: string
           updated_at?: string
           variants?: Json | null
           weight?: string | null
+          world_fr?: string | null
         }
         Update: {
           brand?: string | null
@@ -62,6 +68,7 @@ export type Database = {
           composition?: string | null
           created_at?: string
           description?: string | null
+          family_fr?: string | null
           id?: string
           images?: Json | null
           name?: string
@@ -70,10 +77,12 @@ export type Database = {
           sizes?: Json | null
           sku?: string
           stock?: number | null
+          sub_family_fr?: string | null
           synced_at?: string
           updated_at?: string
           variants?: Json | null
           weight?: string | null
+          world_fr?: string | null
         }
         Relationships: []
       }

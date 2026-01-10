@@ -292,20 +292,26 @@ const alphabet = ['Tous', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
 export default function Catalogue() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [selectedCategory, setSelectedCategory] = useState('Tous');
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('cat') || 'Tous');
   const [selectedBrand, setSelectedBrand] = useState('Toutes');
   const [selectedLetter, setSelectedLetter] = useState('Tous');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [syncTotalInfo, setSyncTotalInfo] = useState<{ pages: number; products: number } | null>(null);
   const { toast } = useToast();
 
-  // Synchroniser searchQuery avec le paramètre URL ?q=
+  // Synchroniser searchQuery et category avec les paramètres URL
   useEffect(() => {
     const urlQuery = searchParams.get('q') || '';
+    const urlCat = searchParams.get('cat') || 'Tous';
     if (urlQuery !== searchQuery) {
       setSearchQuery(urlQuery);
+      setPage(1);
+    }
+    if (urlCat !== selectedCategory) {
+      setSelectedCategory(urlCat);
       setPage(1);
     }
   }, [searchParams]);
@@ -519,7 +525,10 @@ export default function Catalogue() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setSearchParams(searchQuery ? { q: searchQuery } : {});
+    const params: Record<string, string> = {};
+    if (searchQuery) params.q = searchQuery;
+    if (selectedCategory !== 'Tous') params.cat = selectedCategory;
+    setSearchParams(params);
     setPage(1);
   };
 
@@ -533,6 +542,24 @@ export default function Catalogue() {
   };
 
   const hasActiveFilters = searchQuery || selectedCategory !== 'Tous' || selectedBrand !== 'Toutes';
+
+  // Fetch sync total info on mount
+  useEffect(() => {
+    const fetchSyncInfo = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('catsync', { body: { action: 'status' } });
+        if (data?.last_sync) {
+          setSyncTotalInfo({
+            pages: data.last_sync.current_page || data.last_sync.estimated_total_pages || 0,
+            products: data.product_count_db || data.last_sync.products_count || 0,
+          });
+        }
+      } catch (e) {
+        // Ignore
+      }
+    };
+    fetchSyncInfo();
+  }, []);
 
   return (
     <Layout>
@@ -694,6 +721,11 @@ export default function Catalogue() {
                   <p className="text-sm text-muted-foreground mb-6">
                     {catalogData?.pagination?.total || displayProducts.length} produit{(catalogData?.pagination?.total || displayProducts.length) > 1 ? 's' : ''} trouvé{(catalogData?.pagination?.total || displayProducts.length) > 1 ? 's' : ''}
                     {isUsingMock && ' (démo)'}
+                    {syncTotalInfo && !isUsingMock && (
+                      <span className="ml-2 text-xs text-muted-foreground/70">
+                        (Total catalogue : {syncTotalInfo.products} produits / {syncTotalInfo.pages} pages)
+                      </span>
+                    )}
                   </p>
                   
                   {/* Section Marques */}
