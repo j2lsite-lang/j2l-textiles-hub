@@ -37,7 +37,8 @@ export function Footer() {
               <img 
                 src={logoJ2L} 
                 alt="J2L Textiles" 
-                className="h-12 w-auto object-contain brightness-0 invert"
+                className="h-12 w-auto object-contain"
+                style={{ filter: 'brightness(0) invert(1)' }}
                 width={160}
                 height={48}
                 loading="lazy"
@@ -191,7 +192,8 @@ export function Footer() {
                 <img 
                   src={logoJ2L} 
                   alt="J2L Publicité" 
-                  className="h-5 w-auto brightness-0 invert opacity-60 hover:opacity-100 transition-opacity"
+                  className="h-5 w-auto opacity-70 hover:opacity-100 transition-opacity"
+                  style={{ filter: 'brightness(0) invert(1)' }}
                   width={100}
                   height={20}
                   loading="lazy"
