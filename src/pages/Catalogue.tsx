@@ -756,8 +756,9 @@ export default function Catalogue() {
                           return (
                             <button
                               key={letter}
+                              type="button"
                               onClick={() => setSelectedLetter(letter)}
-                              disabled={!hasBrands}
+                              aria-disabled={!hasBrands}
                               className={cn(
                                 'h-9 text-sm font-semibold rounded-lg transition-all duration-200',
                                 letter === 'Tous' ? 'px-3' : 'w-9',
@@ -765,7 +766,7 @@ export default function Catalogue() {
                                   ? 'bg-primary text-primary-foreground shadow-md'
                                   : hasBrands
                                     ? 'bg-white border border-gray-200 text-gray-700 hover:border-primary hover:text-primary'
-                                    : 'bg-muted text-muted-foreground/60 cursor-not-allowed'
+                                    : 'bg-muted text-muted-foreground/70 hover:bg-muted/80'
                               )}
                             >
                               {letter}
