@@ -58,16 +58,16 @@ serve(async (req: Request) => {
   try {
     const serviceId = Deno.env.get('EMAILJS_SERVICE_ID');
     const templateId = Deno.env.get('EMAILJS_TEMPLATE_ID');
-    const privateKey = Deno.env.get('EMAILJS_PRIVATE_KEY');
+    const publicKey = Deno.env.get('EMAILJS_PUBLIC_KEY');
     const autoResponseTemplateId = Deno.env.get('EMAILJS_AUTORESPONSE_TEMPLATE_ID');
 
-    if (!serviceId || !templateId || !privateKey) {
+    if (!serviceId || !templateId || !publicKey) {
       console.error('Missing EmailJS configuration');
       throw new Error('Configuration EmailJS manquante');
     }
 
     const body: QuoteRequest = await req.json();
-    console.log('Received quote request:', { 
+    console.log('Received quote request:', {
       nom: body.nom, 
       email: body.email,
       product_ref: body.product_ref 
@@ -95,7 +95,7 @@ serve(async (req: Request) => {
 
     // 1. Send internal notification to company
     console.log('Sending internal notification to contact@j2lpublicite.fr');
-    await sendEmailJS(serviceId, templateId, privateKey, cleanParams);
+    await sendEmailJS(serviceId, templateId, publicKey, cleanParams);
 
     // 2. Send auto-response to user (if template configured)
     if (autoResponseTemplateId) {
@@ -107,7 +107,7 @@ serve(async (req: Request) => {
       };
       
       try {
-        await sendEmailJS(serviceId, autoResponseTemplateId, privateKey, autoResponseParams);
+        await sendEmailJS(serviceId, autoResponseTemplateId, publicKey, autoResponseParams);
       } catch (autoError) {
         // Log but don't fail if auto-response fails
         console.error('Auto-response failed:', autoError);
