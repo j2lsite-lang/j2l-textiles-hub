@@ -319,9 +319,9 @@ export function Header() {
 
           {/* Mobile Navigation */}
           {isOpen && (
-            <div className="lg:hidden py-4 border-t border-border animate-fade-in">
+            <div className="lg:hidden py-4 border-t border-border animate-fade-in max-h-[80vh] overflow-y-auto">
               <nav className="flex flex-col gap-1">
-                {navLinks.map((link) => (
+                {navLinks.slice(0, 2).map((link) => (
                   <Link
                     key={link.href}
                     to={link.href}
@@ -335,7 +335,50 @@ export function Header() {
                     {link.label}
                   </Link>
                 ))}
-                <Link to="/devis" className="mt-2">
+
+                {/* Mobile Categories Section */}
+                <div className="px-4 py-3">
+                  <p className="text-xs font-bold text-primary uppercase tracking-wide mb-3">Catégories</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {universList.map((univers) => (
+                      <Link
+                        key={univers.name}
+                        to={`/catalogue?cat=${encodeURIComponent(univers.subcategories[0]?.cat || '')}`}
+                        className="relative overflow-hidden rounded-lg border border-border group"
+                      >
+                        <img 
+                          src={univers.image} 
+                          alt={univers.name}
+                          className="w-full h-20 object-cover group-hover:scale-105 transition-transform duration-300"
+                          width={160}
+                          height={80}
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                        <span className="absolute bottom-1.5 left-2 right-2 text-white text-xs font-semibold truncate">
+                          {univers.name}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                {navLinks.slice(2).map((link) => (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    className={cn(
+                      'px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                      location.pathname === link.href
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-secondary'
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                
+                <Link to="/devis" className="mt-2 px-4">
                   <Button className="w-full accent-gradient text-white font-semibold">
                     Demander un devis
                   </Button>
