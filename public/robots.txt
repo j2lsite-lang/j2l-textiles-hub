@@ -14,4 +14,4 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://j2textiles.fr/sitemap.xml
+Sitemap: https://j2ltextile.fr/sitemap.xml
