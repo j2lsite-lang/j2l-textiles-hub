@@ -122,8 +122,9 @@ export function Footer() {
           {/* Legal */}
           <div>
             <h4 className="font-display font-semibold mb-5 text-lg">Informations</h4>
-            <ul className="space-y-3 text-sm mb-6">
+            <ul className="space-y-3 text-sm">
               {[
+                { href: '/retours', label: 'Retours & Échanges' },
                 { href: '/mentions-legales', label: 'Mentions légales' },
                 { href: '/confidentialite', label: 'Politique de confidentialité' },
                 { href: '/cgv', label: 'Conditions générales' },
@@ -138,11 +139,6 @@ export function Footer() {
                 </li>
               ))}
             </ul>
-            
-            <div className="text-xs text-white/50 space-y-1">
-              <p>SIRET : {COMPANY_INFO.siret}</p>
-              <p>TVA : {COMPANY_INFO.tva}</p>
-            </div>
           </div>
         </div>
 
