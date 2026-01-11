@@ -1,7 +1,25 @@
 import { useMemo } from 'react';
 
+// Local brand logos (fast + consistent) — fallback to TopTex CDN for the rest
+import bcLogo from '@/assets/brands/bc-collection.svg';
+import gildanLogo from '@/assets/brands/gildan.svg';
+import fruitLogo from '@/assets/brands/fruit-of-the-loom.svg';
+import jnLogo from '@/assets/brands/james-nicholson.svg';
+import kupLogo from '@/assets/brands/k-up.svg';
+import karibanLogo from '@/assets/brands/kariban.svg';
+import kimoodLogo from '@/assets/brands/kimood.svg';
+import promodoroLogo from '@/assets/brands/promodoro.svg';
+import resultLogo from '@/assets/brands/result.svg';
+import solsLogo from '@/assets/brands/sol-s.svg';
+import stanleyLogo from '@/assets/brands/stanley-stella.svg';
+
+import bagbaseLogo from '@/assets/brands/bagbase.jpg';
+import nativeSpiritLogo from '@/assets/brands/native-spirit.jpg';
+import proactLogo from '@/assets/brands/proact.jpg';
+import russellLogo from '@/assets/brands/russell.jpg';
+
 // Mapping complet des marques TopTex vers leurs logos officiels sur cdn.toptex.com
-// Basé sur les URLs récupérées de https://www.toptex.fr/marques
+// + overrides locaux quand on les a en repo (plus propre, plus rapide)
 
 const TOPTEX_BRAND_LOGOS: Record<string, string> = {
   // A
@@ -189,12 +207,39 @@ export function normalizeBrandKey(input: string): string {
 export function useToptexBrandLogos(): { data: Record<string, string> } {
   // Use useMemo to maintain hook consistency
   const data = useMemo(() => {
-    const map: Record<string, string> = { ...TOPTEX_BRAND_LOGOS };
-    for (const [name, url] of Object.entries(TOPTEX_BRAND_LOGOS)) {
+    const LOCAL_BRAND_LOGOS: Record<string, string> = {
+      "B\u0026C": bcLogo,
+      "B\u0026C Collection": bcLogo,
+      "Gildan": gildanLogo,
+      "Fruit of the Loom": fruitLogo,
+      "James \u0026 Nicholson": jnLogo,
+      "K-up": kupLogo,
+      "K-Up": kupLogo,
+      "Kariban": karibanLogo,
+      "Kimood": kimoodLogo,
+      "Promodoro": promodoroLogo,
+      "Result": resultLogo,
+      "SOL'S": solsLogo,
+      "Sol's": solsLogo,
+      "Sols": solsLogo,
+      "Stanley Stella": stanleyLogo,
+      "Stanley/Stella": stanleyLogo,
+      "BagBase": bagbaseLogo,
+      "Native Spirit": nativeSpiritLogo,
+      "Proact": proactLogo,
+      "Russell": russellLogo,
+    };
+
+    // Remote first, local overrides last
+    const merged: Record<string, string> = { ...TOPTEX_BRAND_LOGOS, ...LOCAL_BRAND_LOGOS };
+
+    const map: Record<string, string> = {};
+    for (const [name, url] of Object.entries(merged)) {
+      map[name] = url;
       map[normalizeBrandKey(name)] = url;
     }
     return map;
   }, []);
-  
+
   return { data };
 }
