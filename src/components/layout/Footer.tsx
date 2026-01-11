@@ -124,6 +124,7 @@ export function Footer() {
             <h4 className="font-display font-semibold mb-5 text-lg">Informations</h4>
             <ul className="space-y-3 text-sm">
               {[
+                { href: '/livraison', label: 'Livraison' },
                 { href: '/retours', label: 'Retours & Échanges' },
                 { href: '/mentions-legales', label: 'Mentions légales' },
                 { href: '/confidentialite', label: 'Politique de confidentialité' },

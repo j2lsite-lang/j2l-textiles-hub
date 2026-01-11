@@ -15,6 +15,7 @@ import MentionsLegales from "./pages/MentionsLegales";
 import Confidentialite from "./pages/Confidentialite";
 import CGV from "./pages/CGV";
 import Retours from "./pages/Retours";
+import Livraison from "./pages/Livraison";
 import LocationPage from "./pages/LocationPage";
 import NotFound from "./pages/NotFound";
 
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/confidentialite" element={<Confidentialite />} />
             <Route path="/cgv" element={<CGV />} />
             <Route path="/retours" element={<Retours />} />
+            <Route path="/livraison" element={<Livraison />} />
             {/* SEO Pages - French locations */}
             <Route path="/zones" element={<LocationPage />} />
             <Route path="/zones/:department" element={<LocationPage />} />
