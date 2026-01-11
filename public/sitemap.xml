@@ -49,83 +49,150 @@
     <priority>0.3</priority>
   </url>
   
-  <!-- Pages zones géographiques -->
+  <!-- Page zones -->
   <url>
     <loc>https://j2ltextiles.fr/zones</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
+
+  <!-- ===== GRAND EST - Départements ===== -->
   
-  <!-- Départements principaux -->
+  <!-- Ardennes (08) -->
   <url>
-    <loc>https://j2ltextiles.fr/zones/vosges</loc>
+    <loc>https://j2ltextiles.fr/zones/ardennes</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://j2ltextiles.fr/zones/meurthe-et-moselle</loc>
+    <loc>https://j2ltextiles.fr/zones/ardennes/charleville-mezieres</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://j2ltextiles.fr/zones/moselle</loc>
+    <loc>https://j2ltextiles.fr/zones/ardennes/sedan</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://j2ltextiles.fr/zones/bas-rhin</loc>
+    <loc>https://j2ltextiles.fr/zones/ardennes/rethel</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Aube (10) -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/aube</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/aube/troyes</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://j2ltextiles.fr/zones/haut-rhin</loc>
+    <loc>https://j2ltextiles.fr/zones/aube/romilly-sur-seine</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://j2ltextiles.fr/zones/meuse</loc>
+    <loc>https://j2ltextiles.fr/zones/aube/bar-sur-aube</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
-  <url>
-    <loc>https://j2ltextiles.fr/zones/haute-marne</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://j2ltextiles.fr/zones/haute-saone</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://j2ltextiles.fr/zones/doubs</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
+
+  <!-- Marne (51) -->
   <url>
     <loc>https://j2ltextiles.fr/zones/marne</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.6</priority>
   </url>
-  
-  <!-- Villes principales Grand Est -->
   <url>
-    <loc>https://j2ltextiles.fr/zones/vosges/epinal</loc>
+    <loc>https://j2ltextiles.fr/zones/marne/reims</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://j2ltextiles.fr/zones/vosges/saint-die-des-vosges</loc>
+    <loc>https://j2ltextiles.fr/zones/marne/chalons-en-champagne</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://j2ltextiles.fr/zones/vosges/gerardmer</loc>
+    <loc>https://j2ltextiles.fr/zones/marne/epernay</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
+  </url>
+
+  <!-- Haute-Marne (52) -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/haute-marne</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/haute-marne/chaumont</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/haute-marne/saint-dizier</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/haute-marne/langres</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Meurthe-et-Moselle (54) -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/meurthe-et-moselle</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://j2ltextiles.fr/zones/meurthe-et-moselle/nancy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/meurthe-et-moselle/vandoeuvre-les-nancy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/meurthe-et-moselle/luneville</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Meuse (55) -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/meuse</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/meuse/bar-le-duc</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/meuse/verdun</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/meuse/commercy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Moselle (57) -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/moselle</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
@@ -140,7 +207,46 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://j2ltextiles.fr/zones/moselle/forbach</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/moselle/sarreguemines</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Bas-Rhin (67) -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/bas-rhin</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://j2ltextiles.fr/zones/bas-rhin/strasbourg</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/bas-rhin/haguenau</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/bas-rhin/schiltigheim</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/bas-rhin/illkirch-graffenstaden</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Haut-Rhin (68) -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/haut-rhin</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
@@ -155,7 +261,43 @@
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://j2ltextiles.fr/zones/marne/reims</loc>
+    <loc>https://j2ltextiles.fr/zones/haut-rhin/saint-louis</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Vosges (88) -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/vosges</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/vosges/epinal</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/vosges/saint-die-des-vosges</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/vosges/gerardmer</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/vosges/remiremont</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- ===== Autres départements importants ===== -->
+  
+  <!-- Doubs (25) - Proche Grand Est -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/doubs</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
@@ -165,12 +307,56 @@
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://j2ltextiles.fr/zones/meuse/verdun</loc>
+    <loc>https://j2ltextiles.fr/zones/doubs/montbeliard</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
-  
-  <!-- Grandes villes françaises -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/doubs/pontarlier</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Haute-Saône (70) - Proche Grand Est -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/haute-saone</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/haute-saone/vesoul</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/haute-saone/hericourt</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/haute-saone/lure</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Territoire de Belfort (90) - Proche Grand Est -->
+  <url>
+    <loc>https://j2ltextiles.fr/zones/territoire-de-belfort</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/territoire-de-belfort/belfort</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/territoire-de-belfort/delle</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- ===== Grandes villes françaises ===== -->
   <url>
     <loc>https://j2ltextiles.fr/zones/rhone/lyon</loc>
     <changefreq>monthly</changefreq>
@@ -208,6 +394,11 @@
   </url>
   <url>
     <loc>https://j2ltextiles.fr/zones/ille-et-vilaine/rennes</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/zones/paris/paris</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>

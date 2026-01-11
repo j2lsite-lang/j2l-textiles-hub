@@ -523,6 +523,63 @@ export default function Product() {
                   <dd className="font-medium">{product.category || 'Textile'}</dd>
                 </dl>
               </div>
+
+              {/* Internal Links - SEO Maillage */}
+              <div className="border-t pt-6 space-y-4">
+                <h3 className="font-semibold">Nos services de personnalisation</h3>
+                <div className="flex flex-wrap gap-2">
+                  <Link 
+                    to="/personnalisation" 
+                    className="text-sm px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    Broderie
+                  </Link>
+                  <Link 
+                    to="/personnalisation" 
+                    className="text-sm px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    Sérigraphie
+                  </Link>
+                  <Link 
+                    to="/personnalisation" 
+                    className="text-sm px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    Flocage
+                  </Link>
+                  <Link 
+                    to="/personnalisation" 
+                    className="text-sm px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    Impression DTG
+                  </Link>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <span>Livraison dans tout le Grand Est : </span>
+                  <Link to="/zones/vosges/epinal" className="text-primary hover:underline">Épinal</Link>
+                  {', '}
+                  <Link to="/zones/meurthe-et-moselle/nancy" className="text-primary hover:underline">Nancy</Link>
+                  {', '}
+                  <Link to="/zones/moselle/metz" className="text-primary hover:underline">Metz</Link>
+                  {', '}
+                  <Link to="/zones/bas-rhin/strasbourg" className="text-primary hover:underline">Strasbourg</Link>
+                  {', '}
+                  <Link to="/zones/haut-rhin/mulhouse" className="text-primary hover:underline">Mulhouse</Link>
+                  {' et '}
+                  <Link to="/zones" className="text-primary hover:underline">toute la France</Link>
+                </div>
+                <div className="text-xs text-muted-foreground pt-2">
+                  Un projet de communication visuelle ? Découvrez aussi{' '}
+                  <a 
+                    href="https://j2lpublicite.fr" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    J2L Publicité
+                  </a>
+                  {' '}pour l'enseigne et la signalétique.
+                </div>
+              </div>
             </div>
           </div>
         </div>

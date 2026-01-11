@@ -221,6 +221,59 @@ export default function Personnalisation() {
           </div>
         </div>
       </section>
+
+      {/* Internal Links - SEO Maillage */}
+      <section className="py-10 bg-muted/30">
+        <div className="container-page">
+          <div className="text-center space-y-4">
+            <h3 className="font-semibold text-lg">Nous intervenons dans tout le Grand Est</h3>
+            <div className="flex flex-wrap justify-center gap-2 text-sm">
+              <Link to="/zones/vosges" className="px-3 py-1.5 rounded-full bg-background border hover:bg-primary/10 hover:border-primary transition-colors">
+                Vosges
+              </Link>
+              <Link to="/zones/meurthe-et-moselle" className="px-3 py-1.5 rounded-full bg-background border hover:bg-primary/10 hover:border-primary transition-colors">
+                Meurthe-et-Moselle
+              </Link>
+              <Link to="/zones/moselle" className="px-3 py-1.5 rounded-full bg-background border hover:bg-primary/10 hover:border-primary transition-colors">
+                Moselle
+              </Link>
+              <Link to="/zones/bas-rhin" className="px-3 py-1.5 rounded-full bg-background border hover:bg-primary/10 hover:border-primary transition-colors">
+                Bas-Rhin
+              </Link>
+              <Link to="/zones/haut-rhin" className="px-3 py-1.5 rounded-full bg-background border hover:bg-primary/10 hover:border-primary transition-colors">
+                Haut-Rhin
+              </Link>
+              <Link to="/zones/marne" className="px-3 py-1.5 rounded-full bg-background border hover:bg-primary/10 hover:border-primary transition-colors">
+                Marne
+              </Link>
+              <Link to="/zones/aube" className="px-3 py-1.5 rounded-full bg-background border hover:bg-primary/10 hover:border-primary transition-colors">
+                Aube
+              </Link>
+              <Link to="/zones/ardennes" className="px-3 py-1.5 rounded-full bg-background border hover:bg-primary/10 hover:border-primary transition-colors">
+                Ardennes
+              </Link>
+            </div>
+            <p className="text-sm text-muted-foreground pt-2">
+              <Link to="/zones" className="text-primary hover:underline">Voir toutes nos zones d'intervention</Link>
+              {' • '}
+              <Link to="/catalogue" className="text-primary hover:underline">Parcourir le catalogue</Link>
+              {' • '}
+              <Link to="/devis" className="text-primary hover:underline">Demander un devis</Link>
+            </p>
+            <p className="text-xs text-muted-foreground pt-4">
+              Pour l'enseigne et la signalétique, découvrez notre partenaire{' '}
+              <a 
+                href="https://j2lpublicite.fr" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                J2L Publicité
+              </a>
+            </p>
+          </div>
+        </div>
+      </section>
     </Layout>
   );
 }

@@ -826,6 +826,49 @@ export default function Catalogue() {
                       </Button>
                     </div>
                   )}
+
+                  {/* Internal Links - SEO Maillage */}
+                  <div className="mt-12 pt-8 border-t">
+                    <h3 className="font-semibold mb-4 text-lg">Livraison dans toute la France</h3>
+                    <div className="text-sm text-muted-foreground space-y-2">
+                      <p>
+                        <strong>Grand Est :</strong>{' '}
+                        <Link to="/zones/vosges/epinal" className="text-primary hover:underline">Épinal</Link>{', '}
+                        <Link to="/zones/meurthe-et-moselle/nancy" className="text-primary hover:underline">Nancy</Link>{', '}
+                        <Link to="/zones/moselle/metz" className="text-primary hover:underline">Metz</Link>{', '}
+                        <Link to="/zones/bas-rhin/strasbourg" className="text-primary hover:underline">Strasbourg</Link>{', '}
+                        <Link to="/zones/haut-rhin/mulhouse" className="text-primary hover:underline">Mulhouse</Link>{', '}
+                        <Link to="/zones/haut-rhin/colmar" className="text-primary hover:underline">Colmar</Link>{', '}
+                        <Link to="/zones/marne/reims" className="text-primary hover:underline">Reims</Link>{', '}
+                        <Link to="/zones/aube/troyes" className="text-primary hover:underline">Troyes</Link>
+                      </p>
+                      <p>
+                        <strong>Grandes villes :</strong>{' '}
+                        <Link to="/zones/paris/paris" className="text-primary hover:underline">Paris</Link>{', '}
+                        <Link to="/zones/rhone/lyon" className="text-primary hover:underline">Lyon</Link>{', '}
+                        <Link to="/zones/bouches-du-rhone/marseille" className="text-primary hover:underline">Marseille</Link>{', '}
+                        <Link to="/zones/haute-garonne/toulouse" className="text-primary hover:underline">Toulouse</Link>{', '}
+                        <Link to="/zones/gironde/bordeaux" className="text-primary hover:underline">Bordeaux</Link>{', '}
+                        <Link to="/zones/nord/lille" className="text-primary hover:underline">Lille</Link>{', '}
+                        <Link to="/zones/loire-atlantique/nantes" className="text-primary hover:underline">Nantes</Link>
+                      </p>
+                      <p className="pt-2">
+                        <Link to="/zones" className="text-primary hover:underline font-medium">Voir toutes nos zones d'intervention →</Link>
+                      </p>
+                    </div>
+                    <div className="mt-6 text-xs text-muted-foreground">
+                      Besoin d'enseigne ou signalétique ?{' '}
+                      <a 
+                        href="https://j2lpublicite.fr" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        J2L Publicité
+                      </a>
+                      {' '}est notre partenaire spécialisé.
+                    </div>
+                  </div>
                 </>
               )}
             </div>
