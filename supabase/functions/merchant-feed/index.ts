@@ -207,6 +207,10 @@ Deno.serve(async (req) => {
       xml += `  <g:identifier_exists>true</g:identifier_exists>
 `;
 
+      // Return policy - Professional B2B (custom products, no returns)
+      xml += `  <g:return_policy_label>no_returns</g:return_policy_label>
+`;
+
       xml += `</item>
 `;
     }
