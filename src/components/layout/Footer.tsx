@@ -33,14 +33,13 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           {/* Brand */}
           <div className="space-y-5">
-            <Link to="/" className="inline-block">
+            <Link to="/" className="inline-block bg-white/95 rounded-lg p-3">
               <img 
                 src={logoJ2L} 
                 alt="J2L Textiles" 
-                className="h-12 w-auto object-contain"
-                style={{ filter: 'brightness(0) invert(1)' }}
-                width={160}
-                height={48}
+                className="h-14 w-auto object-contain"
+                width={180}
+                height={56}
                 loading="lazy"
                 decoding="async"
               />
@@ -187,19 +186,20 @@ export function Footer() {
                 href="https://j2lpublicite.fr" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 hover:text-white/70 transition-colors"
+                className="inline-flex items-center gap-3 hover:opacity-100 transition-opacity"
               >
-                <img 
-                  src={logoJ2L} 
-                  alt="J2L Publicité" 
-                  className="h-5 w-auto opacity-70 hover:opacity-100 transition-opacity"
-                  style={{ filter: 'brightness(0) invert(1)' }}
-                  width={100}
-                  height={20}
-                  loading="lazy"
-                  decoding="async"
-                />
-                <span className="font-medium">j2lpublicite.fr</span>
+                <span className="bg-white rounded-md px-2 py-1">
+                  <img 
+                    src={logoJ2L} 
+                    alt="J2L Publicité" 
+                    className="h-8 w-auto"
+                    width={120}
+                    height={32}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </span>
+                <span className="font-medium text-white/60 hover:text-white/80">j2lpublicite.fr</span>
               </a>
             </div>
           </div>
