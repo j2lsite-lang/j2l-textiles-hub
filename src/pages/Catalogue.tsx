@@ -172,6 +172,8 @@ function ProductCard({ product }: { product: DisplayProduct }) {
             className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-110"
             loading="lazy"
             decoding="async"
+            width={400}
+            height={400}
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
             }}
