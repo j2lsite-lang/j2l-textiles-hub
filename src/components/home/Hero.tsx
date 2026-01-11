@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Palette, Truck, BadgeCheck, Star, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import heroBg from '@/assets/hero-bg.jpg';
+import heroBg from '@/assets/hero-bg-optimized.jpg';
 
 const features = [
   { icon: Palette, label: 'Personnalisation sur-mesure' },
