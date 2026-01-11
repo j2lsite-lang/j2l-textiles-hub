@@ -789,15 +789,23 @@ export default function Catalogue() {
                               className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-center h-20 hover:shadow-md hover:border-primary/30 transition-all duration-300 cursor-pointer"
                             >
                               {logo ? (
-                                <img
-                                  src={logo}
-                                  alt={`Logo ${brand}`}
-                                  loading="lazy"
-                                  decoding="async"
-                                  width={160}
-                                  height={48}
-                                  className="max-h-12 max-w-full object-contain"
-                                />
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <img
+                                    src={logo}
+                                    alt={`Logo ${brand}`}
+                                    loading="lazy"
+                                    decoding="async"
+                                    width={160}
+                                    height={48}
+                                    className="max-h-10 max-w-full object-contain"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      const fallback = e.currentTarget.parentElement?.querySelector('[data-fallback]') as HTMLElement | null;
+                                      fallback?.classList.remove('hidden');
+                                    }}
+                                  />
+                                  <span data-fallback className="hidden text-sm font-bold text-gray-700 text-center">{brand}</span>
+                                </div>
                               ) : (
                                 <span className="text-sm font-bold text-gray-700 text-center">{brand}</span>
                               )}
