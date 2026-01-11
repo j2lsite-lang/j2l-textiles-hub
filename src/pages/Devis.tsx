@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { sendEmail } from '@/lib/emailjs';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -99,18 +99,22 @@ Message: ${formData.message || 'Aucun message'}
 ${productDetails}
       `.trim();
 
-      await sendEmail({
-        nom: formData.name,
-        email: formData.email,
-        telephone: formData.phone,
-        message: fullMessage,
-        product_ref: items.length === 1 ? firstItem.sku : `${items.length} produits`,
-        product_name: items.length === 1 ? firstItem.name : items.map(i => i.name).join(', '),
-        product_brand: items.length === 1 ? firstItem.brand : items.map(i => i.brand).filter((v, i, a) => a.indexOf(v) === i).join(', '),
-        quantity: totalQty.toString(),
-        variant: items.length === 1 ? `${firstItem.color} / ${firstItem.size}` : 'Voir détails',
-        page: 'Demande de devis',
+      const { data, error } = await supabase.functions.invoke('send-quote', {
+        body: {
+          nom: formData.name,
+          email: formData.email,
+          telephone: formData.phone,
+          message: fullMessage,
+          product_ref: items.length === 1 ? firstItem.sku : `${items.length} produits`,
+          product_name: items.length === 1 ? firstItem.name : items.map(i => i.name).join(', '),
+          product_brand: items.length === 1 ? firstItem.brand : items.map(i => i.brand).filter((v, i, a) => a.indexOf(v) === i).join(', '),
+          quantity: totalQty.toString(),
+          variant: items.length === 1 ? `${firstItem.color} / ${firstItem.size}` : 'Voir détails',
+          page: 'Demande de devis',
+        },
       });
+
+      if (error) throw new Error(error.message);
 
       toast({
         title: 'Demande envoyée !',
