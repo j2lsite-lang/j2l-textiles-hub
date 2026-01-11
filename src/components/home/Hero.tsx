@@ -17,9 +17,11 @@ export function Hero() {
       <div className="absolute inset-0">
         <img 
           src={heroBg} 
-          alt="" 
+          alt="Textiles personnalisés pour entreprises" 
           className="w-full h-full object-cover"
           style={{ objectPosition: '75% center' }}
+          fetchPriority="high"
+          decoding="async"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/70 to-transparent" />
       </div>

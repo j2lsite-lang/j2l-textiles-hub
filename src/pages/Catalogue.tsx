@@ -170,6 +170,8 @@ function ProductCard({ product }: { product: DisplayProduct }) {
             src={image}
             alt={product.name}
             className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-110"
+            loading="lazy"
+            decoding="async"
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
             }}
@@ -215,6 +217,8 @@ function BrandCard({ brand }: { brand: string }) {
           src={logoUrl} 
           alt={brand} 
           className="max-h-12 max-w-full object-contain grayscale hover:grayscale-0 transition-all duration-300"
+          loading="lazy"
+          decoding="async"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = 'none';
             (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
