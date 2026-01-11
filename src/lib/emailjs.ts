@@ -22,28 +22,31 @@ export interface EmailJSParams {
 }
 
 export async function sendEmail(params: EmailJSParams): Promise<void> {
+  // Nettoyer et limiter les données pour éviter les erreurs
+  const cleanedParams = {
+    nom: (params.nom || '').slice(0, 200),
+    email: (params.email || '').slice(0, 100),
+    telephone: (params.telephone || '').slice(0, 20),
+    message: (params.message || '').slice(0, 5000), // Limiter la taille du message
+    product_ref: (params.product_ref || '').slice(0, 200),
+    product_name: (params.product_name || '').slice(0, 500),
+    product_brand: (params.product_brand || '').slice(0, 200),
+    quantity: (params.quantity || '').slice(0, 50),
+    variant: (params.variant || '').slice(0, 200),
+    page: (params.page || window.location.href).slice(0, 200),
+  };
+
   console.log('Tentative envoi email avec params:', {
     service: SERVICE_ID,
     template: TEMPLATE_ID,
-    params
+    params: cleanedParams
   });
   
   try {
     const response = await emailjs.send(
       SERVICE_ID,
       TEMPLATE_ID,
-      {
-        nom: params.nom,
-        email: params.email,
-        telephone: params.telephone || '',
-        message: params.message || '',
-        product_ref: params.product_ref || '',
-        product_name: params.product_name || '',
-        product_brand: params.product_brand || '',
-        quantity: params.quantity || '',
-        variant: params.variant || '',
-        page: params.page || window.location.href,
-      },
+      cleanedParams,
       PUBLIC_KEY
     );
     
@@ -55,6 +58,19 @@ export async function sendEmail(params: EmailJSParams): Promise<void> {
       text: error?.text,
       status: error?.status
     });
-    throw new Error(`Erreur EmailJS: ${error?.text || error?.message || 'Erreur inconnue'}`);
+    
+    // Message d'erreur plus explicite
+    let errorMessage = 'Erreur lors de l\'envoi de l\'email';
+    if (error?.status === 422) {
+      errorMessage = 'Données invalides - vérifiez vos informations';
+    } else if (error?.status === 401 || error?.status === 403) {
+      errorMessage = 'Erreur de configuration EmailJS';
+    } else if (error?.text) {
+      errorMessage = error.text;
+    } else if (error?.message) {
+      errorMessage = error.message;
+    }
+    
+    throw new Error(errorMessage);
   }
 }

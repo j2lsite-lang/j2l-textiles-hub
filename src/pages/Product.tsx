@@ -174,7 +174,8 @@ export default function Product() {
       return;
     }
 
-    if (!markingLocation) {
+    // Emplacement requis seulement si ce n'est pas "Sans marquage"
+    if (markingType !== 'Sans marquage' && !markingLocation) {
       toast({
         title: 'Sélectionnez un emplacement',
         description: 'Veuillez choisir un emplacement de marquage avant d\'ajouter au devis.',
@@ -193,8 +194,8 @@ export default function Product() {
       size: selectedSize,
       quantity,
       markingType,
-      markingLocation,
-      markingNotes,
+      markingLocation: markingType === 'Sans marquage' ? 'N/A' : markingLocation,
+      markingNotes: markingType === 'Sans marquage' ? '' : markingNotes,
     });
 
     toast({
