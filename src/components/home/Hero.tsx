@@ -22,6 +22,8 @@ export function Hero() {
           style={{ objectPosition: '75% center' }}
           fetchPriority="high"
           decoding="async"
+          width={1920}
+          height={1080}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-primary/95 via-primary/70 to-transparent" />
       </div>
