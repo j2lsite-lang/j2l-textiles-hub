@@ -271,6 +271,11 @@ export default function Product() {
                   src={displayImages[selectedImage]}
                   alt={product.name}
                   className="w-full h-full object-contain p-4"
+                  width={800}
+                  height={800}
+                  loading={selectedImage === 0 ? 'eager' : 'lazy'}
+                  fetchPriority={selectedImage === 0 ? 'high' : 'auto'}
+                  decoding="async"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=800&fit=crop';
                   }}
@@ -298,6 +303,10 @@ export default function Product() {
                         src={img} 
                         alt="" 
                         className="w-full h-full object-contain p-1"
+                        width={64}
+                        height={64}
+                        loading="lazy"
+                        decoding="async"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
                         }}

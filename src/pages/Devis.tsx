@@ -216,6 +216,10 @@ ${productDetails}
                           src={item.image}
                           alt={item.name}
                           className="w-full h-full object-cover"
+                          width={80}
+                          height={80}
+                          loading="lazy"
+                          decoding="async"
                         />
                       </div>
                       <div className="flex-1 min-w-0">

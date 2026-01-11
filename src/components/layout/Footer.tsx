@@ -38,6 +38,10 @@ export function Footer() {
                 src={logoJ2L} 
                 alt="J2L Textiles" 
                 className="h-12 w-auto object-contain brightness-0 invert"
+                width={160}
+                height={48}
+                loading="lazy"
+                decoding="async"
               />
             </Link>
             <p className="text-sm text-white/70 leading-relaxed">
@@ -188,6 +192,10 @@ export function Footer() {
                   src={logoJ2L} 
                   alt="J2L Publicité" 
                   className="h-5 w-auto brightness-0 invert opacity-60 hover:opacity-100 transition-opacity"
+                  width={100}
+                  height={20}
+                  loading="lazy"
+                  decoding="async"
                 />
                 <span className="font-medium">j2lpublicite.fr</span>
               </a>

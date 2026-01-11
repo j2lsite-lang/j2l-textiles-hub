@@ -101,6 +101,10 @@ export default function Personnalisation() {
                     src={technique.image} 
                     alt={technique.name}
                     className="w-full h-full object-cover"
+                    width={800}
+                    height={450}
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
                 
