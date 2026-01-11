@@ -146,30 +146,50 @@ export function Footer() {
         <div className="mt-12 pt-8 border-t border-white/10">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-white/50">
             <p>© {new Date().getFullYear()} {COMPANY_INFO.name}. Tous droits réservés.</p>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4">
+                <a 
+                  href={COMPANY_INFO.social.facebook} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-white transition-colors"
+                >
+                  <Facebook className="h-4 w-4" />
+                </a>
+                <a 
+                  href={COMPANY_INFO.social.instagram} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-white transition-colors"
+                >
+                  <Instagram className="h-4 w-4" />
+                </a>
+                <a 
+                  href={COMPANY_INFO.social.linkedin} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-white transition-colors"
+                >
+                  <Linkedin className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-white/40">
+            <div className="flex items-center gap-2">
+              <span>Réalisation :</span>
               <a 
-                href={COMPANY_INFO.social.facebook} 
+                href="https://j2lpublicite.fr" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-white transition-colors"
+                className="inline-flex items-center gap-2 hover:text-white/70 transition-colors"
               >
-                <Facebook className="h-4 w-4" />
-              </a>
-              <a 
-                href={COMPANY_INFO.social.instagram} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-white transition-colors"
-              >
-                <Instagram className="h-4 w-4" />
-              </a>
-              <a 
-                href={COMPANY_INFO.social.linkedin} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-white transition-colors"
-              >
-                <Linkedin className="h-4 w-4" />
+                <img 
+                  src={logoJ2L} 
+                  alt="J2L Publicité" 
+                  className="h-5 w-auto brightness-0 invert opacity-60 hover:opacity-100 transition-opacity"
+                />
+                <span className="font-medium">j2lpublicite.fr</span>
               </a>
             </div>
           </div>
