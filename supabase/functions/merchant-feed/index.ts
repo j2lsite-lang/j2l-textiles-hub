@@ -171,7 +171,11 @@ Deno.serve(async (req) => {
 `;
       }
 
+      // Stock quantity - default to 100 for B2B (always available on order)
+      const quantity = (product.stock !== null && product.stock !== undefined) ? product.stock : 100;
+
       xml += `  <g:availability>${availability}</g:availability>
+  <g:quantity>${quantity}</g:quantity>
   <g:price>${priceTTC} EUR</g:price>
   <g:brand>${escapeXml(product.brand) || SHOP_NAME}</g:brand>
   <g:condition>new</g:condition>
