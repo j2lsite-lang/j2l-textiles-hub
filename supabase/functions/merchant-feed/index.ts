@@ -9,6 +9,7 @@ const corsHeaders = {
 const SITE_URL = "https://j2ltextiles.fr";
 const SHOP_NAME = "J2LTextiles";
 const TVA_RATE = 1.20; // 20% TVA
+const PAGE_SIZE = 1000; // Supabase default limit
 
 // Escape XML special characters
 function escapeXml(text: string | null | undefined): string {
@@ -56,6 +57,42 @@ function mapToGoogleCategory(category: string | null, familyFr: string | null): 
   return "Vêtements et accessoires > Vêtements";
 }
 
+// Fetch all products with pagination
+async function fetchAllProducts(supabase: any) {
+  const allProducts: any[] = [];
+  let page = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    const { data: products, error } = await supabase
+      .from("products")
+      .select("sku, name, brand, category, family_fr, sub_family_fr, description, images, price_ht, colors, sizes, stock, updated_at")
+      .not("price_ht", "is", null)
+      .gt("price_ht", 0)
+      .order("updated_at", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error(`Error fetching products page ${page}:`, error);
+      throw error;
+    }
+
+    if (products && products.length > 0) {
+      allProducts.push(...products);
+      console.log(`Fetched page ${page + 1}: ${products.length} products (total: ${allProducts.length})`);
+    }
+
+    // If we got less than PAGE_SIZE, we've reached the end
+    hasMore = products && products.length === PAGE_SIZE;
+    page++;
+  }
+
+  return allProducts;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -66,20 +103,12 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch all products with required fields
-    const { data: products, error } = await supabase
-      .from("products")
-      .select("sku, name, brand, category, family_fr, sub_family_fr, description, images, price_ht, colors, sizes, stock, updated_at")
-      .not("price_ht", "is", null)
-      .gt("price_ht", 0)
-      .order("updated_at", { ascending: false });
+    // Fetch ALL products with pagination
+    const products = await fetchAllProducts(supabase);
 
-    if (error) {
-      console.error("Error fetching products:", error);
-      throw error;
-    }
+    console.log(`Generating Merchant Center feed for ${products.length} products`);
 
-    console.log(`Generating Merchant Center feed for ${products?.length || 0} products`);
+    let productsIncluded = 0;
 
     // Build XML feed
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -90,7 +119,7 @@ Deno.serve(async (req) => {
 <description>Textiles personnalisables pour professionnels - T-shirts, polos, vestes, sacs et accessoires</description>
 `;
 
-    for (const product of products || []) {
+    for (const product of products) {
       // Skip products without essential data
       if (!product.name || !product.sku) continue;
 
@@ -99,6 +128,8 @@ Deno.serve(async (req) => {
       
       // Skip products without images
       if (!mainImage) continue;
+
+      productsIncluded++;
 
       // Calculate price TTC (with 20% VAT)
       const priceTTC = product.price_ht ? (parseFloat(product.price_ht) * TVA_RATE).toFixed(2) : "0.00";
@@ -183,7 +214,7 @@ Deno.serve(async (req) => {
     xml += `</channel>
 </rss>`;
 
-    console.log(`Generated Merchant Center feed successfully`);
+    console.log(`Generated Merchant Center feed: ${productsIncluded} products included (${products.length - productsIncluded} skipped - no images)`);
 
     return new Response(xml, {
       status: 200,
