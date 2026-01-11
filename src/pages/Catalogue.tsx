@@ -211,9 +211,11 @@ function ProductCard({ product }: { product: DisplayProduct }) {
 
 function BrandCard({ brand }: { brand: string }) {
   const logoUrl = brandLogos[brand];
+  // Get initials for fallback (max 2 chars)
+  const initials = brand.split(/[\s-]+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
   
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 flex items-center justify-center h-24 hover:shadow-md hover:border-primary/30 transition-all duration-300 cursor-pointer">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 flex flex-col items-center justify-center h-24 hover:shadow-md hover:border-primary/30 transition-all duration-300 cursor-pointer">
       {logoUrl ? (
         <img 
           src={logoUrl} 
@@ -226,8 +228,12 @@ function BrandCard({ brand }: { brand: string }) {
             (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
           }}
         />
-      ) : null}
-      <span className={cn("text-lg font-bold text-gray-700", logoUrl && "hidden")}>{brand}</span>
+      ) : (
+        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-1">
+          <span className="text-lg font-bold text-primary">{initials}</span>
+        </div>
+      )}
+      <span className={cn("text-xs font-medium text-gray-600 text-center line-clamp-1", logoUrl && "hidden")}>{brand}</span>
     </div>
   );
 }
