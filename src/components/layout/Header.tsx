@@ -14,11 +14,11 @@ import {
 } from '@/components/ui/popover';
 
 // Import category images
-import workwearImg from '@/assets/categories/workwear-pro.jpg';
-import gastroImg from '@/assets/categories/gastro-pro.jpg';
-import sportImg from '@/assets/categories/sport-pro.jpg';
-import corporateImg from '@/assets/categories/corporate-pro.jpg';
-import hivisImg from '@/assets/categories/hivis-pro.jpg';
+import workwearImg from '@/assets/categories/workwear-lifestyle.webp';
+import gastroImg from '@/assets/categories/gastro-lifestyle.webp';
+import sportImg from '@/assets/categories/sport-lifestyle.webp';
+import corporateImg from '@/assets/categories/corporate-lifestyle.webp';
+import hivisImg from '@/assets/categories/hivis-lifestyle.webp';
 
 // Mapping univers - utilise des filtres par catégorie pour des résultats fiables
 // On utilise le paramètre 'cat' pour filtrer par nom de produit (smart categories)
