@@ -199,6 +199,29 @@ Deno.serve(async (req) => {
 `;
       }
 
+      // Gender - detect from product name/category
+      const nameAndCat = (product.name + " " + (product.category || "") + " " + (product.family_fr || "")).toLowerCase();
+      let gender = "unisex"; // Default for professional wear
+      if (nameAndCat.includes("femme") || nameAndCat.includes("woman") || nameAndCat.includes("ladies")) {
+        gender = "female";
+      } else if (nameAndCat.includes("homme") || nameAndCat.includes("man") || nameAndCat.includes("men")) {
+        gender = "male";
+      } else if (nameAndCat.includes("enfant") || nameAndCat.includes("kid") || nameAndCat.includes("junior") || nameAndCat.includes("bébé") || nameAndCat.includes("baby")) {
+        gender = "unisex"; // Kids are handled by age_group
+      }
+      xml += `  <g:gender>${gender}</g:gender>
+`;
+
+      // Age group - detect kids products
+      let ageGroup = "adult"; // Default
+      if (nameAndCat.includes("enfant") || nameAndCat.includes("kid") || nameAndCat.includes("junior")) {
+        ageGroup = "kids";
+      } else if (nameAndCat.includes("bébé") || nameAndCat.includes("baby") || nameAndCat.includes("infant") || nameAndCat.includes("toddler")) {
+        ageGroup = "toddler";
+      }
+      xml += `  <g:age_group>${ageGroup}</g:age_group>
+`;
+
       // Shipping - France
       xml += `  <g:shipping>
     <g:country>FR</g:country>
