@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ArrowRight, Palette, Truck, BadgeCheck, Star, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import heroBg from '@/assets/hero-bg-optimized.jpg';
@@ -13,6 +14,9 @@ const features = [
 export function Hero() {
   return (
     <section className="relative overflow-hidden">
+      <Helmet>
+        <link rel="preload" as="image" href={heroBg} fetchPriority="high" />
+      </Helmet>
       {/* Background with image */}
       <div className="absolute inset-0">
         <img 

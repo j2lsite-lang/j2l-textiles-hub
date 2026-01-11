@@ -135,6 +135,9 @@ export function Header() {
                 src={logoJ2L} 
                 alt="J2L Textiles" 
                 className="h-20 md:h-28 lg:h-32 w-auto object-contain"
+                width={256}
+                height={128}
+                decoding="async"
               />
             </Link>
 
@@ -183,6 +186,10 @@ export function Header() {
                               src={univers.image} 
                               alt={univers.name}
                               className="w-full h-32 object-cover hover:scale-105 transition-transform duration-300"
+                              width={192}
+                              height={128}
+                              loading="lazy"
+                              decoding="async"
                             />
                           </Link>
                           

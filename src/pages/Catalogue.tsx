@@ -785,6 +785,9 @@ export default function Catalogue() {
                                   src={logo}
                                   alt={`Logo ${brand}`}
                                   loading="lazy"
+                                  decoding="async"
+                                  width={160}
+                                  height={48}
                                   className="max-h-12 max-w-full object-contain"
                                 />
                               ) : (
