@@ -759,15 +759,16 @@ export default function Catalogue() {
                               onClick={() => setSelectedLetter(letter)}
                               disabled={!hasBrands}
                               className={cn(
-                                'w-9 h-9 text-sm font-semibold rounded-lg transition-all duration-200',
+                                'h-9 text-sm font-semibold rounded-lg transition-all duration-200',
+                                letter === 'Tous' ? 'px-3' : 'w-9',
                                 selectedLetter === letter
                                   ? 'bg-primary text-primary-foreground shadow-md'
                                   : hasBrands
                                     ? 'bg-white border border-gray-200 text-gray-700 hover:border-primary hover:text-primary'
-                                    : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                    : 'bg-muted text-muted-foreground/60 cursor-not-allowed'
                               )}
                             >
-                              {letter === 'Tous' ? '∀' : letter}
+                              {letter}
                             </button>
                           );
                         })}
