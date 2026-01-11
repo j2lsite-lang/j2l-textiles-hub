@@ -13,5 +13,5 @@ Allow: /
 User-agent: *
 Allow: /
 
-# Sitemap
-Sitemap: https://j2ltextiles.fr/sitemap.xml
+# Sitemap dynamique avec tous les produits
+Sitemap: https://ozbzhqmnvbbsnkbsnuja.supabase.co/functions/v1/sitemap
