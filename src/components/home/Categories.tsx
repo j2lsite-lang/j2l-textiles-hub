@@ -2,13 +2,13 @@ import { Link } from 'react-router-dom';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
 
-// Import lifestyle images with people
-import poloImg from '@/assets/categories/polo-lifestyle.jpg';
-import workwearImg from '@/assets/categories/workwear-lifestyle.jpg';
-import gastroImg from '@/assets/categories/gastro-lifestyle.jpg';
-import sportImg from '@/assets/categories/sport-lifestyle.jpg';
-import corporateImg from '@/assets/categories/corporate-lifestyle.jpg';
-import hivisImg from '@/assets/categories/hivis-lifestyle.jpg';
+// Import optimized WebP images
+import poloImg from '@/assets/categories/polo-lifestyle.webp';
+import workwearImg from '@/assets/categories/workwear-lifestyle.webp';
+import gastroImg from '@/assets/categories/gastro-lifestyle.webp';
+import sportImg from '@/assets/categories/sport-lifestyle.webp';
+import corporateImg from '@/assets/categories/corporate-lifestyle.webp';
+import hivisImg from '@/assets/categories/hivis-lifestyle.webp';
 
 const categories = [
   {
@@ -58,19 +58,18 @@ export function Categories() {
             <Link
               key={category.name}
               to={`/catalogue?q=${category.query}`}
-              className="group animate-slide-up"
-              style={{ animationDelay: `${index * 0.05}s` }}
+              className="group"
             >
               <div className="relative aspect-[3/4] rounded-2xl overflow-hidden">
-                {/* Background image */}
+                {/* Background image - WebP optimized */}
                 <img 
                   src={category.image} 
                   alt={category.name}
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
-                  decoding="async"
-                  width={400}
-                  height={533}
+                  loading={index < 3 ? "eager" : "lazy"}
+                  decoding={index < 3 ? "sync" : "async"}
+                  width={512}
+                  height={672}
                 />
                 
                 {/* Overlay gradient */}

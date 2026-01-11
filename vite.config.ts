@@ -40,14 +40,8 @@ export default defineConfig(({ mode }) => ({
         },
       },
     },
-    // Minify for production
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
-    },
+    // Use esbuild for minification (built-in, no extra dependency)
+    minify: 'esbuild',
     // Target modern browsers for smaller bundles
     target: 'es2020',
     // CSS code splitting
