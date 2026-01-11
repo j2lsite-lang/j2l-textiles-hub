@@ -47,14 +47,26 @@ export function ProductMarkingOptions({
   onMarkingLocationChange,
   onMarkingNotesChange,
 }: ProductMarkingOptionsProps) {
+  const isNoMarking = markingType === 'Sans marquage';
+
+  // Quand on sélectionne "Sans marquage", réinitialiser l'emplacement
+  const handleMarkingTypeChange = (value: string) => {
+    onMarkingTypeChange(value);
+    if (value === 'Sans marquage') {
+      onMarkingLocationChange('N/A');
+    } else if (markingLocation === 'N/A') {
+      onMarkingLocationChange('');
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="font-semibold">Personnalisation</h3>
       
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className={isNoMarking ? "" : "grid sm:grid-cols-2 gap-4"}>
         <div className="space-y-2">
           <Label htmlFor="marking-type">Type de marquage *</Label>
-          <Select value={markingType} onValueChange={onMarkingTypeChange}>
+          <Select value={markingType} onValueChange={handleMarkingTypeChange}>
             <SelectTrigger id="marking-type">
               <SelectValue placeholder="Sélectionner" />
             </SelectTrigger>
@@ -68,33 +80,37 @@ export function ProductMarkingOptions({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="marking-location">Emplacement *</Label>
-          <Select value={markingLocation} onValueChange={onMarkingLocationChange}>
-            <SelectTrigger id="marking-location">
-              <SelectValue placeholder="Sélectionner" />
-            </SelectTrigger>
-            <SelectContent>
-              {MARKING_LOCATIONS.map((loc) => (
-                <SelectItem key={loc} value={loc}>
-                  {loc}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {!isNoMarking && (
+          <div className="space-y-2">
+            <Label htmlFor="marking-location">Emplacement *</Label>
+            <Select value={markingLocation} onValueChange={onMarkingLocationChange}>
+              <SelectTrigger id="marking-location">
+                <SelectValue placeholder="Sélectionner" />
+              </SelectTrigger>
+              <SelectContent>
+                {MARKING_LOCATIONS.map((loc) => (
+                  <SelectItem key={loc} value={loc}>
+                    {loc}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="marking-notes">Précisions (optionnel)</Label>
-        <Textarea
-          id="marking-notes"
-          rows={2}
-          placeholder="Couleurs du logo, nombre de couleurs, dimensions souhaitées..."
-          value={markingNotes}
-          onChange={(e) => onMarkingNotesChange(e.target.value)}
-        />
-      </div>
+      {!isNoMarking && (
+        <div className="space-y-2">
+          <Label htmlFor="marking-notes">Précisions (optionnel)</Label>
+          <Textarea
+            id="marking-notes"
+            rows={2}
+            placeholder="Couleurs du logo, nombre de couleurs, dimensions souhaitées..."
+            value={markingNotes}
+            onChange={(e) => onMarkingNotesChange(e.target.value)}
+          />
+        </div>
+      )}
     </div>
   );
 }

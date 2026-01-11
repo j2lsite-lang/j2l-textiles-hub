@@ -73,11 +73,13 @@ export default function Devis() {
       // Préparer les infos produits pour l'email
       const productDetails = items.map(item => {
         let line = `${item.name} (Réf: ${item.sku}) - ${item.color} / ${item.size} - Qté: ${item.quantity}`;
-        if (item.markingType) {
+        if (item.markingType && item.markingType !== 'Sans marquage') {
           line += `\n  → Marquage: ${item.markingType} - Emplacement: ${item.markingLocation || 'Non précisé'}`;
           if (item.markingNotes) {
             line += `\n  → Notes: ${item.markingNotes}`;
           }
+        } else if (item.markingType === 'Sans marquage') {
+          line += `\n  → Sans marquage`;
         }
         return line;
       }).join('\n\n');
@@ -228,13 +230,19 @@ ${productDetails}
                         </div>
                         {item.markingType && (
                           <div className="mt-2 text-xs space-y-0.5">
-                            <p className="text-primary font-medium">
-                              {item.markingType} • {item.markingLocation}
-                            </p>
-                            {item.markingNotes && (
-                              <p className="text-muted-foreground italic">
-                                {item.markingNotes}
-                              </p>
+                            {item.markingType === 'Sans marquage' ? (
+                              <p className="text-muted-foreground">Sans marquage</p>
+                            ) : (
+                              <>
+                                <p className="text-primary font-medium">
+                                  {item.markingType} • {item.markingLocation}
+                                </p>
+                                {item.markingNotes && (
+                                  <p className="text-muted-foreground italic">
+                                    {item.markingNotes}
+                                  </p>
+                                )}
+                              </>
                             )}
                           </div>
                         )}
