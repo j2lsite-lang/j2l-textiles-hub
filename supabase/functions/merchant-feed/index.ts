@@ -40,6 +40,43 @@ function getGoogleCategory(category: string | null): string {
   return categoryMap[category || ""] || "Apparel &amp; Accessories &gt; Clothing";
 }
 
+// Extract primary color from colors array
+function extractColor(colors: unknown): string {
+  if (!colors || !Array.isArray(colors) || colors.length === 0) return "";
+  const firstColor = colors[0];
+  if (typeof firstColor === 'object' && firstColor !== null && 'name' in firstColor) {
+    return escapeXml(String(firstColor.name));
+  }
+  return "";
+}
+
+// Determine gender from product name
+function extractGender(name: string | null): string {
+  if (!name) return "unisex";
+  const nameLower = name.toLowerCase();
+  
+  // Women keywords
+  if (nameLower.includes('femme') || nameLower.includes('woman') || nameLower.includes('women') || 
+      nameLower.includes('fille') || nameLower.includes('girl') || nameLower.includes('lady') ||
+      nameLower.includes('ladies')) {
+    return "female";
+  }
+  
+  // Men keywords
+  if (nameLower.includes('homme') || nameLower.includes('man') || nameLower.includes('men') || 
+      nameLower.includes('garçon') || nameLower.includes('boy') || nameLower.includes('garcon')) {
+    return "male";
+  }
+  
+  // Children keywords
+  if (nameLower.includes('enfant') || nameLower.includes('child') || nameLower.includes('kid') ||
+      nameLower.includes('bébé') || nameLower.includes('baby') || nameLower.includes('junior')) {
+    return "unisex";
+  }
+  
+  return "unisex";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -50,23 +87,52 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch products from database - only those with valid data
-    const { data: products, error } = await supabase
-      .from("products")
-      .select("id, sku, name, description, brand, price_ht, images, stock, category")
-      .not("images", "is", null)
-      .not("price_ht", "is", null)
-      .not("sku", "is", null)
-      .not("name", "is", null)
-      .limit(5000);
+    // Fetch ALL products using pagination (Supabase has 1000 row default limit)
+    const allProducts: Array<{
+      id: string;
+      sku: string;
+      name: string;
+      description: string | null;
+      brand: string | null;
+      price_ht: number | null;
+      images: string[] | null;
+      stock: number | null;
+      category: string | null;
+      colors: Array<{ name: string; code: string }> | null;
+    }> = [];
+    
+    const pageSize = 1000;
+    let offset = 0;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const { data: batch, error } = await supabase
+        .from("products")
+        .select("id, sku, name, description, brand, price_ht, images, stock, category, colors")
+        .not("images", "is", null)
+        .not("price_ht", "is", null)
+        .not("sku", "is", null)
+        .not("name", "is", null)
+        .range(offset, offset + pageSize - 1);
 
-    if (error) {
-      console.error("Error fetching products:", error);
-      throw error;
+      if (error) {
+        console.error("Error fetching products batch:", error);
+        throw error;
+      }
+
+      if (batch && batch.length > 0) {
+        allProducts.push(...batch);
+        offset += pageSize;
+        hasMore = batch.length === pageSize;
+      } else {
+        hasMore = false;
+      }
     }
+    
+    console.log(`Fetched ${allProducts.length} products total`);
 
     // Filter out products with empty/invalid data
-    const validProducts = (products || []).filter((product) => {
+    const validProducts = allProducts.filter((product) => {
       const images = Array.isArray(product.images) ? product.images : [];
       return (
         product.sku &&
@@ -77,7 +143,7 @@ Deno.serve(async (req) => {
       );
     });
 
-    console.log(`Generating merchant feed with ${validProducts.length} valid products out of ${products?.length || 0} fetched`);
+    console.log(`Generating merchant feed with ${validProducts.length} valid products`);
 
     // Generate XML items
     const items = validProducts.map((product) => {
@@ -86,15 +152,22 @@ Deno.serve(async (req) => {
       const additionalImages = images.slice(1, 10);
       
       // Calculate price with margin (add 20% for retail display)
-      const price = product.price_ht ? (parseFloat(product.price_ht) * 1.2).toFixed(2) : "0.00";
+      const price = product.price_ht ? (parseFloat(String(product.price_ht)) * 1.2).toFixed(2) : "0.00";
       
       // Availability based on stock
       const availability = product.stock === null || product.stock > 0 ? "in_stock" : "out_of_stock";
+      
+      // Extract color and gender
+      const color = extractColor(product.colors);
+      const gender = extractGender(product.name);
 
       const additionalImagesXml = additionalImages
         .filter((img: string) => img && img.trim())
         .map((img: string) => `<g:additional_image_link>${escapeXml(img)}</g:additional_image_link>`)
         .join("");
+
+      // Build color XML only if color exists
+      const colorXml = color ? `<g:color>${color}</g:color>` : "";
 
       return `<item>` +
         `<g:id>${escapeXml(product.sku)}</g:id>` +
@@ -107,6 +180,9 @@ Deno.serve(async (req) => {
         `<g:price>${price} EUR</g:price>` +
         `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
         `<g:condition>new</g:condition>` +
+        colorXml +
+        `<g:gender>${gender}</g:gender>` +
+        `<g:age_group>adult</g:age_group>` +
         `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
         `<g:product_type>${escapeXml(product.category || "Vêtements")}</g:product_type>` +
         `<g:identifier_exists>false</g:identifier_exists>` +
