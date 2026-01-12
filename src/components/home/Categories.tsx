@@ -14,32 +14,32 @@ const categories = [
   {
     image: poloImg,
     name: 'Polos & T-shirts',
-    query: 't-shirt',
+    slug: 't-shirts',
   },
   {
     image: gastroImg,
     name: 'Gastro & Hôtellerie',
-    query: 'cuisine',
+    slug: 'cuisine-hotellerie',
   },
   {
     image: corporateImg,
     name: 'Corporate',
-    query: 'chemise',
+    slug: 'chemises-corporate',
   },
   {
     image: sportImg,
     name: 'Sport & Loisirs',
-    query: 'sport',
+    slug: 'sport-loisirs',
   },
   {
     image: workwearImg,
     name: 'EPI & Chantier',
-    query: 'travail',
+    slug: 'vetements-travail',
   },
   {
     image: hivisImg,
     name: 'Haute visibilité',
-    query: 'visibilite',
+    slug: 'haute-visibilite',
   },
 ];
 
@@ -57,7 +57,7 @@ export function Categories() {
           {categories.map((category, index) => (
             <Link
               key={category.name}
-              to={`/catalogue?q=${category.query}`}
+              to={`/catalogue/${category.slug}`}
               className="group"
             >
               <div className="relative aspect-[3/4] rounded-2xl overflow-hidden">
