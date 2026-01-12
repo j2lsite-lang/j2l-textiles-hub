@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingBag, Search, Phone, ChevronDown } from 'lucide-react';
+import { Menu, X, ShoppingCart, Search, Phone, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useQuoteCart } from '@/hooks/useQuoteCart';
+import { useCart } from '@/hooks/useCart';
 import { cn } from '@/lib/utils';
 import { COMPANY_INFO } from '@/lib/company-info';
 import { CallbackModal } from '@/components/CallbackModal';
@@ -87,7 +87,7 @@ export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
-  const { itemCount } = useQuoteCart();
+  const { itemCount } = useCart();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -283,9 +283,9 @@ export function Header() {
                 </Button>
               </Link>
 
-              <Link to="/devis" className="relative z-10">
+              <Link to="/panier" className="relative z-10">
                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary hover:bg-secondary">
-                  <ShoppingBag className="h-5 w-5" />
+                  <ShoppingCart className="h-5 w-5" />
                   {itemCount > 0 && (
                     <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full accent-gradient text-white text-xs font-bold flex items-center justify-center shadow-sm">
                       {itemCount > 99 ? '99+' : itemCount}
@@ -299,9 +299,9 @@ export function Header() {
                 <CallbackModal />
               </div>
 
-              <Link to="/devis" className="hidden sm:block">
+              <Link to="/panier" className="hidden sm:block">
                 <Button className="font-semibold accent-gradient text-white border-0 shadow-accent hover:shadow-lg hover:-translate-y-0.5 transition-all">
-                  Demander un devis
+                  Mon panier
                 </Button>
               </Link>
 
@@ -378,9 +378,9 @@ export function Header() {
                   </Link>
                 ))}
                 
-                <Link to="/devis" className="mt-2 px-4">
+                <Link to="/panier" className="mt-2 px-4">
                   <Button className="w-full accent-gradient text-white font-semibold">
-                    Demander un devis
+                    Mon panier
                   </Button>
                 </Link>
               </nav>

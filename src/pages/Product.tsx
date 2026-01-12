@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { ChevronLeft, Plus, Minus, ShoppingBag, Ruler, Check, Info, Loader2, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Plus, Minus, ShoppingCart, Ruler, Check, Info, Loader2, AlertCircle } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useQuoteCart } from '@/hooks/useQuoteCart';
+import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useProduct } from '@/hooks/useTopTex';
-import { ProductMarkingOptions } from '@/components/product/ProductMarkingOptions';
 import { ProductShareButtons } from '@/components/product/ProductShareButtons';
 import {
   Dialog,
@@ -49,23 +48,6 @@ const mockProduct = {
 
 function formatPriceEUR(price: number): string {
   return `${(Math.round(price * 10) / 10).toFixed(2).replace('.', ',')} €`;
-}
-
-type IndicativeRange = { min: number; max: number | null; priceLabel: string };
-
-function buildIndicativePriceRanges(basePriceHT: number | null | undefined): IndicativeRange[] {
-  // On affiche le prix importé (déjà converti + coef) comme "à partir de".
-  // Les paliers suivants restent sur devis car ils dépendent du marquage/quantités.
-  const base = typeof basePriceHT === 'number' && isFinite(basePriceHT) && basePriceHT > 0
-    ? `${formatPriceEUR(basePriceHT)} HT`
-    : 'Sur devis';
-
-  return [
-    { min: 1, max: 24, priceLabel: base },
-    { min: 25, max: 49, priceLabel: 'Sur devis' },
-    { min: 50, max: 99, priceLabel: 'Sur devis' },
-    { min: 100, max: null, priceLabel: 'Sur devis' },
-  ];
 }
 
 const sizeGuide = {
@@ -109,7 +91,7 @@ function getColorStyle(colorName: string, colorCode?: string): string {
 export default function Product() {
   const { sku } = useParams();
   const location = useLocation();
-  const { addItem } = useQuoteCart();
+  const { addItem } = useCart();
   const { toast } = useToast();
   
   // Fetch from API
@@ -122,12 +104,7 @@ export default function Product() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<{ name: string; code?: string; images?: string[] } | null>(null);
   const [selectedSize, setSelectedSize] = useState('');
-  const [quantity, setQuantity] = useState(25);
-  
-  // Marking options state
-  const [markingType, setMarkingType] = useState('');
-  const [markingLocation, setMarkingLocation] = useState('');
-  const [markingNotes, setMarkingNotes] = useState('');
+  const [quantity, setQuantity] = useState(1);
   
   // Get full product URL for sharing
   const productUrl = typeof window !== 'undefined' 
@@ -146,11 +123,11 @@ export default function Product() {
     setSelectedImage(0);
   }, [selectedColor]);
 
-  const handleAddToQuote = () => {
+  const handleAddToCart = () => {
     if (!selectedSize) {
       toast({
         title: 'Sélectionnez une taille',
-        description: 'Veuillez choisir une taille avant d\'ajouter au devis.',
+        description: 'Veuillez choisir une taille avant d\'ajouter au panier.',
         variant: 'destructive',
       });
       return;
@@ -159,30 +136,13 @@ export default function Product() {
     if (!selectedColor) {
       toast({
         title: 'Sélectionnez une couleur',
-        description: 'Veuillez choisir une couleur avant d\'ajouter au devis.',
+        description: 'Veuillez choisir une couleur avant d\'ajouter au panier.',
         variant: 'destructive',
       });
       return;
     }
 
-    if (!markingType) {
-      toast({
-        title: 'Sélectionnez un type de marquage',
-        description: 'Veuillez choisir un type de marquage avant d\'ajouter au devis.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Emplacement requis seulement si ce n'est pas "Sans marquage"
-    if (markingType !== 'Sans marquage' && !markingLocation) {
-      toast({
-        title: 'Sélectionnez un emplacement',
-        description: 'Veuillez choisir un emplacement de marquage avant d\'ajouter au devis.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    const priceHT = product.priceHT || 0;
 
     addItem({
       sku: product.sku,
@@ -193,14 +153,12 @@ export default function Product() {
       colorCode: selectedColor.code,
       size: selectedSize,
       quantity,
-      markingType,
-      markingLocation: markingType === 'Sans marquage' ? 'N/A' : markingLocation,
-      markingNotes: markingType === 'Sans marquage' ? '' : markingNotes,
+      priceHT,
     });
 
     toast({
-      title: 'Ajouté au devis',
-      description: `${quantity}x ${product.name} (${selectedColor.name}, ${selectedSize}) - ${markingType}`,
+      title: 'Ajouté au panier',
+      description: `${quantity}x ${product.name} (${selectedColor.name}, ${selectedSize})`,
     });
   };
 
@@ -232,7 +190,8 @@ export default function Product() {
 
   const displayColors = product.colors?.length > 0 ? product.colors : mockProduct.colors;
   const displaySizes = product.sizes?.length > 0 ? product.sizes : mockProduct.sizes;
-  const indicativePriceRanges = buildIndicativePriceRanges(product.priceHT ?? null);
+  const priceHT = product.priceHT || 0;
+  const priceTTC = priceHT * 1.2;
 
   // Scrollable thumbnail strip for many images
   const showScrollableThumbs = displayImages.length > 5;
@@ -341,23 +300,6 @@ export default function Product() {
                 {product.description || 'Produit textile de qualité professionnelle, idéal pour la personnalisation. Contactez-nous pour plus de détails.'}
               </p>
 
-              {/* Price Ranges */}
-              <div className="surface-elevated rounded-xl p-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                  Tarifs indicatifs (HT)
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {indicativePriceRanges.map((range, i) => (
-                    <div key={i} className="text-center p-2 rounded-lg bg-secondary/50">
-                      <p className="text-xs text-muted-foreground">
-                        {range.max ? `${range.min}-${range.max}` : `${range.min}+`} pcs
-                      </p>
-                      <p className="font-semibold text-primary">{range.priceLabel}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
               {/* Color Selection */}
               <div>
@@ -478,27 +420,35 @@ export default function Product() {
                 </div>
               </div>
 
-              {/* Marking Options */}
-              <div className="border-t pt-6">
-                <ProductMarkingOptions
-                  markingType={markingType}
-                  markingLocation={markingLocation}
-                  markingNotes={markingNotes}
-                  onMarkingTypeChange={setMarkingType}
-                  onMarkingLocationChange={setMarkingLocation}
-                  onMarkingNotesChange={setMarkingNotes}
-                />
+              {/* Price Display */}
+              <div className="surface-elevated rounded-xl p-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-bold text-primary">
+                    {formatPriceEUR(priceHT)} HT
+                  </span>
+                  <span className="text-lg text-muted-foreground">
+                    / {formatPriceEUR(priceTTC)} TTC
+                  </span>
+                </div>
+                {quantity > 1 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Total: {formatPriceEUR(priceHT * quantity)} HT ({formatPriceEUR(priceTTC * quantity)} TTC)
+                  </p>
+                )}
+                <p className="text-xs text-green-600 mt-2 font-medium">
+                  ✓ En stock • Livraison gratuite
+                </p>
               </div>
 
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <Button size="lg" className="flex-1" onClick={handleAddToQuote}>
-                  <ShoppingBag className="h-5 w-5 mr-2" />
-                  Ajouter au devis
+                <Button size="lg" className="flex-1 accent-gradient text-white" onClick={handleAddToCart}>
+                  <ShoppingCart className="h-5 w-5 mr-2" />
+                  Ajouter au panier
                 </Button>
-                <Link to="/devis" className="flex-1">
+                <Link to="/panier" className="flex-1">
                   <Button size="lg" variant="outline" className="w-full">
-                    Voir mon devis
+                    Voir le panier
                   </Button>
                 </Link>
               </div>
