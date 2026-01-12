@@ -32,6 +32,63 @@
     <priority>0.7</priority>
   </url>
   
+  <!-- Catégories optimisées SEO -->
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/t-shirts</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/polos</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/sweats</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/vestes</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/chemises-corporate</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/cuisine-hotellerie</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/sport-loisirs</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/vetements-travail</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/haute-visibilite</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/accessoires</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/catalogue/bagagerie</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
   <!-- Pages légales -->
   <url>
     <loc>https://j2ltextiles.fr/mentions-legales</loc>
@@ -45,6 +102,16 @@
   </url>
   <url>
     <loc>https://j2ltextiles.fr/cgv</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/retours</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://j2ltextiles.fr/livraison</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
