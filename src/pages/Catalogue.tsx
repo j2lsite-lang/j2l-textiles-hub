@@ -157,12 +157,14 @@ interface DisplayProduct {
 // Liste vide - on utilise désormais remoteBrandLogos exclusivement
 const brandLogos: Record<string, string> = {};
 
+import { getProductUrl } from '@/lib/product-utils';
+
 function ProductCard({ product }: { product: DisplayProduct }) {
   const image = product.images?.[0] || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop';
   const displayColors = product.colors?.slice(0, 4) || [];
   
   return (
-    <Link to={`/produit/${product.sku}`} className="group">
+    <Link to={getProductUrl(product.sku, product.name)} className="group">
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-300">
         {/* Image sur fond blanc */}
         <div className="aspect-square bg-white p-4 flex items-center justify-center overflow-hidden">
