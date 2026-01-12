@@ -143,19 +143,18 @@ export default function Panier() {
                     <span className="text-muted-foreground">Sous-total HT</span>
                     <span>{formatPrice(totals.totalHT)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">TVA (20%)</span>
-                    <span>{formatPrice(totals.totalTTC - totals.totalHT)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Livraison</span>
-                    <span className="text-green-600">Gratuite</span>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Livraison</span>
+                    <span>Selon devis</span>
                   </div>
                   <div className="border-t pt-3">
                     <div className="flex justify-between font-semibold text-lg">
-                      <span>Total TTC</span>
-                      <span className="text-primary">{formatPrice(totals.totalTTC)}</span>
+                      <span>Total HT</span>
+                      <span className="text-primary">{formatPrice(totals.totalHT)}</span>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Hors frais de livraison et marquage
+                    </p>
                   </div>
                 </div>
 
@@ -182,7 +181,7 @@ export default function Panier() {
                   <div className="flex items-start gap-3">
                     <Package className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                     <div className="text-sm">
-                      <p className="font-medium">Livraison gratuite</p>
+                      <p className="font-medium">Frais de livraison selon devis</p>
                       <p className="text-muted-foreground">
                         Expédition sous 2-5 jours ouvrés
                       </p>
