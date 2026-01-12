@@ -238,40 +238,60 @@ function BrandCard({ brand }: { brand: string }) {
   );
 }
 
+// Générer un slug à partir du nom de catégorie
+function categoryToSlug(category: string): string {
+  if (category === 'Tous') return '';
+  return category
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Supprimer accents
+    .replace(/[^a-z0-9]+/g, '-')     // Remplacer caractères spéciaux par -
+    .replace(/(^-|-$)/g, '');        // Supprimer - au début/fin
+}
+
 function FilterSidebar({
   selectedCategory,
-  setSelectedCategory,
+  onCategoryClick,
   selectedBrand,
   setSelectedBrand,
   categories,
   brands,
+  currentSlug,
 }: {
   selectedCategory: string;
-  setSelectedCategory: (v: string) => void;
+  onCategoryClick: (cat: string) => void;
   selectedBrand: string;
   setSelectedBrand: (v: string) => void;
   categories: string[];
   brands: string[];
+  currentSlug?: string;
 }) {
   return (
     <div className="space-y-6">
       <div>
         <h3 className="font-semibold mb-3">Catégorie</h3>
         <div className="space-y-2">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={cn(
-                'block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                selectedCategory === cat
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-secondary'
-              )}
-            >
-              {cat}
-            </button>
-          ))}
+          {categories.map((cat) => {
+            const slug = categoryToSlug(cat);
+            const isActive = cat === 'Tous' 
+              ? (!currentSlug && selectedCategory === 'Tous')
+              : (currentSlug === slug || selectedCategory === cat);
+            
+            return (
+              <Link
+                key={cat}
+                to={cat === 'Tous' ? '/catalogue' : `/catalogue/${slug}`}
+                className={cn(
+                  'block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-secondary'
+                )}
+              >
+                {cat}
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -346,20 +366,42 @@ export default function Catalogue() {
     }
   }, [categorySlug]);
 
-  // Synchroniser searchQuery et category avec les paramètres URL (fallback ?q=)
+  // Redirection des anciennes URLs ?cat= et ?q= vers les nouvelles URLs propres
   useEffect(() => {
-    if (categorySlug) return; // Ne pas écraser si on utilise le slug
-    const urlQuery = searchParams.get('q') || '';
-    const urlCat = searchParams.get('cat') || 'Tous';
-    if (urlQuery !== searchQuery) {
-      setSearchQuery(urlQuery);
-      setPage(1);
+    if (categorySlug) return; // Déjà sur une URL propre
+    
+    const urlCat = searchParams.get('cat');
+    const urlQuery = searchParams.get('q');
+    
+    // Rediriger ?cat=Vestes vers /catalogue/vestes
+    if (urlCat && urlCat !== 'Tous') {
+      const slug = urlCat
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      navigate(`/catalogue/${slug}`, { replace: true });
+      return;
     }
-    if (urlCat !== selectedCategory) {
-      setSelectedCategory(urlCat);
-      setPage(1);
+    
+    // Rediriger ?q=t-shirt vers /catalogue/t-shirts si c'est un terme connu
+    if (urlQuery) {
+      const slugFromQuery = Object.entries(categorySlugMap).find(
+        ([, term]) => term.toLowerCase() === urlQuery.toLowerCase()
+      )?.[0];
+      
+      if (slugFromQuery) {
+        navigate(`/catalogue/${slugFromQuery}`, { replace: true });
+        return;
+      }
+      // Sinon garder le ?q= pour les recherches libres
+      if (urlQuery !== searchQuery) {
+        setSearchQuery(urlQuery);
+        setPage(1);
+      }
     }
-  }, [searchParams, categorySlug]);
+  }, [searchParams, categorySlug, navigate]);
   const { isAdmin } = useIsAdmin();
 
   const { data: remoteBrandLogos } = useToptexBrandLogos();
@@ -681,7 +723,7 @@ export default function Catalogue() {
                   <div className="mt-6">
                     <FilterSidebar
                       selectedCategory={selectedCategory}
-                      setSelectedCategory={(v) => {
+                      onCategoryClick={(v) => {
                         setSelectedCategory(v);
                         setPage(1);
                         setIsFilterOpen(false);
@@ -694,6 +736,7 @@ export default function Catalogue() {
                       }}
                       categories={categories}
                       brands={brands}
+                      currentSlug={categorySlug}
                     />
                   </div>
                 </SheetContent>
@@ -745,11 +788,12 @@ export default function Catalogue() {
               <div className="sticky top-24">
                 <FilterSidebar
                   selectedCategory={selectedCategory}
-                  setSelectedCategory={(v) => { setSelectedCategory(v); setPage(1); }}
+                  onCategoryClick={(v) => { setSelectedCategory(v); setPage(1); }}
                   selectedBrand={selectedBrand}
                   setSelectedBrand={(v) => { setSelectedBrand(v); setPage(1); }}
                   categories={categories}
                   brands={brands}
+                  currentSlug={categorySlug}
                 />
               </div>
             </aside>
