@@ -42,6 +42,21 @@ Deno.serve(async (req) => {
       { loc: "/cgv", priority: "0.3", changefreq: "yearly" },
     ];
 
+    // Category pages with clean SEO URLs
+    const categoryPages = [
+      { loc: "/catalogue/t-shirts", priority: "0.8", changefreq: "daily" },
+      { loc: "/catalogue/cuisine-hotellerie", priority: "0.8", changefreq: "daily" },
+      { loc: "/catalogue/chemises-corporate", priority: "0.8", changefreq: "daily" },
+      { loc: "/catalogue/sport-loisirs", priority: "0.8", changefreq: "daily" },
+      { loc: "/catalogue/vetements-travail", priority: "0.8", changefreq: "daily" },
+      { loc: "/catalogue/haute-visibilite", priority: "0.8", changefreq: "daily" },
+      { loc: "/catalogue/polos", priority: "0.8", changefreq: "daily" },
+      { loc: "/catalogue/sweats", priority: "0.8", changefreq: "daily" },
+      { loc: "/catalogue/vestes", priority: "0.8", changefreq: "daily" },
+      { loc: "/catalogue/accessoires", priority: "0.8", changefreq: "daily" },
+      { loc: "/catalogue/bagagerie", priority: "0.8", changefreq: "daily" },
+    ];
+
     // Location pages - Departments
     const departments = [
       "vosges", "meurthe-et-moselle", "moselle", "bas-rhin", "haut-rhin",
@@ -79,6 +94,16 @@ Deno.serve(async (req) => {
 
     // Add static pages
     for (const page of staticPages) {
+      xml += `  <url>
+    <loc>${SITE_URL}${page.loc}</loc>
+    <changefreq>${page.changefreq}</changefreq>
+    <priority>${page.priority}</priority>
+  </url>
+`;
+    }
+
+    // Add category pages with clean URLs
+    for (const page of categoryPages) {
       xml += `  <url>
     <loc>${SITE_URL}${page.loc}</loc>
     <changefreq>${page.changefreq}</changefreq>
@@ -129,7 +154,7 @@ Deno.serve(async (req) => {
 
     xml += `</urlset>`;
 
-    console.log(`Generated sitemap with ${staticPages.length + 1 + departments.length + cities.length + (products?.length || 0)} URLs`);
+    console.log(`Generated sitemap with ${staticPages.length + categoryPages.length + 1 + departments.length + cities.length + (products?.length || 0)} URLs`);
 
     return new Response(xml, {
       status: 200,

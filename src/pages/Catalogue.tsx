@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useParams, Link, useNavigate } from 'react-router-dom';
 import { Search, Filter, X, Loader2, ShoppingBag, AlertCircle, RefreshCw } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -301,9 +301,30 @@ function FilterSidebar({
 // Alphabet pour le filtre
 const alphabet = ['Tous', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
 
+// Mapping slug → terme de recherche pour URLs propres SEO
+const categorySlugMap: Record<string, string> = {
+  't-shirts': 't-shirt',
+  'cuisine-hotellerie': 'cuisine',
+  'chemises-corporate': 'chemise',
+  'sport-loisirs': 'sport',
+  'vetements-travail': 'travail',
+  'haute-visibilite': 'visibilite',
+  'polos': 'polo',
+  'sweats': 'sweat',
+  'vestes': 'veste',
+  'accessoires': 'accessoire',
+  'bagagerie': 'sac',
+};
+
 export default function Catalogue() {
+  const { category: categorySlug } = useParams<{ category?: string }>();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  
+  // Convertir slug URL en terme de recherche
+  const slugSearchTerm = categorySlug ? (categorySlugMap[categorySlug] || categorySlug) : '';
+  
+  const [searchQuery, setSearchQuery] = useState(slugSearchTerm || searchParams.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('cat') || 'Tous');
   const [selectedBrand, setSelectedBrand] = useState('Toutes');
   const [selectedLetter, setSelectedLetter] = useState('Tous');
@@ -314,8 +335,20 @@ export default function Catalogue() {
   const [syncTotalInfo, setSyncTotalInfo] = useState<{ pages: number; products: number } | null>(null);
   const { toast } = useToast();
 
-  // Synchroniser searchQuery et category avec les paramètres URL
+  // Synchroniser avec le slug d'URL si présent
   useEffect(() => {
+    if (categorySlug) {
+      const term = categorySlugMap[categorySlug] || categorySlug;
+      if (term !== searchQuery) {
+        setSearchQuery(term);
+        setPage(1);
+      }
+    }
+  }, [categorySlug]);
+
+  // Synchroniser searchQuery et category avec les paramètres URL (fallback ?q=)
+  useEffect(() => {
+    if (categorySlug) return; // Ne pas écraser si on utilise le slug
     const urlQuery = searchParams.get('q') || '';
     const urlCat = searchParams.get('cat') || 'Tous';
     if (urlQuery !== searchQuery) {
@@ -326,7 +359,7 @@ export default function Catalogue() {
       setSelectedCategory(urlCat);
       setPage(1);
     }
-  }, [searchParams]);
+  }, [searchParams, categorySlug]);
   const { isAdmin } = useIsAdmin();
 
   const { data: remoteBrandLogos } = useToptexBrandLogos();
@@ -537,10 +570,15 @@ export default function Catalogue() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const params: Record<string, string> = {};
-    if (searchQuery) params.q = searchQuery;
-    if (selectedCategory !== 'Tous') params.cat = selectedCategory;
-    setSearchParams(params);
+    // Si on est sur une URL avec slug, naviguer vers /catalogue avec query params
+    if (categorySlug) {
+      navigate(`/catalogue${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ''}`);
+    } else {
+      const params: Record<string, string> = {};
+      if (searchQuery) params.q = searchQuery;
+      if (selectedCategory !== 'Tous') params.cat = selectedCategory;
+      setSearchParams(params);
+    }
     setPage(1);
   };
 
@@ -549,11 +587,16 @@ export default function Catalogue() {
     setSelectedCategory('Tous');
     setSelectedBrand('Toutes');
     setSelectedLetter('Tous');
-    setSearchParams({});
+    // Retourner à /catalogue sans paramètres
+    if (categorySlug) {
+      navigate('/catalogue');
+    } else {
+      setSearchParams({});
+    }
     setPage(1);
   };
 
-  const hasActiveFilters = searchQuery || selectedCategory !== 'Tous' || selectedBrand !== 'Toutes';
+  const hasActiveFilters = searchQuery || selectedCategory !== 'Tous' || selectedBrand !== 'Toutes' || !!categorySlug;
 
   // Fetch sync total info on mount
   useEffect(() => {
