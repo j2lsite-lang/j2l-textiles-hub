@@ -8,6 +8,24 @@ const corsHeaders = {
 
 const SITE_URL = "https://j2ltextiles.fr";
 
+// Génère un slug SEO-friendly pour les produits
+function generateProductSlug(sku: string, name?: string | null): string {
+  const skuLower = sku.toLowerCase();
+  if (!name) return skuLower;
+  
+  const nameSlug = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 60);
+  
+  return `${skuLower}-${nameSlug}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -18,10 +36,10 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch all product SKUs
+    // Fetch all product SKUs and names for SEO URLs
     const { data: products, error } = await supabase
       .from("products")
-      .select("sku, updated_at")
+      .select("sku, name, updated_at")
       .order("updated_at", { ascending: false });
 
     if (error) {
@@ -140,11 +158,12 @@ Deno.serve(async (req) => {
 `;
     }
 
-    // Add all product pages
+    // Add all product pages with SEO-friendly URLs
     for (const product of products || []) {
       const lastmod = product.updated_at ? new Date(product.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const productSlug = generateProductSlug(product.sku, product.name);
       xml += `  <url>
-    <loc>${SITE_URL}/produit/${encodeURIComponent(product.sku)}</loc>
+    <loc>${SITE_URL}/produit/${encodeURIComponent(productSlug)}</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>

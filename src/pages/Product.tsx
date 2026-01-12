@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Plus, Minus, ShoppingCart, Ruler, Check, Info, Loader2, AlertCircle } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useProduct } from '@/hooks/useTopTex';
 import { ProductShareButtons } from '@/components/product/ProductShareButtons';
+import { extractSkuFromSlug, generateProductSlug } from '@/lib/product-utils';
 import {
   Dialog,
   DialogContent,
@@ -89,10 +90,14 @@ function getColorStyle(colorName: string, colorCode?: string): string {
 }
 
 export default function Product() {
-  const { sku } = useParams();
+  const { slug } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const { addItem } = useCart();
   const { toast } = useToast();
+  
+  // Extraire le SKU du slug (ex: "k623-polo-homme" -> "K623")
+  const sku = slug ? extractSkuFromSlug(slug) : undefined;
   
   // Fetch from API
   const { data: apiProduct, isLoading, error } = useProduct(sku);
@@ -100,6 +105,17 @@ export default function Product() {
   // Use API data or fallback
   const product = apiProduct || mockProduct;
   const isUsingMock = !apiProduct;
+  
+  // Rediriger vers l'URL SEO-friendly si on a juste le SKU
+  useEffect(() => {
+    if (apiProduct && slug) {
+      const expectedSlug = generateProductSlug(apiProduct.sku, apiProduct.name);
+      // Si le slug actuel est juste le SKU (ancien format), rediriger vers le nouveau
+      if (slug.toLowerCase() === apiProduct.sku.toLowerCase() && expectedSlug !== slug.toLowerCase()) {
+        navigate(`/produit/${expectedSlug}`, { replace: true });
+      }
+    }
+  }, [apiProduct, slug, navigate]);
   
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<{ name: string; code?: string; images?: string[] } | null>(null);
