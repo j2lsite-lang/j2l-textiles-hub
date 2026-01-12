@@ -1,0 +1,60 @@
+name: Update Sitemap
+
+on:
+  # Déclenché manuellement
+  workflow_dispatch:
+  # Après la sync TopTex
+  workflow_run:
+    workflows: ["Sync TopTex Catalog"]
+    types:
+      - completed
+  # Ou tous les jours à 4h du matin (après la sync à 3h)
+  schedule:
+    - cron: '0 4 * * *'
+
+jobs:
+  update-sitemap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download sitemap from edge function
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+        run: |
+          echo "Downloading sitemap from edge function..."
+          
+          curl -s -o public/sitemap.xml \
+            -H "Content-Type: application/xml" \
+            "${BACKEND_URL}/functions/v1/sitemap"
+          
+          # Vérifier que le fichier est valide
+          if grep -q "<?xml" public/sitemap.xml; then
+            URL_COUNT=$(grep -c "<url>" public/sitemap.xml || echo "0")
+            echo "Downloaded sitemap with $URL_COUNT URLs"
+          else
+            echo "ERROR: Invalid sitemap downloaded"
+            cat public/sitemap.xml
+            exit 1
+          fi
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add public/sitemap.xml
+          
+          if git diff --staged --quiet; then
+            echo "No changes to sitemap"
+          else
+            URL_COUNT=$(grep -c "<url>" public/sitemap.xml || echo "0")
+            git commit -m "chore: update sitemap ($URL_COUNT URLs)"
+            git push
+            echo "Sitemap updated and pushed"
+          fi

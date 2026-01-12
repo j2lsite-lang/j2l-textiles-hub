@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     const { data: products, error } = await supabase
       .from("products")
       .select("sku, name, updated_at")
-      .order("updated_at", { ascending: false });
+      .order("sku", { ascending: true });
 
     if (error) {
       console.error("Error fetching products:", error);
@@ -49,27 +49,51 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${products?.length || 0} products for sitemap`);
 
-    // Build XML with all product URLs
+    const today = new Date().toISOString().split('T')[0];
+
+    // Build XML with all URLs (static pages + products)
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Pages principales -->
+  <url><loc>${SITE_URL}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>${SITE_URL}/catalogue</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>${SITE_URL}/personnalisation</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/devis</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/faq</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>${SITE_URL}/contact</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <!-- Catégories -->
+  <url><loc>${SITE_URL}/catalogue/t-shirts</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/catalogue/polos</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/catalogue/sweats</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/catalogue/vestes</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/catalogue/chemises-corporate</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/catalogue/cuisine-hotellerie</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/catalogue/sport-loisirs</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/catalogue/vetements-travail</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/catalogue/haute-visibilite</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/catalogue/accessoires</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>${SITE_URL}/catalogue/bagagerie</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <!-- Pages légales -->
+  <url><loc>${SITE_URL}/mentions-legales</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>${SITE_URL}/confidentialite</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>${SITE_URL}/cgv</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>${SITE_URL}/retours</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>${SITE_URL}/livraison</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <!-- Zones -->
+  <url><loc>${SITE_URL}/zones</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
 `;
 
     // Add all product pages with SEO-friendly URLs
     for (const product of products || []) {
-      const lastmod = product.updated_at ? new Date(product.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const lastmod = product.updated_at ? new Date(product.updated_at).toISOString().split('T')[0] : today;
       const productSlug = generateProductSlug(product.sku, product.name);
-      xml += `  <url>
-    <loc>${SITE_URL}/produit/${encodeURIComponent(productSlug)}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
+      xml += `  <url><loc>${SITE_URL}/produit/${encodeURIComponent(productSlug)}</loc><lastmod>${lastmod}</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
 `;
     }
 
     xml += `</urlset>`;
 
-    console.log(`Generated sitemap with ${products?.length || 0} product URLs`);
+    console.log(`Generated sitemap with ${22 + (products?.length || 0)} URLs (22 static + ${products?.length || 0} products)`);
 
     return new Response(xml, {
       status: 200,
