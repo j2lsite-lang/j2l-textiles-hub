@@ -9,15 +9,19 @@ const corsHeaders = {
 const SITE_URL = "https://j2ltextiles.fr";
 const SHOP_NAME = "J2LTextiles";
 
-// Escape XML special characters
+// Escape XML special characters and remove invalid XML characters
 function escapeXml(text: string | null | undefined): string {
   if (!text) return "";
-  return text
+  // Remove invalid XML 1.0 characters (control chars except tab, newline, carriage return)
+  const cleaned = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+  return cleaned
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replace(/'/g, "&apos;")
+    .replace(/\r?\n/g, " ") // Replace newlines with spaces
+    .trim();
 }
 
 // Map French categories to Google product categories
