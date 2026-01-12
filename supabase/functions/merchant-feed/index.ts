@@ -54,27 +54,41 @@ function extractColor(colors: unknown): string {
 function extractGender(name: string | null): string {
   if (!name) return "unisex";
   const nameLower = name.toLowerCase();
-  
+
   // Women keywords
-  if (nameLower.includes('femme') || nameLower.includes('woman') || nameLower.includes('women') || 
-      nameLower.includes('fille') || nameLower.includes('girl') || nameLower.includes('lady') ||
-      nameLower.includes('ladies')) {
+  if (
+    nameLower.includes("femme") ||
+    nameLower.includes("woman") ||
+    nameLower.includes("women") ||
+    nameLower.includes("fille") ||
+    nameLower.includes("girl") ||
+    nameLower.includes("lady") ||
+    nameLower.includes("ladies")
+  ) {
     return "female";
   }
-  
+
   // Men keywords
-  if (nameLower.includes('homme') || nameLower.includes('man') || nameLower.includes('men') || 
-      nameLower.includes('garçon') || nameLower.includes('boy') || nameLower.includes('garcon')) {
+  if (
+    nameLower.includes("homme") ||
+    nameLower.includes("man") ||
+    nameLower.includes("men") ||
+    nameLower.includes("garçon") ||
+    nameLower.includes("boy") ||
+    nameLower.includes("garcon")
+  ) {
     return "male";
   }
-  
-  // Children keywords
-  if (nameLower.includes('enfant') || nameLower.includes('child') || nameLower.includes('kid') ||
-      nameLower.includes('bébé') || nameLower.includes('baby') || nameLower.includes('junior')) {
-    return "unisex";
-  }
-  
+
   return "unisex";
+}
+
+// Extract primary size from sizes array
+function extractSize(sizes: unknown): string {
+  if (!sizes || !Array.isArray(sizes) || sizes.length === 0) return "";
+  const first = sizes[0];
+  if (first === null || first === undefined) return "";
+  return escapeXml(String(first));
 }
 
 Deno.serve(async (req) => {
@@ -99,16 +113,17 @@ Deno.serve(async (req) => {
       stock: number | null;
       category: string | null;
       colors: Array<{ name: string; code: string }> | null;
+      sizes: string[] | null;
     }> = [];
-    
+
     const pageSize = 1000;
     let offset = 0;
     let hasMore = true;
-    
+
     while (hasMore) {
       const { data: batch, error } = await supabase
         .from("products")
-        .select("id, sku, name, description, brand, price_ht, images, stock, category, colors")
+        .select("id, sku, name, description, brand, price_ht, images, stock, category, colors, sizes")
         .not("images", "is", null)
         .not("price_ht", "is", null)
         .not("sku", "is", null)
@@ -157,17 +172,19 @@ Deno.serve(async (req) => {
       // Availability based on stock
       const availability = product.stock === null || product.stock > 0 ? "in_stock" : "out_of_stock";
       
-      // Extract color and gender
+      // Extract optional attributes
       const color = extractColor(product.colors);
       const gender = extractGender(product.name);
+      const size = extractSize(product.sizes);
 
       const additionalImagesXml = additionalImages
         .filter((img: string) => img && img.trim())
         .map((img: string) => `<g:additional_image_link>${escapeXml(img)}</g:additional_image_link>`)
         .join("");
 
-      // Build color XML only if color exists
+      // Build optional XML blocks only if value exists
       const colorXml = color ? `<g:color>${color}</g:color>` : "";
+      const sizeXml = size ? `<g:size>${size}</g:size>` : "";
 
       return `<item>` +
         `<g:id>${escapeXml(product.sku)}</g:id>` +
@@ -181,6 +198,7 @@ Deno.serve(async (req) => {
         `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
         `<g:condition>new</g:condition>` +
         colorXml +
+        sizeXml +
         `<g:gender>${gender}</g:gender>` +
         `<g:age_group>adult</g:age_group>` +
         `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
