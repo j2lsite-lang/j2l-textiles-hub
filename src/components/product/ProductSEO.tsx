@@ -23,16 +23,25 @@ export function ProductSEO({ product, canonicalUrl, selectedColor }: ProductSEOP
   // SEO Title: optimized for Merchant Center (max 150 chars)
   const title = `${product.name} ${product.brand ? `- ${product.brand}` : ''} | ${COMPANY_INFO.name}`.slice(0, 60);
   
-  // Meta description (max 160 chars)
-  const description = product.description 
-    ? `${product.description.slice(0, 130)}...`
-    : `${product.name} personnalisable par ${product.brand || 'marque premium'}. Broderie, sérigraphie, flocage. Livraison France. Devis gratuit.`;
+  // Meta description (max 160 chars) - avoid trailing ellipsis if description is short
+  const rawDesc = product.description || '';
+  const description = rawDesc.length > 130
+    ? `${rawDesc.slice(0, 130).trim()}...`
+    : rawDesc.length > 0
+      ? rawDesc
+      : `${product.name} personnalisable par ${product.brand || 'marque premium'}. Broderie, sérigraphie, flocage. Livraison France. Devis gratuit.`;
   
-  // Primary image (first product image or placeholder)
-  const primaryImage = product.images?.[0] || 'https://j2ltextiles.fr/og-image.jpg';
+  // Primary image (first product image or placeholder) - ensure absolute URL
+  const rawImage = product.images?.[0] || '';
+  const primaryImage = rawImage.startsWith('http') 
+    ? rawImage 
+    : rawImage 
+      ? `https://j2ltextiles.fr${rawImage}` 
+      : 'https://j2ltextiles.fr/og-image.jpg';
   
-  // Canonical URL with domain
-  const canonical = `https://j2ltextiles.fr${canonicalUrl}`;
+  // Canonical URL with domain - ensure absolute path
+  const cleanPath = canonicalUrl.startsWith('/') ? canonicalUrl : `/${canonicalUrl}`;
+  const canonical = `https://j2ltextiles.fr${cleanPath}`;
   
   // Availability based on stock (assume in stock for now)
   const availability = 'https://schema.org/InStock';

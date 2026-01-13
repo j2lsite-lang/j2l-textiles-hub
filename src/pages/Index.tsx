@@ -5,10 +5,12 @@ import { Services } from '@/components/home/Services';
 import { CTA } from '@/components/home/CTA';
 import { FAQ } from '@/components/home/FAQ';
 import { SEOContent } from '@/components/home/SEOContent';
+import { HomeSEO } from '@/components/seo/HomeSEO';
 
 const Index = () => {
   return (
     <Layout>
+      <HomeSEO />
       <Hero />
       <Categories />
       <Services />
