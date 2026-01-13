@@ -308,6 +308,7 @@ export async function fetchAttributes(): Promise<{
   brands: string[];
   colors: Array<{ name: string; code: string }>;
   sizes: string[];
+  worlds: string[];
 }> {
   try {
     // 1) Compute smart category counts in DB (no 1000-row limit issue)
@@ -384,6 +385,34 @@ export async function fetchAttributes(): Promise<{
     }
     const colors = Array.from(colorsMap.entries()).map(([name, code]) => ({ name, code }));
 
+    // 4) Fetch unique worlds (univers TopTex like Workwear, Sport, Corporate, etc.)
+    // world_fr contains comma-separated values, so we need to split and count
+    const { data: worldsData } = await supabase
+      .from('products')
+      .select('world_fr')
+      .not('world_fr', 'is', null)
+      .not('world_fr', 'eq', '')
+      .limit(2000);
+
+    const worldCounts = new Map<string, number>();
+    if (worldsData) {
+      worldsData.forEach((p) => {
+        if (p.world_fr) {
+          // Split comma-separated worlds and count each
+          const worlds = (p.world_fr as string).split(',').map(w => w.trim()).filter(w => w);
+          worlds.forEach(world => {
+            worldCounts.set(world, (worldCounts.get(world) || 0) + 1);
+          });
+        }
+      });
+    }
+
+    // Sort by count and filter out rare ones
+    const worlds = Array.from(worldCounts.entries())
+      .filter(([_, count]) => count >= 10) // Only worlds with 10+ products
+      .sort((a, b) => b[1] - a[1]) // Sort by count descending
+      .map(([name]) => name);
+
     return {
       categories: categories.length > 0 ? categories : mockCategories,
       brands: brands.length > 0 ? brands : mockBrands,
@@ -396,6 +425,7 @@ export async function fetchAttributes(): Promise<{
               { name: 'Marine', code: '#1e3a5f' },
             ],
       sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
+      worlds: worlds.length > 0 ? worlds : [],
     };
   } catch (error) {
     console.warn('Error fetching attributes:', error);
@@ -408,6 +438,7 @@ export async function fetchAttributes(): Promise<{
         { name: 'Marine', code: '#1e3a5f' },
       ],
       sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
+      worlds: [],
     };
   }
 }
