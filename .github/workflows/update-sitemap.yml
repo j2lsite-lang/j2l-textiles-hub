@@ -12,6 +12,9 @@ on:
   schedule:
     - cron: '0 4 * * *'
 
+permissions:
+  contents: write
+
 jobs:
   update-sitemap:
     runs-on: ubuntu-latest
