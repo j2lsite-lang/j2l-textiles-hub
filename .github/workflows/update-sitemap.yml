@@ -76,6 +76,7 @@ jobs:
           else
             URL_COUNT=$(grep -c "<url>" public/sitemap.xml || echo "0")
             git commit -m "chore: update sitemap ($URL_COUNT URLs)"
+            git pull --rebase origin main
             git push
             echo "Sitemap updated and pushed"
           fi
