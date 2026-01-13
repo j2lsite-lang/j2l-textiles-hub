@@ -416,10 +416,21 @@ function normalize(p: any): any {
     ? roundToFiftyCents(rawMinPrice) 
     : null;
   
-  // Extract family/subfamily/world for proper filtering
+  // Extract family/subfamily for proper filtering
   const familyFr = p.family?.fr || p.famille || "";
   const subFamilyFr = p.sub_family?.fr || p.subFamily?.fr || p.subfamily?.fr || "";
-  const worldFr = p.world?.fr || "";
+  
+  // Extract world/univers - it's an ARRAY of objects with translations
+  // Join all French values into a comma-separated string
+  let worldFr = "";
+  if (Array.isArray(p.world)) {
+    const worlds = p.world
+      .map((w: any) => w?.fr || "")
+      .filter((w: string) => w.length > 0);
+    worldFr = worlds.join(", ");
+  } else if (p.world?.fr) {
+    worldFr = p.world.fr;
+  }
   
   return {
     sku,
