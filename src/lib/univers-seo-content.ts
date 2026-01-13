@@ -26,7 +26,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
 
 <p>Marques disponibles : Kariban, Result, B&C, James & Nicholson, SOL'S. Tous nos produits répondent aux normes européennes de qualité.</p>`,
     keywords: ['vêtements de travail', 'workwear', 'pantalons professionnels', 'vestes de travail', 'tenues entreprise'],
-    relatedUnivers: ['epi', 'industrie', 'corporate'],
+    relatedUnivers: ['epi', 'industrie', 'chr'],
   },
 
   'sport': {
@@ -48,26 +48,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
     relatedUnivers: ['schoolwear', 'evenementiel', 'mode-retail'],
   },
 
-  'corporate': {
-    title: 'Textiles Corporate & Entreprise',
-    metaTitle: 'Vêtements Corporate Professionnels | Tenues Entreprise | J2L',
-    metaDescription: 'Habillez vos équipes corporate avec élégance. Chemises, polos, pulls personnalisés aux couleurs de votre entreprise. Qualité premium et broderie soignée.',
-    heroDescription: 'Élégance et professionnalisme pour vos équipes. Découvrez notre sélection corporate adaptée à tous les environnements de travail.',
-    seoText: `<h2>Vêtements Corporate : L'Élégance au Service de Votre Image</h2>
-<p>L'univers <strong>Corporate</strong> propose des vêtements professionnels soignés pour renforcer l'image de votre entreprise. Une tenue harmonieuse projette confiance et sérieux auprès de vos clients.</p>
-
-<h3>Une Gamme Complète pour le Bureau</h3>
-<p>Des <strong>chemises</strong> classiques aux <strong>polos</strong> décontractés, en passant par les <strong>pulls</strong> élégants et les <strong>blazers</strong> structurés : composez les tenues de vos collaborateurs selon votre dress code. Nos textiles s'adaptent à tous les environnements : banque, conseil, tech, retail.</p>
-
-<h3>Personnalisation Discrète et Élégante</h3>
-<p>La <strong>broderie</strong> reste la technique privilégiée pour le corporate : discrète sur le cœur ou la manche, elle apporte une touche premium à vos vêtements. Logos ton sur ton, initiales, insignes : nos brodeurs maîtrisent l'art de la finesse.</p>
-
-<p>Marques corporate : Brooks Brothers, Henbury, Premier, Kustom Kit. Coupes ajustées et finitions haut de gamme.</p>`,
-    keywords: ['vêtements corporate', 'tenues entreprise', 'chemises brodées', 'polos entreprise', 'dress code'],
-    relatedUnivers: ['workwear', 'hospitality', 'accueil'],
-  },
-
-  'hospitality': {
+  'chr': {
     title: 'Vêtements CHR - Hôtellerie Restauration',
     metaTitle: 'Vêtements Restauration & Hôtellerie | Tabliers, Vestes Chef | J2L',
     metaDescription: 'Équipez vos équipes CHR : vestes de cuisine, tabliers, pantalons restauration. Vêtements professionnels personnalisables pour hôtels et restaurants.',
@@ -83,7 +64,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
 
 <p>Marques spécialisées : Robur, Lafont, Manelli, Portwest. Tissus certifiés contact alimentaire et normés.</p>`,
     keywords: ['vêtements restauration', 'CHR', 'veste cuisine', 'tabliers brodés', 'hôtellerie'],
-    relatedUnivers: ['workwear', 'accueil', 'medical'],
+    relatedUnivers: ['workwear', 'accueil', 'sante-beaute'],
   },
 
   'epi': {
@@ -102,26 +83,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
 
 <p>Marques EPI : Portwest, Result Safe-Guard, Yoko, Korntex. Certifications CE et normes EN à jour.</p>`,
     keywords: ['EPI', 'équipements protection', 'haute visibilité', 'sécurité', 'normes EN'],
-    relatedUnivers: ['haute-visibilite', 'industrie', 'workwear'],
-  },
-
-  'haute-visibilite': {
-    title: 'Vêtements Haute Visibilité',
-    metaTitle: 'Vêtements Haute Visibilité Personnalisés | Gilets, Vestes Fluo | J2L',
-    metaDescription: 'Vêtements haute visibilité normés EN ISO 20471 : gilets fluo, vestes réfléchissantes, pantalons HV. Personnalisation sérigraphie et broderie.',
-    heroDescription: 'Sécurité maximale avec nos vêtements haute visibilité certifiés. Visibilité et identification pour vos équipes terrain.',
-    seoText: `<h2>Haute Visibilité : Sécurité et Identité sur le Terrain</h2>
-<p>L'univers <strong>Haute Visibilité</strong> regroupe tous les vêtements fluorescents et réfléchissants conformes à la norme <strong>EN ISO 20471</strong>. Indispensables pour les travailleurs exposés aux risques routiers ou en conditions de faible luminosité.</p>
-
-<h3>Gamme Complète Classes 1, 2 et 3</h3>
-<p><strong>Gilets</strong> classe 2 pour visiteurs, <strong>vestes</strong> classe 3 pour exposition permanente, <strong>pantalons</strong> HV, <strong>combinaisons</strong> intégrales : choisissez le niveau de protection adapté à votre activité. Coloris jaune fluo et orange disponibles.</p>
-
-<h3>Marquage Spécifique Haute Visibilité</h3>
-<p>La personnalisation des vêtements HV requiert une expertise particulière. Nos techniques de <strong>sérigraphie réfléchissante</strong> et <strong>transfert</strong> préservent les propriétés de visibilité tout en valorisant votre logo.</p>
-
-<p>Marques HV : Result Safe-Guard, Yoko, Portwest, Projob. Tous produits certifiés EN ISO 20471.</p>`,
-    keywords: ['haute visibilité', 'gilet fluo', 'veste réfléchissante', 'EN ISO 20471', 'sécurité routière'],
-    relatedUnivers: ['epi', 'industrie', 'workwear'],
+    relatedUnivers: ['industrie', 'workwear', 'logistique'],
   },
 
   'mode-retail': {
@@ -159,7 +121,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
 
 <p>Marques industrie : Blaklader, Portwest, Dickies, Lafont. Tissus techniques et renforcés.</p>`,
     keywords: ['vêtements industrie', 'BTP', 'chantier', 'vêtements résistants', 'tenue de travail'],
-    relatedUnivers: ['workwear', 'epi', 'haute-visibilite'],
+    relatedUnivers: ['workwear', 'epi', 'logistique'],
   },
 
   'logistique': {
@@ -178,7 +140,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
 
 <p>Marques logistique : Kariban, Result, Portwest, Regatta. Vêtements fonctionnels et résistants aux lavages.</p>`,
     keywords: ['logistique', 'distribution', 'entrepôt', 'livreur', 'transport'],
-    relatedUnivers: ['workwear', 'haute-visibilite', 'industrie'],
+    relatedUnivers: ['workwear', 'industrie', 'jardinerie'],
   },
 
   'jardinerie': {
@@ -200,7 +162,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
     relatedUnivers: ['workwear', 'logistique', 'industrie'],
   },
 
-  'medical': {
+  'sante-beaute': {
     title: 'Vêtements Santé & Médical',
     metaTitle: 'Vêtements Médicaux Personnalisés | Blouses, Tuniques Santé | J2L',
     metaDescription: 'Équipez vos équipes médicales : blouses, tuniques, pantalons médicaux. Textiles hygiéniques personnalisables pour hôpitaux, cliniques et cabinets.',
@@ -216,7 +178,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
 
 <p>Marques médical : Cherokee, Dickies Medical, Exner, Leiber. Textiles certifiés et antimicrobiens.</p>`,
     keywords: ['vêtements médicaux', 'blouses', 'tuniques santé', 'hôpital', 'paramédical'],
-    relatedUnivers: ['hospitality', 'corporate', 'accueil'],
+    relatedUnivers: ['chr', 'accueil', 'artisanat'],
   },
 
   'accueil': {
@@ -235,7 +197,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
 
 <p>Marques accueil : Premier, Brook Taverner, Henbury, Kustom Kit. Coupes élégantes et finitions haut de gamme.</p>`,
     keywords: ['vêtements accueil', 'tenues hôtesses', 'réception', 'uniformes', 'élégance'],
-    relatedUnivers: ['corporate', 'hospitality', 'evenementiel'],
+    relatedUnivers: ['chr', 'evenementiel', 'tourisme'],
   },
 
   'schoolwear': {
@@ -292,7 +254,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
 
 <p>Marques artisanat : Lafont, Premier, Result, Kariban. Vêtements durables et professionnels.</p>`,
     keywords: ['artisanat', 'commerce', 'tabliers professionnels', 'boulangerie', 'boucherie'],
-    relatedUnivers: ['hospitality', 'workwear', 'accueil'],
+    relatedUnivers: ['chr', 'workwear', 'accueil'],
   },
 
   'tourisme': {
@@ -311,7 +273,7 @@ export const universSEOContent: Record<string, UniversSEOContent> = {
 
 <p>Marques tourisme : Kariban, Result, Henbury, Regatta. Vêtements polyvalents et représentatifs.</p>`,
     keywords: ['tourisme', 'culture', 'musées', 'sites touristiques', 'guides'],
-    relatedUnivers: ['accueil', 'evenementiel', 'corporate'],
+    relatedUnivers: ['accueil', 'evenementiel', 'merchandising'],
   },
 };
 

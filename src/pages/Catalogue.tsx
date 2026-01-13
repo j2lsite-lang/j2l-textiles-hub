@@ -388,17 +388,15 @@ const categorySlugMap: Record<string, string> = {
   'bagagerie': 'sac',
 };
 
-// Mapping slug → univers TopTex pour URLs SEO
+// Mapping slug → univers TopTex pour URLs SEO (basé sur les vrais noms en base)
 const worldSlugMap: Record<string, string> = {
   'workwear': 'Workwear',
   'sport': 'Sport',
-  'corporate': 'Corporate',
-  'hospitality': 'CHR Métiers de bouche',
+  'chr': 'CHR Métiers de bouche',
   'epi': 'EPI',
-  'haute-visibilite': 'Haute Visibilité',
   'mode-retail': 'Mode Retail',
   'accueil': 'Accueil',
-  'medical': 'Santé Beauté Hygiène',
+  'sante-beaute': 'Santé Beauté Hygiène',
   'industrie': 'Industrie Sécurité BTP',
   'logistique': 'Distribution Logistique',
   'jardinerie': 'Jardinerie Bricolage',
@@ -409,6 +407,9 @@ const worldSlugMap: Record<string, string> = {
   'evenementiel': 'Promotion Évènementiel',
   'noel': 'Noël',
   'plage': 'Shopping Plage',
+  'sport-loisirs': 'Sport Loisirs',
+  'souvenir': 'Souvenir Licences',
+  'ecole': 'Ecole Université',
 };
 
 // Reverse mapping: world name → slug
