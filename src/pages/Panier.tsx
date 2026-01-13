@@ -144,16 +144,19 @@ export default function Panier() {
                     <span>{formatPrice(totals.totalHT)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Livraison</span>
-                    <span>Selon devis</span>
+                    <span>Livraison estimée</span>
+                    <span>{formatPrice(5 + Math.max(0, totalQuantity - 1) * 0.5)}</span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    5€ + 0,50€/article supplémentaire
+                  </p>
                   <div className="border-t pt-3">
                     <div className="flex justify-between font-semibold text-lg">
                       <span>Total HT</span>
                       <span className="text-primary">{formatPrice(totals.totalHT)}</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Hors frais de livraison et marquage
+                      Hors TVA et frais de marquage
                     </p>
                   </div>
                 </div>
@@ -207,14 +210,13 @@ export default function Panier() {
                   </ul>
                 </div>
 
-                {/* Shipping info */}
-                <div className="mt-6 p-4 bg-secondary/50 rounded-lg">
+                <div className="mt-4 p-4 bg-secondary/30 rounded-lg text-sm">
                   <div className="flex items-start gap-3">
                     <Package className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium">Frais de livraison selon devis</p>
+                    <div>
+                      <p className="font-medium">Livraison en France métropolitaine</p>
                       <p className="text-muted-foreground">
-                        Expédition sous 2-5 jours ouvrés
+                        5€ + 0,50€/article • Expédition sous 3-7 jours ouvrés
                       </p>
                     </div>
                   </div>
