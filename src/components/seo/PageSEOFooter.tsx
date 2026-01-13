@@ -79,7 +79,7 @@ export function PageSEOFooter({ variant = 'default' }: PageSEOFooterProps) {
       <p className="text-muted-foreground leading-relaxed mb-4">
         Basée à <strong className="text-foreground">Vagney dans les Vosges (88)</strong>, notre équipe 
         accompagne les entreprises, associations et collectivités de toute la France. Nous intervenons 
-        principalement dans le <Link to="/zones/grand-est" className="text-primary hover:underline">Grand Est</Link> :{' '}
+        principalement dans le Grand Est :{' '}
         <Link to="/zones/vosges" className="text-primary hover:underline">Vosges</Link>,{' '}
         <Link to="/zones/meurthe-et-moselle" className="text-primary hover:underline">Meurthe-et-Moselle</Link>,{' '}
         <Link to="/zones/moselle" className="text-primary hover:underline">Moselle</Link>,{' '}
