@@ -234,7 +234,7 @@ export default function CGV() {
         </div>
       </section>
 
-      <PageSEOFooter variant="default" />
+      <PageSEOFooter variant="cgv" />
     </Layout>
   );
 }

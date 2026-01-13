@@ -251,7 +251,7 @@ export default function Livraison() {
         </div>
       </div>
 
-      <PageSEOFooter variant="default" />
+      <PageSEOFooter variant="livraison" />
     </Layout>
   );
 }
