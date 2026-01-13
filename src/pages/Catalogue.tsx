@@ -263,6 +263,7 @@ function FilterSidebar({
   brands,
   worlds,
   currentSlug,
+  currentWorldSlug,
 }: {
   selectedCategory: string;
   onCategoryClick: (cat: string) => void;
@@ -274,6 +275,7 @@ function FilterSidebar({
   brands: string[];
   worlds: string[];
   currentSlug?: string;
+  currentWorldSlug?: string;
 }) {
   return (
     <div className="space-y-6">
@@ -281,39 +283,44 @@ function FilterSidebar({
       {worlds.length > 0 && (
         <div>
           <h3 className="font-semibold mb-3">Univers</h3>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            <button
-              onClick={() => setSelectedWorld('Tous')}
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            <Link
+              to="/catalogue"
               className={cn(
                 'block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                selectedWorld === 'Tous'
+                !currentWorldSlug && selectedWorld === 'Tous'
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-secondary'
               )}
             >
               Tous les univers
-            </button>
-            {worlds.map((world) => (
-              <button
-                key={world}
-                onClick={() => setSelectedWorld(world)}
-                className={cn(
-                  'block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                  selectedWorld === world
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-secondary'
-                )}
-              >
-                {world}
-              </button>
-            ))}
+            </Link>
+            {worlds.map((world) => {
+              const slug = worldToSlug(world);
+              const isActive = currentWorldSlug === slug || selectedWorld === world;
+              
+              return (
+                <Link
+                  key={world}
+                  to={`/univers/${slug}`}
+                  className={cn(
+                    'block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-secondary'
+                  )}
+                >
+                  {world}
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
 
       <div>
         <h3 className="font-semibold mb-3">Catégorie</h3>
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-64 overflow-y-auto">
           {categories.map((cat) => {
             const slug = categoryToSlug(cat);
             const isActive = cat === 'Tous' 
@@ -340,7 +347,7 @@ function FilterSidebar({
 
       <div>
         <h3 className="font-semibold mb-3">Marque</h3>
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-64 overflow-y-auto">
           {brands.map((brand) => (
             <button
               key={brand}
@@ -364,7 +371,7 @@ function FilterSidebar({
 // Alphabet pour le filtre
 const alphabet = ['Tous', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
 
-// Mapping slug → terme de recherche pour URLs propres SEO
+// Mapping slug → terme de recherche pour URLs propres SEO (catégories)
 const categorySlugMap: Record<string, string> = {
   't-shirts': 't-shirt',
   'cuisine-hotellerie': 'cuisine',
@@ -379,18 +386,59 @@ const categorySlugMap: Record<string, string> = {
   'bagagerie': 'sac',
 };
 
+// Mapping slug → univers TopTex pour URLs SEO
+const worldSlugMap: Record<string, string> = {
+  'workwear': 'Workwear',
+  'sport': 'Sport',
+  'corporate': 'Corporate',
+  'hospitality': 'CHR Métiers de bouche',
+  'epi': 'EPI',
+  'haute-visibilite': 'Haute Visibilité',
+  'mode-retail': 'Mode Retail',
+  'accueil': 'Accueil',
+  'medical': 'Santé Beauté Hygiène',
+  'industrie': 'Industrie Sécurité BTP',
+  'logistique': 'Distribution Logistique',
+  'jardinerie': 'Jardinerie Bricolage',
+  'artisanat': 'Artisanat Commerce',
+  'merchandising': 'Médias Merchandising',
+  'schoolwear': 'Schoolwear',
+  'tourisme': 'Tourisme Culture',
+  'evenementiel': 'Promotion Évènementiel',
+  'noel': 'Noël',
+  'plage': 'Shopping Plage',
+};
+
+// Reverse mapping: world name → slug
+const worldToSlug = (world: string): string => {
+  // Check if already in the map as a value
+  const entry = Object.entries(worldSlugMap).find(([_, v]) => v === world);
+  if (entry) return entry[0];
+  
+  // Create slug from name
+  return world
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+};
+
 export default function Catalogue() {
-  const { category: categorySlug } = useParams<{ category?: string }>();
+  const { category: categorySlug, world: worldSlug } = useParams<{ category?: string; world?: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
-  // Convertir slug URL en terme de recherche
+  // Convertir slug URL en terme de recherche (catégorie)
   const slugSearchTerm = categorySlug ? (categorySlugMap[categorySlug] || categorySlug) : '';
+  
+  // Convertir slug URL en univers (world)
+  const slugWorldTerm = worldSlug ? (worldSlugMap[worldSlug] || worldSlug) : '';
   
   const [searchQuery, setSearchQuery] = useState(slugSearchTerm || searchParams.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('cat') || 'Tous');
   const [selectedBrand, setSelectedBrand] = useState('Toutes');
-  const [selectedWorld, setSelectedWorld] = useState('Tous');
+  const [selectedWorld, setSelectedWorld] = useState(slugWorldTerm || 'Tous');
   const [selectedLetter, setSelectedLetter] = useState('Tous');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -399,7 +447,7 @@ export default function Catalogue() {
   const [syncTotalInfo, setSyncTotalInfo] = useState<{ pages: number; products: number } | null>(null);
   const { toast } = useToast();
 
-  // Synchroniser avec le slug d'URL si présent
+  // Synchroniser avec le slug d'URL si présent (catégorie)
   useEffect(() => {
     if (categorySlug) {
       const term = categorySlugMap[categorySlug] || categorySlug;
@@ -409,6 +457,20 @@ export default function Catalogue() {
       }
     }
   }, [categorySlug]);
+
+  // Synchroniser avec le slug d'URL si présent (univers)
+  useEffect(() => {
+    if (worldSlug) {
+      const world = worldSlugMap[worldSlug] || worldSlug;
+      if (world !== selectedWorld) {
+        setSelectedWorld(world);
+        setPage(1);
+      }
+    } else if (!worldSlug && selectedWorld !== 'Tous' && !slugWorldTerm) {
+      // Reset world if navigating away from /univers/
+      // Only reset if we're not on an univers page
+    }
+  }, [worldSlug]);
 
   // Redirection des anciennes URLs ?cat= et ?q= vers les nouvelles URLs propres
   useEffect(() => {
@@ -793,6 +855,7 @@ export default function Catalogue() {
                       brands={brands}
                       worlds={worlds}
                       currentSlug={categorySlug}
+                      currentWorldSlug={worldSlug}
                     />
                   </div>
                 </SheetContent>
@@ -861,6 +924,7 @@ export default function Catalogue() {
                   brands={brands}
                   worlds={worlds}
                   currentSlug={categorySlug}
+                  currentWorldSlug={worldSlug}
                 />
               </div>
             </aside>
