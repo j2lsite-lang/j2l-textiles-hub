@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Phone, X } from 'lucide-react';
+import { Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { sendEmail } from '@/lib/emailjs';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
   DialogContent,
@@ -44,15 +44,19 @@ export function CallbackModal({ productRef, productName }: CallbackModalProps = 
     try {
       const productInfo = productRef ? `\n\nProduit concerné: ${productRef}${productName ? ` - ${productName}` : ''}` : '';
       
-      await sendEmail({
-        nom: formData.name,
-        email: 'contact@j2lpublicite.fr',
-        telephone: formData.phone,
-        message: `Demande de rappel téléphonique${productInfo}`,
-        product_ref: productRef || '',
-        product_name: productName || '',
-        page: productRef ? `Fiche produit ${productRef}` : 'Bouton Être rappelé',
+      const { error } = await supabase.functions.invoke('send-quote', {
+        body: {
+          nom: formData.name,
+          email: 'rappel@j2lpublicite.fr', // Email placeholder pour les rappels
+          telephone: formData.phone,
+          message: `Demande de rappel téléphonique${productInfo}`,
+          product_ref: productRef || '',
+          product_name: productName || '',
+          page: productRef ? `Fiche produit ${productRef}` : 'Bouton Être rappelé',
+        },
       });
+
+      if (error) throw new Error(error.message);
 
       toast({
         title: 'Demande envoyée !',
