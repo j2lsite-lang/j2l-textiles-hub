@@ -30,12 +30,13 @@ const faqs = [
 
 export function FAQ() {
   return (
-    <section className="section-padding section-gray">
+    <section className="section-padding section-gray" aria-labelledby="faq-title">
       <div className="container-page">
         <SectionHeader
           eyebrow="FAQ"
-          title="Questions fréquentes"
-          description="Retrouvez les réponses aux questions les plus courantes"
+          title="Questions fréquentes sur la personnalisation textile"
+          description="Retrouvez les réponses aux questions les plus courantes sur nos services de marquage, livraison et personnalisation"
+          id="faq-title"
         />
 
         <div className="max-w-3xl mx-auto mt-12">
