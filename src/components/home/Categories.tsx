@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
 
 // Import optimized WebP images
 import poloImg from '@/assets/categories/polo-lifestyle.webp';
@@ -10,36 +11,49 @@ import sportImg from '@/assets/categories/sport-lifestyle.webp';
 import corporateImg from '@/assets/categories/corporate-lifestyle.webp';
 import hivisImg from '@/assets/categories/hivis-lifestyle.webp';
 
+// Catégories avec liens vers les univers TopTex
 const categories = [
   {
-    image: poloImg,
-    name: 'Polos & T-shirts',
-    slug: 't-shirts',
+    image: workwearImg,
+    name: 'Workwear',
+    description: 'Vêtements de travail professionnels',
+    slug: 'workwear',
+    type: 'univers',
   },
   {
     image: gastroImg,
-    name: 'Gastro & Hôtellerie',
-    slug: 'cuisine-hotellerie',
+    name: 'Hôtellerie & Restauration',
+    description: 'Tenues CHR & métiers de bouche',
+    slug: 'chr',
+    type: 'univers',
   },
   {
     image: corporateImg,
     name: 'Corporate',
-    slug: 'chemises-corporate',
+    description: 'Tenues professionnelles élégantes',
+    slug: 'accueil',
+    type: 'univers',
   },
   {
     image: sportImg,
     name: 'Sport & Loisirs',
-    slug: 'sport-loisirs',
-  },
-  {
-    image: workwearImg,
-    name: 'EPI & Chantier',
-    slug: 'vetements-travail',
+    description: 'Équipements sportifs personnalisables',
+    slug: 'sport',
+    type: 'univers',
   },
   {
     image: hivisImg,
-    name: 'Haute visibilité',
-    slug: 'haute-visibilite',
+    name: 'Haute Visibilité',
+    description: 'Vêtements de sécurité EPI',
+    slug: 'epi',
+    type: 'univers',
+  },
+  {
+    image: poloImg,
+    name: 'Mode & Retail',
+    description: 'T-shirts, polos et textiles mode',
+    slug: 'mode-retail',
+    type: 'univers',
   },
 ];
 
@@ -58,10 +72,10 @@ export function Categories() {
           {categories.map((category, index) => (
             <Link
               key={category.name}
-              to={`/catalogue/${category.slug}`}
+              to={category.type === 'univers' ? `/univers/${category.slug}` : `/catalogue/${category.slug}`}
               className="group"
             >
-              <div className="relative aspect-[3/4] rounded-2xl overflow-hidden">
+              <div className="relative aspect-[3/4] rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
                 {/* Background image - WebP optimized */}
                 <img 
                   src={category.image} 
@@ -74,24 +88,41 @@ export function Categories() {
                 />
                 
                 {/* Overlay gradient */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                 
                 {/* Content */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
-                  <h3 className="font-display font-bold text-white text-xl md:text-2xl mb-3">
+                  <h3 className="font-display font-bold text-white text-xl md:text-2xl mb-1">
                     {category.name}
                   </h3>
+                  <p className="text-white/80 text-sm mb-3 hidden md:block">
+                    {category.description}
+                  </p>
                   <Button 
                     variant="outline" 
                     size="sm"
-                    className="w-full bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white hover:text-primary font-semibold text-sm uppercase tracking-wide py-3"
+                    className="w-full bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white hover:text-primary font-semibold text-sm uppercase tracking-wide py-3 group-hover:bg-white group-hover:text-primary transition-colors"
                   >
-                    Voir le catalogue
+                    Voir les produits
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
               </div>
             </Link>
           ))}
+        </div>
+
+        {/* Bouton voir tout le catalogue */}
+        <div className="mt-10 text-center">
+          <Link to="/catalogue">
+            <Button 
+              size="lg" 
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 py-6 text-base"
+            >
+              Voir tout le catalogue
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </Link>
         </div>
       </div>
     </section>
