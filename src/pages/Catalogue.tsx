@@ -257,20 +257,60 @@ function FilterSidebar({
   onCategoryClick,
   selectedBrand,
   setSelectedBrand,
+  selectedWorld,
+  setSelectedWorld,
   categories,
   brands,
+  worlds,
   currentSlug,
 }: {
   selectedCategory: string;
   onCategoryClick: (cat: string) => void;
   selectedBrand: string;
   setSelectedBrand: (v: string) => void;
+  selectedWorld: string;
+  setSelectedWorld: (v: string) => void;
   categories: string[];
   brands: string[];
+  worlds: string[];
   currentSlug?: string;
 }) {
   return (
     <div className="space-y-6">
+      {/* Univers Filter - TopTex worlds like Workwear, Sport, etc. */}
+      {worlds.length > 0 && (
+        <div>
+          <h3 className="font-semibold mb-3">Univers</h3>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            <button
+              onClick={() => setSelectedWorld('Tous')}
+              className={cn(
+                'block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
+                selectedWorld === 'Tous'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-secondary'
+              )}
+            >
+              Tous les univers
+            </button>
+            {worlds.map((world) => (
+              <button
+                key={world}
+                onClick={() => setSelectedWorld(world)}
+                className={cn(
+                  'block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
+                  selectedWorld === world
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-secondary'
+                )}
+              >
+                {world}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <h3 className="font-semibold mb-3">Catégorie</h3>
         <div className="space-y-2">
@@ -350,6 +390,7 @@ export default function Catalogue() {
   const [searchQuery, setSearchQuery] = useState(slugSearchTerm || searchParams.get('q') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('cat') || 'Tous');
   const [selectedBrand, setSelectedBrand] = useState('Toutes');
+  const [selectedWorld, setSelectedWorld] = useState('Tous');
   const [selectedLetter, setSelectedLetter] = useState('Tous');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -426,6 +467,9 @@ export default function Catalogue() {
       new Set(rawBrands.map((b) => (typeof b === 'string' ? b.trim() : '')).filter(Boolean))
     ).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' })),
   ];
+
+  // Worlds (univers TopTex like Workwear, Sport, etc.)
+  const worlds = attributesData?.worlds || [];
 
   // Avoid spamming resume calls
   const lastAutoResumeAtRef = useRef<number>(0);
@@ -590,6 +634,7 @@ export default function Catalogue() {
     query: searchQuery,
     category: selectedCategory !== 'Tous' ? selectedCategory : undefined,
     brand: selectedBrand !== 'Toutes' ? selectedBrand : undefined,
+    world: selectedWorld !== 'Tous' ? selectedWorld : undefined,
     page,
     limit: 24,
   });
@@ -631,6 +676,7 @@ export default function Catalogue() {
     setSearchQuery('');
     setSelectedCategory('Tous');
     setSelectedBrand('Toutes');
+    setSelectedWorld('Tous');
     setSelectedLetter('Tous');
     // Retourner à /catalogue sans paramètres
     if (categorySlug) {
@@ -641,7 +687,7 @@ export default function Catalogue() {
     setPage(1);
   };
 
-  const hasActiveFilters = searchQuery || selectedCategory !== 'Tous' || selectedBrand !== 'Toutes' || !!categorySlug;
+  const hasActiveFilters = searchQuery || selectedCategory !== 'Tous' || selectedBrand !== 'Toutes' || selectedWorld !== 'Tous' || !!categorySlug;
 
   // Fetch sync total info on mount
   useEffect(() => {
@@ -737,8 +783,15 @@ export default function Catalogue() {
                         setPage(1);
                         setIsFilterOpen(false);
                       }}
+                      selectedWorld={selectedWorld}
+                      setSelectedWorld={(v) => {
+                        setSelectedWorld(v);
+                        setPage(1);
+                        setIsFilterOpen(false);
+                      }}
                       categories={categories}
                       brands={brands}
+                      worlds={worlds}
                       currentSlug={categorySlug}
                     />
                   </div>
@@ -781,6 +834,14 @@ export default function Catalogue() {
                   </button>
                 </Badge>
               )}
+              {selectedWorld !== 'Tous' && (
+                <Badge variant="secondary" className="gap-1">
+                  Univers: {selectedWorld}
+                  <button onClick={() => { setSelectedWorld('Tous'); setPage(1); }}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
             </div>
           )}
 
@@ -794,8 +855,11 @@ export default function Catalogue() {
                   onCategoryClick={(v) => { setSelectedCategory(v); setPage(1); }}
                   selectedBrand={selectedBrand}
                   setSelectedBrand={(v) => { setSelectedBrand(v); setPage(1); }}
+                  selectedWorld={selectedWorld}
+                  setSelectedWorld={(v) => { setSelectedWorld(v); setPage(1); }}
                   categories={categories}
                   brands={brands}
+                  worlds={worlds}
                   currentSlug={categorySlug}
                 />
               </div>
