@@ -36,18 +36,38 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch all product SKUs and names for SEO URLs (no limit - get all products)
-    const { data: products, error } = await supabase
-      .from("products")
-      .select("sku, name, updated_at")
-      .order("sku", { ascending: true });
+    // Fetch all product SKUs and names for SEO URLs
+    // NOTE: PostgREST defaults to max 1000 rows per request, so we paginate.
+    const PAGE_SIZE = 1000;
+    const products: Array<{ sku: string; name: string | null; updated_at: string | null }> = [];
 
-    if (error) {
-      console.error("Error fetching products:", error);
-      throw error;
+    let lastSku: string | null = null;
+
+    for (;;) {
+      let query = supabase
+        .from("products")
+        .select("sku, name, updated_at")
+        .order("sku", { ascending: true })
+        .limit(PAGE_SIZE);
+
+      if (lastSku) query = query.gt("sku", lastSku);
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching products:", error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) break;
+
+      products.push(...data);
+      lastSku = data[data.length - 1].sku;
+
+      if (data.length < PAGE_SIZE) break;
     }
 
-    console.log(`Found ${products?.length || 0} products for sitemap`);
+    console.log(`Found ${products.length} products for sitemap`);
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -93,7 +113,7 @@ Deno.serve(async (req) => {
 
     xml += `</urlset>`;
 
-    console.log(`Generated sitemap with ${22 + (products?.length || 0)} URLs (22 static + ${products?.length || 0} products)`);
+    console.log(`Generated sitemap with ${23 + (products?.length || 0)} URLs (23 static + ${products?.length || 0} products)`);
 
     return new Response(xml, {
       status: 200,
