@@ -274,8 +274,11 @@ export default function Checkout() {
                 </div>
 
                 {(() => {
+                  const FREE_SHIPPING_THRESHOLD = 150;
                   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-                  const shippingCost = 5 + Math.max(0, totalQuantity - 1) * 0.5;
+                  const shippingCost = totals.totalHT >= FREE_SHIPPING_THRESHOLD 
+                    ? 0 
+                    : 5 + Math.max(0, totalQuantity - 1) * 0.5;
                   const finalTotal = totals.totalTTC + shippingCost;
                   return (
                     <Button 
@@ -329,8 +332,11 @@ export default function Checkout() {
 
                 <div className="border-t pt-4 space-y-2">
                   {(() => {
+                    const FREE_SHIPPING_THRESHOLD = 150;
                     const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-                    const shippingCost = 5 + Math.max(0, totalQuantity - 1) * 0.5;
+                    const shippingCost = totals.totalHT >= FREE_SHIPPING_THRESHOLD 
+                      ? 0 
+                      : 5 + Math.max(0, totalQuantity - 1) * 0.5;
                     return (
                       <>
                         <div className="flex justify-between text-sm">
@@ -343,7 +349,11 @@ export default function Checkout() {
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Livraison</span>
-                          <span>{formatPrice(shippingCost)}</span>
+                          {shippingCost === 0 ? (
+                            <span className="text-green-600 font-medium">Gratuite</span>
+                          ) : (
+                            <span>{formatPrice(shippingCost)}</span>
+                          )}
                         </div>
                         <div className="border-t pt-2">
                           <div className="flex justify-between font-semibold text-lg">
@@ -360,7 +370,7 @@ export default function Checkout() {
                 <div className="mt-6 space-y-3">
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Truck className="h-4 w-4 text-primary" />
-                    <span>Livraison en France métropolitaine</span>
+                    <span>Gratuite dès 150€ HT</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <ShieldCheck className="h-4 w-4 text-primary" />

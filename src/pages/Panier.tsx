@@ -138,28 +138,46 @@ export default function Panier() {
               <div className="surface-elevated rounded-xl p-6 sticky top-24">
                 <h2 className="text-xl font-semibold mb-6">Récapitulatif</h2>
                 
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Sous-total HT</span>
-                    <span>{formatPrice(totals.totalHT)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Livraison estimée</span>
-                    <span>{formatPrice(5 + Math.max(0, totalQuantity - 1) * 0.5)}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    5€ + 0,50€/article supplémentaire
-                  </p>
-                  <div className="border-t pt-3">
-                    <div className="flex justify-between font-semibold text-lg">
-                      <span>Total HT</span>
-                      <span className="text-primary">{formatPrice(totals.totalHT)}</span>
+                {(() => {
+                  const FREE_SHIPPING_THRESHOLD = 150;
+                  const shippingCost = totals.totalHT >= FREE_SHIPPING_THRESHOLD 
+                    ? 0 
+                    : 5 + Math.max(0, totalQuantity - 1) * 0.5;
+                  const amountToFreeShipping = FREE_SHIPPING_THRESHOLD - totals.totalHT;
+                  
+                  return (
+                    <div className="space-y-3 mb-6">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Sous-total HT</span>
+                        <span>{formatPrice(totals.totalHT)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Livraison</span>
+                        {shippingCost === 0 ? (
+                          <span className="text-green-600 font-medium">Gratuite</span>
+                        ) : (
+                          <span>{formatPrice(shippingCost)}</span>
+                        )}
+                      </div>
+                      {amountToFreeShipping > 0 && (
+                        <div className="bg-primary/10 rounded-lg p-3 text-sm">
+                          <p className="text-primary font-medium">
+                            🚚 Plus que {formatPrice(amountToFreeShipping)} HT pour la livraison gratuite !
+                          </p>
+                        </div>
+                      )}
+                      <div className="border-t pt-3">
+                        <div className="flex justify-between font-semibold text-lg">
+                          <span>Total HT</span>
+                          <span className="text-primary">{formatPrice(totals.totalHT)}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Hors TVA et frais de marquage
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Hors TVA et frais de marquage
-                    </p>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 <div className="space-y-3">
                   <Link to="/checkout" className="block">
@@ -216,7 +234,7 @@ export default function Panier() {
                     <div>
                       <p className="font-medium">Livraison en France métropolitaine</p>
                       <p className="text-muted-foreground">
-                        5€ + 0,50€/article • Expédition sous 3-7 jours ouvrés
+                        Gratuite dès 150€ HT • Sinon 5€ + 0,50€/article
                       </p>
                     </div>
                   </div>

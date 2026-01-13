@@ -79,16 +79,27 @@ serve(async (req) => {
       };
     });
 
-    // Calculate total quantity for shipping
+    // Calculate total HT and quantity for shipping
     const totalQuantity = items.reduce((sum: number, item: CartItem) => sum + item.quantity, 0);
+    const totalHT = items.reduce((sum: number, item: CartItem) => sum + (item.priceHT * item.quantity), 0);
     
-    // Shipping calculation: 5€ base + 0.50€ per additional item
-    // First item = 5€, then +0.50€ for each additional item
+    // Shipping calculation: FREE if >= 150€ HT, otherwise 5€ base + 0.50€ per additional item
+    const FREE_SHIPPING_THRESHOLD = 150; // 150€ HT
     const baseShipping = 500; // 5€ in cents
     const perItemExtra = 50; // 0.50€ in cents
-    const shippingAmount = baseShipping + Math.max(0, totalQuantity - 1) * perItemExtra;
     
-    console.log("Shipping calculation:", { totalQuantity, shippingAmount: shippingAmount / 100 + "€" });
+    let shippingAmount: number;
+    let shippingLabel: string;
+    
+    if (totalHT >= FREE_SHIPPING_THRESHOLD) {
+      shippingAmount = 0;
+      shippingLabel = "Livraison gratuite";
+    } else {
+      shippingAmount = baseShipping + Math.max(0, totalQuantity - 1) * perItemExtra;
+      shippingLabel = "Livraison standard";
+    }
+    
+    console.log("Shipping calculation:", { totalHT, totalQuantity, shippingAmount: shippingAmount / 100 + "€", freeShipping: totalHT >= FREE_SHIPPING_THRESHOLD });
 
     // Create shipping options
     const shippingOptions = [
@@ -99,7 +110,7 @@ serve(async (req) => {
             amount: shippingAmount,
             currency: "eur",
           },
-          display_name: "Livraison standard",
+          display_name: shippingLabel,
           delivery_estimate: {
             minimum: {
               unit: "business_day" as const,
