@@ -10,6 +10,7 @@ import Product from "./pages/Product";
 import Personnalisation from "./pages/Personnalisation";
 import Panier from "./pages/Panier";
 import Checkout from "./pages/Checkout";
+import Devis from "./pages/Devis";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
 import MentionsLegales from "./pages/MentionsLegales";
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/personnalisation" element={<Personnalisation />} />
             <Route path="/panier" element={<Panier />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/devis" element={<Devis />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/mentions-legales" element={<MentionsLegales />} />
