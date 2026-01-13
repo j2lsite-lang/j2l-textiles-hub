@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useProduct } from '@/hooks/useTopTex';
 import { ProductShareButtons } from '@/components/product/ProductShareButtons';
 import { extractSkuFromSlug, generateProductSlug } from '@/lib/product-utils';
+import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 import {
   Dialog,
   DialogContent,
@@ -559,6 +560,8 @@ export default function Product() {
           </div>
         </div>
       </section>
+
+      <PageSEOFooter variant="product" />
     </Layout>
   );
 }

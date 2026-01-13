@@ -4,6 +4,7 @@ import { Search, Filter, X, Loader2, ShoppingBag, AlertCircle, RefreshCw } from 
 import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
+import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -989,6 +990,8 @@ export default function Catalogue() {
           </div>
         </div>
       </section>
+
+      <PageSEOFooter variant="catalogue" />
     </Layout>
   );
 }

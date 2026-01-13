@@ -9,6 +9,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { MessageCircle } from 'lucide-react';
+import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 
 const faqCategories = [
   {
@@ -174,6 +175,8 @@ export default function FAQ() {
           </div>
         </div>
       </section>
+
+      <PageSEOFooter variant="faq" />
     </Layout>
   );
 }

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { COMPANY_INFO } from '@/lib/company-info';
 import { sendEmail } from '@/lib/emailjs';
+import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 
 export default function Contact() {
   const { toast } = useToast();
@@ -256,6 +257,8 @@ export default function Contact() {
           </div>
         </div>
       </section>
+
+      <PageSEOFooter variant="contact" />
     </Layout>
   );
 }

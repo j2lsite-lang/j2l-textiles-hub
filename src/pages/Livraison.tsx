@@ -4,6 +4,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { COMPANY_INFO } from '@/lib/company-info';
 import { Truck, Clock, MapPin, Package, Euro, Phone, Mail, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 
 export default function Livraison() {
   return (
@@ -249,6 +250,8 @@ export default function Livraison() {
           </div>
         </div>
       </div>
+
+      <PageSEOFooter variant="default" />
     </Layout>
   );
 }

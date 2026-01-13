@@ -4,6 +4,7 @@ import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
+import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 
 function formatPrice(price: number): string {
   return price.toFixed(2).replace('.', ',') + ' €';
@@ -244,6 +245,8 @@ export default function Panier() {
           </div>
         </div>
       </section>
+
+      <PageSEOFooter variant="default" />
     </Layout>
   );
 }
