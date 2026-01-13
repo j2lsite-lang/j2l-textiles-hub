@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Plus, Minus, ShoppingCart, Ruler, Check, Info, Loader2, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Plus, Minus, ShoppingCart, Ruler, Check, Loader2, AlertCircle } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useProduct } from '@/hooks/useTopTex';
 import { ProductShareButtons } from '@/components/product/ProductShareButtons';
+import { ProductSEO } from '@/components/product/ProductSEO';
 import { extractSkuFromSlug, generateProductSlug } from '@/lib/product-utils';
 import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 import {
@@ -215,6 +216,13 @@ export default function Product() {
 
   return (
     <Layout>
+      {/* SEO Meta Tags + JSON-LD Structured Data */}
+      <ProductSEO 
+        product={product} 
+        canonicalUrl={location.pathname}
+        selectedColor={selectedColor}
+      />
+      
       <section className="section-padding">
         <div className="container-page">
           {/* Breadcrumb */}
@@ -476,6 +484,7 @@ export default function Product() {
                   productName={product.name}
                   productUrl={productUrl}
                   productImage={product.images?.[0]}
+                  productDescription={product.description || undefined}
                 />
               </div>
 
