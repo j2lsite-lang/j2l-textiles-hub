@@ -121,7 +121,7 @@ function AllDepartmentsPage() {
       </section>
 
       <CTASection />
-      <PageSEOFooter variant="default" />
+      <PageSEOFooter variant="zones" />
     </Layout>
   );
 }
@@ -204,7 +204,7 @@ function DepartmentPage({ department }: { department: { code: string; name: stri
 
       <ContactInfoSection departmentName={department.name} />
       <CTASection location={department.name} />
-      <PageSEOFooter variant="default" />
+      <PageSEOFooter variant="zone-department" departmentName={department.name} />
     </Layout>
   );
 }
@@ -330,7 +330,7 @@ function CityPage({ city, department, departmentCode }: { city: string; departme
 
       <ContactInfoSection departmentName={department} cityName={city} />
       <CTASection location={city} />
-      <PageSEOFooter variant="default" />
+      <PageSEOFooter variant="zone-city" cityName={city} departmentName={department} />
     </Layout>
   );
 }

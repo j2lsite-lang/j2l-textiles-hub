@@ -153,7 +153,7 @@ export default function Retours() {
         </div>
       </div>
 
-      <PageSEOFooter variant="default" />
+      <PageSEOFooter variant="retours" />
     </Layout>
   );
 }
