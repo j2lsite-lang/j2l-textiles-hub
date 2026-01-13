@@ -61,15 +61,42 @@ export function SEOContent() {
                   Nous livrons dans toute la France métropolitaine et les DOM-TOM :
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {['Île-de-France', 'Lyon', 'Marseille', 'Toulouse', 'Bordeaux', 'Nantes'].map((city) => (
-                    <Link 
-                      key={city}
-                      to={`/zones/${city.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-')}`}
-                      className="text-sm px-3 py-1 bg-secondary rounded-full hover:bg-primary hover:text-white transition-colors"
-                    >
-                      {city}
-                    </Link>
-                  ))}
+                  <Link 
+                    to="/zones/paris"
+                    className="text-sm px-3 py-1 bg-secondary rounded-full hover:bg-primary hover:text-white transition-colors"
+                  >
+                    Paris
+                  </Link>
+                  <Link 
+                    to="/zones/rhone"
+                    className="text-sm px-3 py-1 bg-secondary rounded-full hover:bg-primary hover:text-white transition-colors"
+                  >
+                    Lyon
+                  </Link>
+                  <Link 
+                    to="/zones/bouches-du-rhone"
+                    className="text-sm px-3 py-1 bg-secondary rounded-full hover:bg-primary hover:text-white transition-colors"
+                  >
+                    Marseille
+                  </Link>
+                  <Link 
+                    to="/zones/haute-garonne"
+                    className="text-sm px-3 py-1 bg-secondary rounded-full hover:bg-primary hover:text-white transition-colors"
+                  >
+                    Toulouse
+                  </Link>
+                  <Link 
+                    to="/zones/gironde"
+                    className="text-sm px-3 py-1 bg-secondary rounded-full hover:bg-primary hover:text-white transition-colors"
+                  >
+                    Bordeaux
+                  </Link>
+                  <Link 
+                    to="/zones/loire-atlantique"
+                    className="text-sm px-3 py-1 bg-secondary rounded-full hover:bg-primary hover:text-white transition-colors"
+                  >
+                    Nantes
+                  </Link>
                   <Link 
                     to="/zones"
                     className="text-sm px-3 py-1 bg-primary/10 text-primary rounded-full hover:bg-primary hover:text-white transition-colors"
