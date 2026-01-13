@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 
 function formatPrice(price: number): string {
   return price.toFixed(2).replace('.', ',') + ' €';
@@ -398,6 +399,8 @@ export default function Checkout() {
           </div>
         </div>
       </section>
+
+      <PageSEOFooter variant="default" />
     </Layout>
   );
 }

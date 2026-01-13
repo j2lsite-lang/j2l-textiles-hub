@@ -5,6 +5,7 @@ import { COMPANY_INFO } from '@/lib/company-info';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 
 export default function Retours() {
   return (
@@ -151,6 +152,8 @@ export default function Retours() {
           </div>
         </div>
       </div>
+
+      <PageSEOFooter variant="default" />
     </Layout>
   );
 }

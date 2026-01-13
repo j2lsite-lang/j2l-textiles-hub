@@ -3,6 +3,7 @@ import { ArrowRight, Upload, FileCode, Image, Maximize, Sparkles, PenTool } from
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { FileFormatBadge } from '@/components/ui/premium-icon';
+import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 
 // Import technique images
 import broderieImg from '@/assets/techniques/broderie.jpg';
@@ -278,6 +279,8 @@ export default function Personnalisation() {
           </div>
         </div>
       </section>
+
+      <PageSEOFooter variant="personnalisation" />
     </Layout>
   );
 }

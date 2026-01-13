@@ -1,6 +1,7 @@
 import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
 import { COMPANY_INFO } from '@/lib/company-info';
+import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
 
 export default function CGV() {
   return (
@@ -232,6 +233,8 @@ export default function CGV() {
           </div>
         </div>
       </section>
+
+      <PageSEOFooter variant="default" />
     </Layout>
   );
 }

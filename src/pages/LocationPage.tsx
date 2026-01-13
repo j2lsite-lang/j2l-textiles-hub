@@ -5,6 +5,7 @@ import { frenchDepartments, getDepartmentBySlug, getCityBySlug } from "@/lib/fre
 import { COMPANY_INFO } from "@/lib/company-info";
 import { Button } from "@/components/ui/button";
 import { MapPin, Phone, Mail, ArrowRight, CheckCircle2 } from "lucide-react";
+import { PageSEOFooter } from "@/components/seo/PageSEOFooter";
 
 const services = [
   "Broderie personnalisée",
@@ -120,6 +121,7 @@ function AllDepartmentsPage() {
       </section>
 
       <CTASection />
+      <PageSEOFooter variant="default" />
     </Layout>
   );
 }
@@ -202,6 +204,7 @@ function DepartmentPage({ department }: { department: { code: string; name: stri
 
       <ContactInfoSection departmentName={department.name} />
       <CTASection location={department.name} />
+      <PageSEOFooter variant="default" />
     </Layout>
   );
 }
@@ -327,6 +330,7 @@ function CityPage({ city, department, departmentCode }: { city: string; departme
 
       <ContactInfoSection departmentName={department} cityName={city} />
       <CTASection location={city} />
+      <PageSEOFooter variant="default" />
     </Layout>
   );
 }
