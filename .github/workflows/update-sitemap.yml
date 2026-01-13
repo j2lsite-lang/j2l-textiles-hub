@@ -26,23 +26,41 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download sitemap from edge function
+      - name: Download sitemap from backend function
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
         run: |
-          echo "Downloading sitemap from edge function..."
-          
-          curl -s -o public/sitemap.xml \
+          set -euo pipefail
+
+          if [ -z "${BACKEND_URL:-}" ]; then
+            echo "ERROR: BACKEND_URL secret is not set."
+            echo "Fix: GitHub repo → Settings → Secrets and variables → Actions → New repository secret → BACKEND_URL"
+            exit 1
+          fi
+
+          URL="${BACKEND_URL%/}/functions/v1/sitemap"
+          echo "Downloading sitemap from: $URL"
+
+          HTTP_CODE=$(curl -sS -L -o public/sitemap.xml -w "%{http_code}" \
             -H "Content-Type: application/xml" \
-            "${BACKEND_URL}/functions/v1/sitemap"
-          
-          # Vérifier que le fichier est valide
+            "$URL" || true)
+
+          echo "HTTP status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "ERROR: Non-200 response while downloading sitemap."
+            echo "First 50 lines of response:"
+            head -n 50 public/sitemap.xml || true
+            exit 1
+          fi
+
           if grep -q "<?xml" public/sitemap.xml; then
             URL_COUNT=$(grep -c "<url>" public/sitemap.xml || echo "0")
             echo "Downloaded sitemap with $URL_COUNT URLs"
           else
-            echo "ERROR: Invalid sitemap downloaded"
-            cat public/sitemap.xml
+            echo "ERROR: Invalid sitemap downloaded (missing XML header)."
+            echo "First 50 lines of response:"
+            head -n 50 public/sitemap.xml || true
             exit 1
           fi
 
