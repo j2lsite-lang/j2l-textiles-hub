@@ -32,12 +32,22 @@ export function ProductSEO({ product, canonicalUrl, selectedColor }: ProductSEOP
       : `${product.name} personnalisable par ${product.brand || 'marque premium'}. Broderie, sérigraphie, flocage. Livraison France. Devis gratuit.`;
   
   // Primary image (first product image or placeholder) - ensure absolute URL
-  const rawImage = product.images?.[0] || '';
-  const primaryImage = rawImage.startsWith('http') 
-    ? rawImage 
-    : rawImage 
-      ? `https://j2ltextiles.fr${rawImage}` 
-      : 'https://j2ltextiles.fr/og-image.jpg';
+  // Images can be: full URL, relative path, or empty
+  const getAbsoluteImageUrl = (img: string | undefined): string => {
+    if (!img || img.trim() === '') return 'https://j2ltextiles.fr/og-image.jpg';
+    if (img.startsWith('http://') || img.startsWith('https://')) return img;
+    // Relative path - prefix with domain
+    const cleanPath = img.startsWith('/') ? img : `/${img}`;
+    return `https://j2ltextiles.fr${cleanPath}`;
+  };
+  
+  const primaryImage = getAbsoluteImageUrl(product.images?.[0]);
+  
+  // Get all images as absolute URLs for JSON-LD (max 10)
+  const absoluteImages = (product.images || [])
+    .slice(0, 10)
+    .map(img => getAbsoluteImageUrl(img as string))
+    .filter(url => url !== 'https://j2ltextiles.fr/og-image.jpg' || (product.images || []).length === 0);
   
   // Canonical URL with domain - ensure absolute path
   const cleanPath = canonicalUrl.startsWith('/') ? canonicalUrl : `/${canonicalUrl}`;
@@ -61,7 +71,7 @@ export function ProductSEO({ product, canonicalUrl, selectedColor }: ProductSEOP
       '@type': 'Brand',
       name: product.brand || 'TopTex',
     },
-    image: product.images?.slice(0, 10) || [primaryImage],
+    image: absoluteImages.length > 0 ? absoluteImages : [primaryImage],
     category: product.category || 'Vêtements',
     color: selectedColor?.name || colorNames.split(',')[0]?.trim() || undefined,
     offers: {
