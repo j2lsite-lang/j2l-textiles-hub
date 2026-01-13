@@ -273,24 +273,31 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full accent-gradient text-white font-semibold" 
-                  size="lg"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <span className="animate-spin mr-2">⏳</span>
-                      Redirection vers Stripe...
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="h-4 w-4 mr-2" />
-                      Payer {formatPrice(totals.totalTTC)} TTC
-                    </>
-                  )}
-                </Button>
+                {(() => {
+                  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+                  const shippingCost = 5 + Math.max(0, totalQuantity - 1) * 0.5;
+                  const finalTotal = totals.totalTTC + shippingCost;
+                  return (
+                    <Button 
+                      type="submit" 
+                      className="w-full accent-gradient text-white font-semibold" 
+                      size="lg"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <span className="animate-spin mr-2">⏳</span>
+                          Redirection vers Stripe...
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-4 w-4 mr-2" />
+                          Payer {formatPrice(finalTotal)} TTC
+                        </>
+                      )}
+                    </Button>
+                  );
+                })()}
               </form>
             </div>
 
@@ -321,31 +328,39 @@ export default function Checkout() {
                 </div>
 
                 <div className="border-t pt-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Sous-total HT</span>
-                    <span>{formatPrice(totals.totalHT)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">TVA (20%)</span>
-                    <span>{formatPrice(totals.totalTTC - totals.totalHT)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Livraison</span>
-                    <span className="text-green-600">Gratuite</span>
-                  </div>
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between font-semibold text-lg">
-                      <span>Total TTC</span>
-                      <span className="text-primary">{formatPrice(totals.totalTTC)}</span>
-                    </div>
-                  </div>
+                  {(() => {
+                    const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+                    const shippingCost = 5 + Math.max(0, totalQuantity - 1) * 0.5;
+                    return (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Sous-total HT</span>
+                          <span>{formatPrice(totals.totalHT)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">TVA (20%)</span>
+                          <span>{formatPrice(totals.totalTTC - totals.totalHT)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Livraison</span>
+                          <span>{formatPrice(shippingCost)}</span>
+                        </div>
+                        <div className="border-t pt-2">
+                          <div className="flex justify-between font-semibold text-lg">
+                            <span>Total TTC</span>
+                            <span className="text-primary">{formatPrice(totals.totalTTC + shippingCost)}</span>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Trust badges */}
                 <div className="mt-6 space-y-3">
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <Truck className="h-4 w-4 text-primary" />
-                    <span>Livraison gratuite en France</span>
+                    <span>Livraison en France métropolitaine</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <ShieldCheck className="h-4 w-4 text-primary" />

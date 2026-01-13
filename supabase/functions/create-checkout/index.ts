@@ -79,13 +79,24 @@ serve(async (req) => {
       };
     });
 
-    // Calculate shipping (free for now, but can be customized)
+    // Calculate total quantity for shipping
+    const totalQuantity = items.reduce((sum: number, item: CartItem) => sum + item.quantity, 0);
+    
+    // Shipping calculation: 5€ base + 0.50€ per additional item
+    // First item = 5€, then +0.50€ for each additional item
+    const baseShipping = 500; // 5€ in cents
+    const perItemExtra = 50; // 0.50€ in cents
+    const shippingAmount = baseShipping + Math.max(0, totalQuantity - 1) * perItemExtra;
+    
+    console.log("Shipping calculation:", { totalQuantity, shippingAmount: shippingAmount / 100 + "€" });
+
+    // Create shipping options
     const shippingOptions = [
       {
         shipping_rate_data: {
           type: "fixed_amount" as const,
           fixed_amount: {
-            amount: 0, // Free shipping
+            amount: shippingAmount,
             currency: "eur",
           },
           display_name: "Livraison standard",
