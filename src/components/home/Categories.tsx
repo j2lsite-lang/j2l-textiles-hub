@@ -45,12 +45,13 @@ const categories = [
 
 export function Categories() {
   return (
-    <section className="section-padding section-gray">
+    <section className="section-padding section-gray" aria-labelledby="categories-title">
       <div className="container-page">
         <SectionHeader
           eyebrow="Catégories"
-          title="Explorez notre gamme"
-          description="Des textiles professionnels pour tous les secteurs d'activité"
+          title="Explorez notre gamme de textiles professionnels"
+          description="Des vêtements de travail et textiles personnalisés pour tous les secteurs d'activité : restauration, BTP, corporate, sport et bien plus."
+          id="categories-title"
         />
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mt-12">

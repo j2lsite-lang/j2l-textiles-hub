@@ -4,6 +4,7 @@ import { Categories } from '@/components/home/Categories';
 import { Services } from '@/components/home/Services';
 import { CTA } from '@/components/home/CTA';
 import { FAQ } from '@/components/home/FAQ';
+import { SEOContent } from '@/components/home/SEOContent';
 
 const Index = () => {
   return (
@@ -13,6 +14,7 @@ const Index = () => {
       <Services />
       <CTA />
       <FAQ />
+      <SEOContent />
     </Layout>
   );
 };
