@@ -5,3 +5,21 @@ verify_jwt = false
 
 [functions.catsync]
 verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.send-quote]
+verify_jwt = false
+
+[functions.sitemap]
+verify_jwt = false
+
+[functions.merchant-feed]
+verify_jwt = false
+
+[functions.toptex-attributes]
+verify_jwt = false
+
+[functions.toptex-brands]
+verify_jwt = false

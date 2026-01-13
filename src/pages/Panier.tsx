@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Trash2, Plus, Minus, ShoppingCart, ArrowRight, Package } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingCart, ArrowRight, Package, CreditCard, FileText } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
@@ -165,15 +165,46 @@ export default function Panier() {
                       size="lg"
                       disabled={items.length === 0}
                     >
-                      Passer commande
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Payer en ligne
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
                   </Link>
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">ou</span>
+                    </div>
+                  </div>
+                  
+                  <Link to="/devis" className="block">
+                    <Button 
+                      variant="outline"
+                      className="w-full font-semibold" 
+                      size="lg"
+                      disabled={items.length === 0}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Demander un devis personnalisé
+                    </Button>
+                  </Link>
+                  
                   <Link to="/catalogue" className="block">
-                    <Button variant="outline" className="w-full">
+                    <Button variant="ghost" className="w-full">
                       Continuer mes achats
                     </Button>
                   </Link>
+                </div>
+
+                <div className="mt-4 p-4 bg-secondary/30 rounded-lg text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground mb-2">💡 Quelle option choisir ?</p>
+                  <ul className="space-y-1">
+                    <li><strong>Payer en ligne :</strong> Paiement sécurisé par carte, expédition rapide</li>
+                    <li><strong>Devis personnalisé :</strong> Pour marquage (broderie, sérigraphie...) ou grandes quantités</li>
+                  </ul>
                 </div>
 
                 {/* Shipping info */}

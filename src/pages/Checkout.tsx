@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { CheckCircle, CreditCard, Truck, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CreditCard, Truck, ShieldCheck, Lock, ArrowLeft } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Button } from '@/components/ui/button';
@@ -27,12 +27,9 @@ interface CheckoutFormData {
 }
 
 export default function Checkout() {
-  const { items, totals, clear } = useCart();
+  const { items, totals } = useCart();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [orderNumber, setOrderNumber] = useState('');
   
   const [formData, setFormData] = useState<CheckoutFormData>({
     email: '',
@@ -61,106 +58,57 @@ export default function Checkout() {
     setIsSubmitting(true);
 
     try {
-      // Generate order number
-      const orderNum = `J2L-${Date.now().toString(36).toUpperCase()}`;
-      
-      // Prepare order details for email
-      const productDetails = items.map(item => 
-        `${item.name} (Réf: ${item.sku}) - ${item.color} / ${item.size} - Qté: ${item.quantity} - ${formatPrice(item.priceHT * item.quantity)} HT`
-      ).join('\n');
+      // Prepare items for Stripe
+      const cartItems = items.map(item => ({
+        sku: item.sku,
+        name: item.name,
+        brand: item.brand,
+        image: item.image,
+        color: item.color,
+        size: item.size,
+        quantity: item.quantity,
+        priceHT: item.priceHT,
+      }));
 
-      const fullMessage = `
-NOUVELLE COMMANDE: ${orderNum}
-
-Client:
-${formData.firstName} ${formData.lastName}
-${formData.company ? `Entreprise: ${formData.company}` : ''}
-${formData.email}
-${formData.phone}
-
-Adresse de livraison:
-${formData.address}
-${formData.addressComplement ? formData.addressComplement : ''}
-${formData.postalCode} ${formData.city}
-
---- PRODUITS ---
-${productDetails}
-
---- TOTAUX ---
-Sous-total HT: ${formatPrice(totals.totalHT)}
-TVA (20%): ${formatPrice(totals.totalTTC - totals.totalHT)}
-Total TTC: ${formatPrice(totals.totalTTC)}
-Livraison: Gratuite
-      `.trim();
-
-      const { error } = await supabase.functions.invoke('send-quote', {
+      // Create checkout session
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
-          nom: `${formData.firstName} ${formData.lastName}`,
-          email: formData.email,
-          telephone: formData.phone,
-          message: fullMessage,
-          product_ref: orderNum,
-          product_name: `Commande ${items.length} article(s)`,
-          product_brand: 'J2LTextiles',
-          quantity: items.reduce((sum, item) => sum + item.quantity, 0).toString(),
-          variant: 'Commande en ligne',
-          page: 'Checkout',
+          items: cartItems,
+          customer: {
+            email: formData.email,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            company: formData.company || undefined,
+            address: formData.address,
+            addressComplement: formData.addressComplement || undefined,
+            postalCode: formData.postalCode,
+            city: formData.city,
+            phone: formData.phone,
+          },
+          successUrl: `${window.location.origin}/paiement-succes?session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${window.location.origin}/paiement-annule`,
         },
       });
 
       if (error) throw new Error(error.message);
 
-      setOrderNumber(orderNum);
-      setIsCompleted(true);
-      clear();
+      if (data?.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
       
     } catch (error) {
+      console.error('Checkout error:', error);
       toast({
-        title: 'Erreur',
-        description: 'Impossible de traiter votre commande. Veuillez réessayer.',
+        title: 'Erreur de paiement',
+        description: 'Impossible de créer la session de paiement. Veuillez réessayer.',
         variant: 'destructive',
       });
-    } finally {
       setIsSubmitting(false);
     }
   };
-
-  if (isCompleted) {
-    return (
-      <Layout>
-        <section className="section-padding">
-          <div className="container-page">
-            <div className="max-w-lg mx-auto text-center">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
-                <CheckCircle className="h-10 w-10 text-green-600" />
-              </div>
-              <h1 className="text-3xl font-display font-bold mb-4">
-                Commande confirmée !
-              </h1>
-              <p className="text-muted-foreground mb-2">
-                Merci pour votre commande. Un email de confirmation vous a été envoyé.
-              </p>
-              <p className="font-semibold text-lg mb-8">
-                N° de commande : <span className="text-primary">{orderNumber}</span>
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link to="/catalogue">
-                  <Button className="w-full sm:w-auto">
-                    Continuer mes achats
-                  </Button>
-                </Link>
-                <Link to="/">
-                  <Button variant="outline" className="w-full sm:w-auto">
-                    Retour à l'accueil
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
-      </Layout>
-    );
-  }
 
   if (items.length === 0) {
     return (
@@ -189,12 +137,19 @@ Livraison: Gratuite
       <section className="section-padding">
         <div className="container-page">
           <SectionHeader
-            eyebrow="Checkout"
+            eyebrow="Paiement sécurisé"
             title="Finaliser la commande"
-            description="Renseignez vos informations de livraison"
+            description="Paiement 100% sécurisé par Stripe"
           />
 
-          <div className="mt-12 grid lg:grid-cols-3 gap-8">
+          <div className="mt-8 mb-6">
+            <Link to="/panier" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour au panier
+            </Link>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
             {/* Checkout Form */}
             <div className="lg:col-span-2">
               <form onSubmit={handleSubmit} className="space-y-8">
@@ -210,6 +165,7 @@ Livraison: Gratuite
                         required
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        placeholder="votre@email.com"
                       />
                     </div>
                     <div className="space-y-2">
@@ -220,6 +176,7 @@ Livraison: Gratuite
                         required
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        placeholder="06 12 34 56 78"
                       />
                     </div>
                   </div>
@@ -298,17 +255,21 @@ Livraison: Gratuite
                   </div>
                 </div>
 
-                {/* Payment info notice */}
+                {/* Payment info */}
                 <div className="surface-elevated rounded-xl p-6">
                   <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <CreditCard className="h-5 w-5" />
-                    Paiement
+                    Paiement sécurisé
                   </h2>
-                  <div className="bg-secondary/50 rounded-lg p-4">
-                    <p className="text-sm text-muted-foreground">
-                      Le paiement s'effectue à la livraison ou par virement bancaire. 
-                      Vous recevrez les instructions par email après confirmation de votre commande.
-                    </p>
+                  <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg p-4 flex items-start gap-4">
+                    <Lock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium mb-1">Paiement 100% sécurisé par Stripe</p>
+                      <p className="text-sm text-muted-foreground">
+                        Vous serez redirigé vers la page de paiement sécurisée Stripe pour finaliser votre commande.
+                        Nous acceptons les cartes Visa, Mastercard, American Express.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -318,7 +279,17 @@ Livraison: Gratuite
                   size="lg"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Traitement...' : 'Confirmer la commande'}
+                  {isSubmitting ? (
+                    <>
+                      <span className="animate-spin mr-2">⏳</span>
+                      Redirection vers Stripe...
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 mr-2" />
+                      Payer {formatPrice(totals.totalTTC)} TTC
+                    </>
+                  )}
                 </Button>
               </form>
             </div>
@@ -380,6 +351,22 @@ Livraison: Gratuite
                     <ShieldCheck className="h-4 w-4 text-primary" />
                     <span>Paiement 100% sécurisé</span>
                   </div>
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <CreditCard className="h-4 w-4 text-primary" />
+                    <span>Visa, Mastercard, Amex</span>
+                  </div>
+                </div>
+
+                {/* Alternative - Devis */}
+                <div className="mt-6 pt-6 border-t">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Besoin de personnalisation ?
+                  </p>
+                  <Link to="/devis">
+                    <Button variant="outline" size="sm" className="w-full">
+                      Demander un devis
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>
