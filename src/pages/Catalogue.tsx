@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useParams, Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Search, Filter, X, Loader2, ShoppingBag, AlertCircle, RefreshCw } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -23,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SyncProgressBar } from '@/components/admin/SyncProgressBar';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { normalizeBrandKey, useToptexBrandLogos } from '@/hooks/useToptexBrandLogos';
+import { getUniversSEO } from '@/lib/univers-seo-content';
 
 // Fallback mock products when API is unavailable
 const mockProducts = [
@@ -769,15 +771,47 @@ export default function Catalogue() {
     fetchSyncInfo();
   }, []);
 
+  // Get SEO content for current univers
+  const universSEO = worldSlug ? getUniversSEO(worldSlug) : null;
+
   return (
     <Layout>
+      {/* Dynamic SEO meta tags for univers pages */}
+      {universSEO && (
+        <Helmet>
+          <title>{universSEO.metaTitle}</title>
+          <meta name="description" content={universSEO.metaDescription} />
+          <meta name="keywords" content={universSEO.keywords.join(', ')} />
+          <link rel="canonical" href={`https://j2l-impression.fr/univers/${worldSlug}`} />
+          <meta property="og:title" content={universSEO.metaTitle} />
+          <meta property="og:description" content={universSEO.metaDescription} />
+          <meta property="og:url" content={`https://j2l-impression.fr/univers/${worldSlug}`} />
+          <meta property="og:type" content="website" />
+        </Helmet>
+      )}
+
       <section className="section-padding">
         <div className="container-page">
-          <SectionHeader
-            eyebrow="Catalogue"
-            title="Nos produits textiles"
-            description="Explorez notre sélection de vêtements et accessoires personnalisables"
-          />
+          {/* Dynamic header based on univers */}
+          {universSEO ? (
+            <div className="text-center mb-8">
+              <span className="inline-block text-sm font-medium text-primary tracking-wider uppercase mb-2">
+                Univers
+              </span>
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-foreground mb-4">
+                {universSEO.title}
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                {universSEO.heroDescription}
+              </p>
+            </div>
+          ) : (
+            <SectionHeader
+              eyebrow="Catalogue"
+              title="Nos produits textiles"
+              description="Explorez notre sélection de vêtements et accessoires personnalisables"
+            />
+          )}
 
           {/* Admin Progress Bar */}
           {isAdmin && (
@@ -1119,7 +1153,47 @@ export default function Catalogue() {
         </div>
       </section>
 
-      <PageSEOFooter variant="catalogue" />
+      {/* SEO Content Section for Univers pages */}
+      {universSEO && (
+        <section className="section-padding bg-secondary/30">
+          <div className="container-page">
+            <div 
+              className="prose prose-lg max-w-none text-muted-foreground
+                prose-headings:text-foreground prose-headings:font-display
+                prose-h2:text-2xl prose-h2:font-bold prose-h2:mb-4 prose-h2:mt-0
+                prose-h3:text-lg prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3
+                prose-p:mb-4 prose-p:leading-relaxed
+                prose-strong:text-foreground prose-strong:font-semibold
+                prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
+              dangerouslySetInnerHTML={{ __html: universSEO.seoText }}
+            />
+            
+            {/* Related Univers */}
+            {universSEO.relatedUnivers.length > 0 && (
+              <div className="mt-8 pt-8 border-t border-border">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Univers associés</h3>
+                <div className="flex flex-wrap gap-3">
+                  {universSEO.relatedUnivers.map(slug => {
+                    const related = getUniversSEO(slug);
+                    if (!related) return null;
+                    return (
+                      <Link
+                        key={slug}
+                        to={`/univers/${slug}`}
+                        className="px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:border-primary hover:text-primary transition-colors"
+                      >
+                        {related.title.replace('Vêtements ', '').replace('Équipements de ', '').replace("Vêtements d'", '').replace('Textiles ', '')}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      <PageSEOFooter variant={universSEO ? 'default' : 'catalogue'} />
     </Layout>
   );
 }
