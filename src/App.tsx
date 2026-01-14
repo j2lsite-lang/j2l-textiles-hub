@@ -60,7 +60,7 @@ const App = () => (
             <Route path="/zones" element={<LocationPage />} />
             <Route path="/zones/:department" element={<LocationPage />} />
             <Route path="/zones/:department/:city" element={<LocationPage />} />
-            <Route path="/admin/shopify-sync" element={<AdminShopifySync />} />
+            <Route path="/admin/shopify-sync/*" element={<AdminShopifySync />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

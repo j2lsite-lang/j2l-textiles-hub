@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { Play, Pause, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Copy, Pause, Play, XCircle } from "lucide-react";
 
 interface SyncResult {
   sku: string;
@@ -29,9 +29,21 @@ export default function AdminShopifySync() {
   const TOTAL_PRODUCTS = 2958;
   const BATCH_SIZE = 3; // Small batch to avoid timeout
 
+  useEffect(() => {
+    // Expose a safe handle for the migration script (uses the same public client as the app).
+    (window as any).__j2lSupabase = supabase;
+    return () => {
+      try {
+        delete (window as any).__j2lSupabase;
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
-    setLogs(prev => [`[${timestamp}] ${message}`, ...prev.slice(0, 99)]);
+    setLogs((prev) => [`[${timestamp}] ${message}`, ...prev.slice(0, 99)]);
   };
 
   const syncBatch = async (offset: number): Promise<{ success: boolean; results: SyncResult[] }> => {
@@ -136,6 +148,10 @@ export default function AdminShopifySync() {
   const progress = (currentOffset / TOTAL_PRODUCTS) * 100;
   const estimatedTimeRemaining = Math.ceil(((TOTAL_PRODUCTS - currentOffset) / BATCH_SIZE) * 4 / 60);
 
+  const migrationScript = useMemo(() => {
+    return `// Script de migration (à coller dans la console)\n// Pré-requis: être sur /admin/shopify-sync\n\n(async () => {\n  const supabase = window.__j2lSupabase;\n  if (!supabase) {\n    console.error('Supabase handle introuvable. Ouvre /admin/shopify-sync puis réessaye.');\n    return;\n  }\n\n  const TOTAL_PRODUCTS = ${TOTAL_PRODUCTS};\n  const BATCH_SIZE = ${BATCH_SIZE};\n  let offset = 0;\n  let ok = 0;\n  let ko = 0;\n\n  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n\n  while (offset < TOTAL_PRODUCTS) {\n    const { data, error } = await supabase.functions.invoke('shopify-sync', {\n      body: { offset, limit: BATCH_SIZE },\n    });\n\n    if (error) {\n      console.error('Erreur batch', offset, error);\n      await sleep(5000);\n      continue;\n    }\n\n    const results = data?.results ?? [];\n    for (const r of results) {\n      if (r?.success) ok++;\n      else ko++;\n    }\n\n    console.log('Batch OK', { offset, results, ok, ko });\n\n    offset += BATCH_SIZE;\n    await sleep(1000);\n  }\n\n  console.log('Migration terminée', { ok, ko });\n})();\n`;
+  }, [TOTAL_PRODUCTS, BATCH_SIZE]);
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <Card>
@@ -170,13 +186,13 @@ export default function AdminShopifySync() {
             </Card>
             <Card>
               <CardContent className="pt-4 text-center">
-                <p className="text-2xl font-bold text-green-600">{successCount}</p>
+                <p className="text-2xl font-bold text-primary">{successCount}</p>
                 <p className="text-sm text-muted-foreground">Succès</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4 text-center">
-                <p className="text-2xl font-bold text-red-600">{errorCount}</p>
+                <p className="text-2xl font-bold text-destructive">{errorCount}</p>
                 <p className="text-sm text-muted-foreground">Erreurs</p>
               </CardContent>
             </Card>
@@ -212,6 +228,35 @@ export default function AdminShopifySync() {
             </Button>
           </div>
 
+          {/* Script */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-semibold">Script (console)</h3>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(migrationScript);
+                    addLog("📋 Script copié dans le presse-papiers");
+                  } catch {
+                    addLog("❌ Impossible de copier (droits navigateur)");
+                  }
+                }}
+              >
+                <Copy className="h-4 w-4" />
+                Copier
+              </Button>
+            </div>
+            <pre className="max-h-48 overflow-auto rounded-md border bg-muted p-3 text-xs">
+              <code>{migrationScript}</code>
+            </pre>
+            <p className="text-sm text-muted-foreground">
+              Collez-le dans la console du navigateur <strong>quand vous êtes sur</strong> /admin/shopify-sync.
+            </p>
+          </div>
+
           {/* Logs */}
           <div>
             <h3 className="font-semibold mb-2">Journal</h3>
@@ -239,9 +284,9 @@ export default function AdminShopifySync() {
                   {results.slice(0, 20).map((result, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm">
                       {result.success ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-primary" />
                       ) : (
-                        <XCircle className="h-4 w-4 text-red-600" />
+                        <XCircle className="h-4 w-4 text-destructive" />
                       )}
                       <Badge variant="outline">{result.sku}</Badge>
                       {result.success && (
