@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.toptex-brands]
 verify_jwt = false
+
+[functions.og-product]
+verify_jwt = false

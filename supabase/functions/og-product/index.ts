@@ -12,7 +12,18 @@ function extractSku(slug: string): string {
   return parts[parts.length - 1] || slug;
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 Deno.serve(async (req) => {
+  console.log("og-product function called:", req.method, req.url);
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -21,11 +32,15 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const slug = url.searchParams.get("slug");
     
+    console.log("Processing slug:", slug);
+    
     if (!slug) {
+      console.error("Missing slug parameter");
       return new Response("Missing slug parameter", { status: 400 });
     }
 
     const sku = extractSku(slug);
+    console.log("Extracted SKU:", sku);
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -43,6 +58,8 @@ Deno.serve(async (req) => {
       return new Response("Product not found", { status: 404 });
     }
 
+    console.log("Product found:", product.name);
+
     // Parse images - prefer image #2 (index 1) if available, otherwise first image
     const images = Array.isArray(product.images) ? product.images : [];
     const getAbsoluteUrl = (img: string): string => {
@@ -56,6 +73,8 @@ Deno.serve(async (req) => {
     const primaryImage = images.length > 1 
       ? getAbsoluteUrl(images[1] as string)
       : getAbsoluteUrl(images[0] as string);
+    
+    console.log("Primary image URL:", primaryImage);
 
     // Calculate TTC price
     const priceHT = product.price_ht || 0;
@@ -159,6 +178,8 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
+    console.log("Returning HTML with OG tags");
+
     return new Response(html, {
       headers: {
         ...corsHeaders,
@@ -171,12 +192,3 @@ Deno.serve(async (req) => {
     return new Response("Internal server error", { status: 500 });
   }
 });
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
