@@ -5,11 +5,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Extract SKU from slug (format: "product-name-SKU" or just "SKU")
-function extractSku(slug: string): string {
-  const parts = slug.split("-");
-  // SKU is typically the last part, often alphanumeric like "GI18000" or "K4025"
-  return parts[parts.length - 1] || slug;
+// Extract possible SKU candidates from slug.
+// Supported formats:
+// - "product-name-SKU" (SKU at the end)
+// - "SKU-product-name" (SKU at the beginning)
+// - "product-name" where the first token is the SKU (e.g. "pa5000-bandeau-de-sport")
+function extractSkuCandidates(slug: string): string[] {
+  const parts = slug.split("-").filter(Boolean);
+
+  const candidates = [
+    slug,
+    parts[0],
+    parts[parts.length - 1],
+    ...parts,
+  ]
+    .filter(Boolean)
+    .map((s) => s.trim())
+    // Only keep values that look like SKUs (usually contain at least one digit)
+    .filter((s) => /\d/.test(s) && s.length >= 3 && s.length <= 24)
+    .map((s) => s.toUpperCase());
+
+  // Deduplicate while preserving order
+  return [...new Set(candidates)];
 }
 
 function escapeHtml(text: string): string {
@@ -39,22 +56,24 @@ Deno.serve(async (req) => {
       return new Response("Missing slug parameter", { status: 400 });
     }
 
-    const sku = extractSku(slug);
-    console.log("Extracted SKU:", sku);
-    
+    const skuCandidates = extractSkuCandidates(slug);
+    console.log("SKU candidates:", skuCandidates);
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch product from database
-    const { data: product, error } = await supabase
+    // Fetch product from database (try multiple SKU candidates extracted from the slug)
+    const { data: products, error } = await supabase
       .from("products")
       .select("sku, name, brand, description, price_ht, category, images, colors")
-      .eq("sku", sku)
-      .maybeSingle();
+      .in("sku", skuCandidates)
+      .limit(1);
+
+    const product = products?.[0] ?? null;
 
     if (error || !product) {
-      console.error("Product not found:", sku, error);
+      console.error("Product not found:", slug, skuCandidates, error);
       return new Response("Product not found", { status: 404 });
     }
 
@@ -92,8 +111,8 @@ Deno.serve(async (req) => {
         ? rawDesc
         : `${product.name} personnalisable par ${product.brand || "marque premium"}. Broderie, sérigraphie, flocage. Livraison France. Devis gratuit.`;
 
-    // JSON-LD Product schema
-    const productJsonLd = {
+    // JSON-LD Product schema (Pinterest Rich Pins)
+    const productJsonLd: Record<string, unknown> = {
       "@context": "https://schema.org",
       "@type": "Product",
       name: product.name,
@@ -106,12 +125,18 @@ Deno.serve(async (req) => {
       },
       image: images.slice(0, 10).map((img: string) => getAbsoluteUrl(img)),
       category: product.category || "Vêtements",
-      offers: {
+    };
+
+    // Add offers only if pricing is available
+    if (typeof priceHT === "number" && priceHT > 0) {
+      productJsonLd.offers = {
         "@type": "Offer",
         url: canonicalUrl,
         priceCurrency: "EUR",
         price: priceTTC.toFixed(2),
-        priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
         availability: "https://schema.org/InStock",
         itemCondition: "https://schema.org/NewCondition",
         seller: {
@@ -119,8 +144,8 @@ Deno.serve(async (req) => {
           name: "J2L Textiles",
           url: "https://j2ltextiles.fr",
         },
-      },
-    };
+      };
+    }
 
     // Generate HTML with all meta tags
     const html = `<!DOCTYPE html>
