@@ -31,7 +31,7 @@ export function ProductSEO({ product, canonicalUrl, selectedColor }: ProductSEOP
       ? rawDesc
       : `${product.name} personnalisable par ${product.brand || 'marque premium'}. Broderie, sérigraphie, flocage. Livraison France. Devis gratuit.`;
   
-  // Primary image (first product image or placeholder) - ensure absolute URL
+  // Primary image - prefer image #2 (better product shot) if available, otherwise first
   // Images can be: full URL, relative path, or empty
   const getAbsoluteImageUrl = (img: string | undefined): string => {
     if (!img || img.trim() === '') return 'https://j2ltextiles.fr/og-image.jpg';
@@ -41,13 +41,17 @@ export function ProductSEO({ product, canonicalUrl, selectedColor }: ProductSEOP
     return `https://j2ltextiles.fr${cleanPath}`;
   };
   
-  const primaryImage = getAbsoluteImageUrl(product.images?.[0]);
+  // Use image #2 if available (often a better product shot), otherwise first image
+  const images = product.images || [];
+  const primaryImage = images.length > 1 
+    ? getAbsoluteImageUrl(images[1] as string)
+    : getAbsoluteImageUrl(images[0] as string);
   
   // Get all images as absolute URLs for JSON-LD (max 10)
-  const absoluteImages = (product.images || [])
+  const absoluteImages = images
     .slice(0, 10)
     .map(img => getAbsoluteImageUrl(img as string))
-    .filter(url => url !== 'https://j2ltextiles.fr/og-image.jpg' || (product.images || []).length === 0);
+    .filter(url => url !== 'https://j2ltextiles.fr/og-image.jpg' || images.length === 0);
   
   // Canonical URL with domain - ensure absolute path
   const cleanPath = canonicalUrl.startsWith('/') ? canonicalUrl : `/${canonicalUrl}`;
@@ -152,8 +156,10 @@ export function ProductSEO({ product, canonicalUrl, selectedColor }: ProductSEOP
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={primaryImage} />
-      <meta property="og:image:width" content="800" />
-      <meta property="og:image:height" content="800" />
+      <meta property="og:image:secure_url" content={primaryImage} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="1200" />
+      <meta property="og:image:type" content="image/jpeg" />
       <meta property="og:site_name" content={COMPANY_INFO.name} />
       <meta property="og:locale" content="fr_FR" />
       
