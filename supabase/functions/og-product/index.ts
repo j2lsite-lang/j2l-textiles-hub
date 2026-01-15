@@ -168,7 +168,8 @@ Deno.serve(async (req) => {
   <meta property="og:image" content="${primaryImage}">
   <meta property="og:image:secure_url" content="${primaryImage}">
   <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="${escapeHtml(product.name)}">
   <meta property="og:image:type" content="image/jpeg">
   <meta property="og:site_name" content="J2L Textiles">
   <meta property="og:locale" content="fr_FR">
