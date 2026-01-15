@@ -31,21 +31,32 @@ export function ProductSEO({ product, canonicalUrl, selectedColor }: ProductSEOP
       ? rawDesc
       : `${product.name} personnalisable par ${product.brand || 'marque premium'}. Broderie, sérigraphie, flocage. Livraison France. Devis gratuit.`;
   
-  // Primary image - prefer image #2 (better product shot) if available, otherwise first
+  // Primary image for OG/social sharing - Facebook recommends 1200x630px (1.91:1 ratio)
   // Images can be: full URL, relative path, or empty
   const getAbsoluteImageUrl = (img: string | undefined): string => {
     if (!img || img.trim() === '') return 'https://j2ltextiles.fr/og-image.jpg';
+    // Already absolute URL
     if (img.startsWith('http://') || img.startsWith('https://')) return img;
     // Relative path - prefix with domain
     const cleanPath = img.startsWith('/') ? img : `/${img}`;
     return `https://j2ltextiles.fr${cleanPath}`;
   };
   
-  // Use image #2 if available (often a better product shot), otherwise first image
+  // Get all images as array
   const images = product.images || [];
-  const primaryImage = images.length > 1 
-    ? getAbsoluteImageUrl(images[1] as string)
-    : getAbsoluteImageUrl(images[0] as string);
+  
+  // Find the best image for OG sharing - prefer first valid image
+  const findPrimaryImage = (): string => {
+    for (const img of images) {
+      const url = getAbsoluteImageUrl(img as string);
+      if (url !== 'https://j2ltextiles.fr/og-image.jpg') {
+        return url;
+      }
+    }
+    return 'https://j2ltextiles.fr/og-image.jpg';
+  };
+  
+  const primaryImage = findPrimaryImage();
   
   // Get all images as absolute URLs for JSON-LD (max 10)
   const absoluteImages = images
@@ -158,7 +169,8 @@ export function ProductSEO({ product, canonicalUrl, selectedColor }: ProductSEOP
       <meta property="og:image" content={primaryImage} />
       <meta property="og:image:secure_url" content={primaryImage} />
       <meta property="og:image:width" content="1200" />
-      <meta property="og:image:height" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content={product.name} />
       <meta property="og:image:type" content="image/jpeg" />
       <meta property="og:site_name" content={COMPANY_INFO.name} />
       <meta property="og:locale" content="fr_FR" />
