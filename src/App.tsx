@@ -24,7 +24,7 @@ import Retours from "./pages/Retours";
 import Livraison from "./pages/Livraison";
 import LocationPage from "./pages/LocationPage";
 import NotFound from "./pages/NotFound";
-import AdminShopifySync from "./pages/AdminShopifySync";
+
 
 const queryClient = new QueryClient();
 
@@ -60,7 +60,7 @@ const App = () => (
             <Route path="/zones" element={<LocationPage />} />
             <Route path="/zones/:department" element={<LocationPage />} />
             <Route path="/zones/:department/:city" element={<LocationPage />} />
-            <Route path="/admin/shopify-sync/*" element={<AdminShopifySync />} />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
