@@ -23,6 +23,9 @@ import CGV from "./pages/CGV";
 import Retours from "./pages/Retours";
 import Livraison from "./pages/Livraison";
 import LocationPage from "./pages/LocationPage";
+import Marques from "./pages/Marques";
+import MarquePage from "./pages/MarquePage";
+import LocalSEOPage from "./pages/LocalSEOPage";
 import NotFound from "./pages/NotFound";
 
 
@@ -56,7 +59,14 @@ const App = () => (
             <Route path="/cgv" element={<CGV />} />
             <Route path="/retours" element={<Retours />} />
             <Route path="/livraison" element={<Livraison />} />
-            {/* SEO Pages - French locations */}
+            {/* Marques */}
+            <Route path="/marques" element={<Marques />} />
+            <Route path="/marques/:slug" element={<MarquePage />} />
+            {/* SEO Local - Villes + Intent */}
+            <Route path="/villes/:citySlug/:intent" element={<LocalSEOPage />} />
+            {/* SEO Local - Départements + Intent */}
+            <Route path="/departements/:departmentSlug/:intent" element={<LocalSEOPage />} />
+            {/* SEO Pages - French locations (legacy) */}
             <Route path="/zones" element={<LocationPage />} />
             <Route path="/zones/:department" element={<LocationPage />} />
             <Route path="/zones/:department/:city" element={<LocationPage />} />

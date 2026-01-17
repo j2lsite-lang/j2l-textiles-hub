@@ -227,10 +227,10 @@ export function Header() {
               </Popover>
 
               <Link
-                to="/catalogue"
+                to="/marques"
                 className={cn(
                   'px-5 py-2.5 rounded-lg text-base font-semibold transition-all',
-                  location.pathname === '/catalogue'
+                  location.pathname.startsWith('/marques')
                     ? 'bg-primary text-primary-foreground'
                     : 'text-foreground hover:text-primary hover:bg-secondary'
                 )}
