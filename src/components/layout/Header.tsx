@@ -155,7 +155,7 @@ export function Header() {
                 Accueil
               </Link>
 
-              {/* Mega Menu Univers */}
+              {/* Mega Menu Nos Produits */}
               <Popover>
                 <PopoverTrigger asChild>
                   <button
@@ -164,7 +164,7 @@ export function Header() {
                       'text-foreground hover:text-primary hover:bg-secondary'
                     )}
                   >
-                    Univers
+                    Nos Produits
                     <ChevronDown className="h-4 w-4" />
                   </button>
                 </PopoverTrigger>
