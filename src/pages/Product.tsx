@@ -9,7 +9,7 @@ import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useProduct } from '@/hooks/useTopTex';
-import { ProductShareButtons } from '@/components/product/ProductShareButtons';
+
 import { ProductSEO } from '@/components/product/ProductSEO';
 import { extractSkuFromSlug, generateProductSlug } from '@/lib/product-utils';
 import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
@@ -478,15 +478,6 @@ export default function Product() {
                 </Link>
               </div>
 
-              {/* Share Buttons */}
-              <div className="border-t pt-6">
-                <ProductShareButtons
-                  productName={product.name}
-                  productUrl={productUrl}
-                  productImage={product.images?.[0]}
-                  productDescription={product.description || undefined}
-                />
-              </div>
 
               {/* Specs */}
               <div className="border-t pt-6 space-y-3">
