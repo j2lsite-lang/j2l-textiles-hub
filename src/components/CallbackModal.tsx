@@ -82,11 +82,10 @@ export function CallbackModal({ productRef, productName }: CallbackModalProps = 
       <DialogTrigger asChild>
         <Button 
           variant="outline" 
-          size="icon"
-          className="flex items-center justify-center border-primary/20 hover:border-primary hover:bg-primary/5"
+          className="flex items-center gap-2 border-primary/20 hover:border-primary hover:bg-primary/5 font-medium"
         >
-          <Phone className="h-5 w-5 text-accent" />
-          <span className="sr-only">Être rappelé</span>
+          <Phone className="h-4 w-4 text-accent" />
+          <span className="hidden sm:inline">Rappelez-moi</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
