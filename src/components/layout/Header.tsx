@@ -320,42 +320,94 @@ export function Header() {
           {/* Mobile Navigation */}
           {isOpen && (
             <div className="lg:hidden py-4 border-t border-border animate-fade-in max-h-[80vh] overflow-y-auto">
-              <nav className="flex flex-col gap-1">
-                {navLinks.slice(0, 2).map((link) => (
-                  <Link
-                    key={link.href}
-                    to={link.href}
-                    className={cn(
-                      'px-4 py-3 rounded-lg text-sm font-medium transition-colors',
-                      location.pathname === link.href
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-secondary'
-                    )}
+              <nav className="flex flex-col gap-2">
+                {/* Quick Actions - Rappel + Téléphone */}
+                <div className="px-4 pb-3 border-b border-border flex gap-2">
+                  <CallbackModal />
+                  <a 
+                    href={`tel:${COMPANY_INFO.phoneLink}`}
+                    className="flex-1"
                   >
-                    {link.label}
-                  </Link>
-                ))}
+                    <Button variant="default" className="w-full gap-2 accent-gradient text-white">
+                      <Phone className="h-4 w-4" />
+                      Appeler
+                    </Button>
+                  </a>
+                </div>
 
-                {/* Mobile Categories Section */}
+                {/* Navigation principale */}
+                <Link
+                  to="/"
+                  className={cn(
+                    'px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                    location.pathname === '/'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground hover:bg-secondary'
+                  )}
+                >
+                  Accueil
+                </Link>
+
+                <Link
+                  to="/catalogue"
+                  className={cn(
+                    'px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                    location.pathname === '/catalogue'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground hover:bg-secondary'
+                  )}
+                >
+                  Tous les produits
+                </Link>
+
+                {/* Catégories populaires - bien visibles */}
+                <div className="px-4 py-3 bg-muted/50 rounded-lg mx-2">
+                  <p className="text-xs font-bold text-primary uppercase tracking-wide mb-3">
+                    Catégories populaires
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'T-shirts', cat: 'T-shirts', emoji: '👕' },
+                      { label: 'Polos', cat: 'Polos', emoji: '👔' },
+                      { label: 'Sweats', cat: 'Sweats', emoji: '🧥' },
+                      { label: 'Vestes', cat: 'Vestes', emoji: '🧥' },
+                      { label: 'Pantalons', cat: 'Pantalons', emoji: '👖' },
+                      { label: 'Sacs', cat: 'Sacs', emoji: '👜' },
+                    ].map((item) => (
+                      <Link
+                        key={item.cat}
+                        to={`/catalogue?cat=${encodeURIComponent(item.cat)}`}
+                        className="flex flex-col items-center p-2 rounded-lg bg-background border border-border hover:border-primary hover:bg-primary/5 transition-colors"
+                      >
+                        <span className="text-xl mb-1">{item.emoji}</span>
+                        <span className="text-xs font-medium text-center">{item.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Univers avec images */}
                 <div className="px-4 py-3">
-                  <p className="text-xs font-bold text-primary uppercase tracking-wide mb-3">Catégories</p>
+                  <p className="text-xs font-bold text-primary uppercase tracking-wide mb-3">
+                    Nos univers
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
                     {universList.map((univers) => (
                       <Link
                         key={univers.name}
                         to={`/catalogue?cat=${encodeURIComponent(univers.subcategories[0]?.cat || '')}`}
-                        className="relative overflow-hidden rounded-lg border border-border group"
+                        className="relative overflow-hidden rounded-lg border-2 border-border hover:border-primary group"
                       >
                         <img 
                           src={univers.image} 
                           alt={univers.name}
-                          className="w-full h-20 object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="w-full h-24 object-cover group-hover:scale-105 transition-transform duration-300"
                           width={160}
-                          height={80}
+                          height={96}
                           loading="lazy"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                        <span className="absolute bottom-1.5 left-2 right-2 text-white text-xs font-semibold truncate">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        <span className="absolute bottom-2 left-2 right-2 text-white text-sm font-bold">
                           {univers.name}
                         </span>
                       </Link>
@@ -363,26 +415,65 @@ export function Header() {
                   </div>
                 </div>
 
-                {navLinks.slice(2).map((link) => (
-                  <Link
-                    key={link.href}
-                    to={link.href}
-                    className={cn(
-                      'px-4 py-3 rounded-lg text-sm font-medium transition-colors',
-                      location.pathname === link.href
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-secondary'
-                    )}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-                
-                <Link to="/panier" className="mt-2 px-4">
-                  <Button className="w-full accent-gradient text-white font-semibold">
-                    Mon panier
-                  </Button>
+                {/* Marques */}
+                <Link
+                  to="/marques"
+                  className={cn(
+                    'px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-between',
+                    location.pathname.startsWith('/marques')
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground hover:bg-secondary'
+                  )}
+                >
+                  <span>Nos marques</span>
+                  <ChevronDown className="h-4 w-4 -rotate-90" />
                 </Link>
+
+                {/* Autres liens */}
+                <Link
+                  to="/personnalisation"
+                  className={cn(
+                    'px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                    location.pathname === '/personnalisation'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground hover:bg-secondary'
+                  )}
+                >
+                  Personnalisation
+                </Link>
+
+                <Link
+                  to="/faq"
+                  className={cn(
+                    'px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                    location.pathname === '/faq'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground hover:bg-secondary'
+                  )}
+                >
+                  FAQ
+                </Link>
+
+                <Link
+                  to="/contact"
+                  className={cn(
+                    'px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                    location.pathname === '/contact'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground hover:bg-secondary'
+                  )}
+                >
+                  Contact
+                </Link>
+                
+                <div className="mt-2 px-4">
+                  <Link to="/panier">
+                    <Button className="w-full accent-gradient text-white font-semibold gap-2">
+                      <ShoppingCart className="h-4 w-4" />
+                      Mon panier {itemCount > 0 && `(${itemCount})`}
+                    </Button>
+                  </Link>
+                </div>
               </nav>
             </div>
           )}
