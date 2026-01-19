@@ -155,7 +155,7 @@ export function Header() {
                 Accueil
               </Link>
 
-              {/* Mega Menu Nos Produits */}
+              {/* Mega Menu Vêtements Professionnels */}
               <Popover>
                 <PopoverTrigger asChild>
                   <button
@@ -164,7 +164,7 @@ export function Header() {
                       'text-foreground hover:text-primary hover:bg-secondary'
                     )}
                   >
-                    Nos Produits
+                    Vêtements Professionnels
                     <ChevronDown className="h-4 w-4" />
                   </button>
                 </PopoverTrigger>
@@ -176,7 +176,7 @@ export function Header() {
                   <div className="bg-white">
                     <div className="flex gap-0">
                       {universList.map((univers) => (
-                      <div key={univers.name} className="w-48 p-4 border-r last:border-r-0 border-border">
+                        <div key={univers.name} className="w-48 p-4 border-r last:border-r-0 border-border">
                           {/* Category Image */}
                           <Link 
                             to={`/catalogue?cat=${encodeURIComponent(univers.subcategories[0]?.cat || '')}`}
@@ -212,16 +212,35 @@ export function Header() {
                         </div>
                       ))}
                     </div>
-                    
-                    {/* Footer */}
-                    <div className="border-t border-border p-3 text-center bg-muted/30">
-                      <Link 
-                        to="/catalogue" 
-                        className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-                      >
-                        Voir tous les produits
-                      </Link>
-                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Onglet Nos Produits */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      'px-5 py-2.5 rounded-lg text-base font-semibold transition-all flex items-center gap-1.5',
+                      'text-foreground hover:text-primary hover:bg-secondary'
+                    )}
+                  >
+                    Nos Produits
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  className="w-auto p-0 border-t-4 border-t-primary shadow-xl" 
+                  align="center"
+                  sideOffset={8}
+                >
+                  <div className="bg-white p-4">
+                    <Link 
+                      to="/catalogue" 
+                      className="block px-8 py-4 text-base font-medium text-foreground hover:text-primary hover:bg-muted/50 transition-colors rounded-lg text-center"
+                    >
+                      Voir tous les produits
+                    </Link>
                   </div>
                 </PopoverContent>
               </Popover>
