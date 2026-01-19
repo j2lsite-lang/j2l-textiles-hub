@@ -4,7 +4,6 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Content-Type": "application/xml; charset=utf-8",
-  // Avoid any intermediary caching so Google always fetches fresh content
   "Cache-Control": "no-store, max-age=0",
   "Pragma": "no-cache",
 };
@@ -15,7 +14,6 @@ const SHOP_NAME = "J2LTextiles";
 // Escape XML special characters and remove invalid XML characters
 function escapeXml(text: string | null | undefined): string {
   if (!text) return "";
-  // Remove invalid XML 1.0 characters (control chars except tab, newline, carriage return)
   const cleaned = text
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
     .replace(/\r?\n/g, " ")
@@ -43,55 +41,77 @@ function getGoogleCategory(category: string | null): string {
   return categoryMap[category || ""] || "Apparel &amp; Accessories &gt; Clothing";
 }
 
-// Extract primary color from colors array
-function extractColor(colors: unknown): string {
-  if (!colors || !Array.isArray(colors) || colors.length === 0) return "";
-  const firstColor = colors[0];
-  if (typeof firstColor === "object" && firstColor !== null && "name" in firstColor) {
-    return escapeXml(String((firstColor as any).name));
+// Determine age_group from product name (kids vs adult)
+function extractAgeGroup(name: string | null): string {
+  if (!name) return "adult";
+  const nameLower = name.toLowerCase();
+
+  // Kids keywords
+  if (
+    nameLower.includes("enfant") ||
+    nameLower.includes("enfants") ||
+    nameLower.includes("kid") ||
+    nameLower.includes("kids") ||
+    nameLower.includes("child") ||
+    nameLower.includes("children") ||
+    nameLower.includes("junior") ||
+    nameLower.includes("bébé") ||
+    nameLower.includes("bebe") ||
+    nameLower.includes("baby") ||
+    nameLower.includes("infant") ||
+    nameLower.includes("toddler") ||
+    /\d+\s*[/-]\s*\d+\s*ans/i.test(name) || // 4-6 ans, 8/10 ans
+    /\d+\s*ans/i.test(name) // 6 ans
+  ) {
+    return "kids";
   }
-  return "";
+
+  return "adult";
 }
 
-// Determine gender from product name
+// Determine gender from product name - IMPROVED LOGIC
 function extractGender(name: string | null): string {
   if (!name) return "unisex";
   const nameLower = name.toLowerCase();
 
-  // Women keywords
-  if (
-    nameLower.includes("femme") ||
-    nameLower.includes("woman") ||
-    nameLower.includes("women") ||
-    nameLower.includes("fille") ||
-    nameLower.includes("girl") ||
-    nameLower.includes("lady") ||
-    nameLower.includes("ladies")
-  ) {
-    return "female";
+  // Women keywords - check FIRST for female-specific items
+  const femaleKeywords = [
+    "femme", "woman", "women", "fille", "girl", "lady", "ladies",
+    "robe", "jupe", "legging femme", "blouse"
+  ];
+  
+  for (const keyword of femaleKeywords) {
+    if (nameLower.includes(keyword)) {
+      return "female";
+    }
   }
 
   // Men keywords
-  if (
-    nameLower.includes("homme") ||
-    nameLower.includes("man") ||
-    nameLower.includes("men") ||
-    nameLower.includes("garçon") ||
-    nameLower.includes("boy") ||
-    nameLower.includes("garcon")
-  ) {
-    return "male";
+  const maleKeywords = [
+    "homme", "man", "men", "garçon", "boy", "garcon"
+  ];
+  
+  for (const keyword of maleKeywords) {
+    if (nameLower.includes(keyword)) {
+      return "male";
+    }
   }
 
   return "unisex";
 }
 
-// Extract primary size from sizes array
-function extractSize(sizes: unknown): string {
-  if (!sizes || !Array.isArray(sizes) || sizes.length === 0) return "";
-  const first = sizes[0];
-  if (first === null || first === undefined) return "";
-  return escapeXml(String(first));
+// Extract all colors from colors array
+function extractColors(colors: unknown): Array<{ name: string; code: string }> {
+  if (!colors || !Array.isArray(colors) || colors.length === 0) return [];
+  return colors.filter((c): c is { name: string; code: string } => 
+    typeof c === "object" && c !== null && "name" in c && typeof (c as any).name === "string"
+  );
+}
+
+// Extract all sizes from sizes array
+function extractSizes(sizes: unknown): string[] {
+  if (!sizes || !Array.isArray(sizes) || sizes.length === 0) return [];
+  return sizes.filter((s): s is string => typeof s === "string" && s.trim() !== "");
 }
 
 function normalizeImageUrls(images: unknown): string[] {
@@ -106,7 +126,6 @@ function isAllowedImageUrl(url: string): boolean {
   try {
     const u = new URL(url);
     if (u.protocol !== "https:") return false;
-    // Prefer stable formats for Merchant Center
     return /\.(jpe?g|png)(\?.*)?$/i.test(u.pathname + u.search);
   } catch {
     return false;
@@ -132,7 +151,6 @@ function pickImages(images: unknown): { main: string; additional: string[] } {
   unique.sort((a, b) => scoreImageUrl(b) - scoreImageUrl(a));
 
   const main = unique[0] || "";
-  // Keep the feed size reasonable and avoid additional_image_link parsing issues
   const additional = unique.slice(1, 6);
   return { main, additional };
 }
@@ -156,6 +174,13 @@ function buildDescription(product: {
   return desc.substring(0, 5000);
 }
 
+// Generate a unique variant ID
+function generateVariantId(sku: string, color: string, size: string): string {
+  const colorSlug = color.toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 10);
+  const sizeSlug = size.toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 10);
+  return `${sku}_${colorSlug}_${sizeSlug}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -168,7 +193,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch ALL products using pagination (Supabase has 1000 row default limit)
+    // Fetch ALL products using pagination
     const allProducts: Array<{
       id: string;
       sku: string;
@@ -223,45 +248,156 @@ Deno.serve(async (req) => {
       return Boolean(main);
     });
 
-    console.log(
-      `Generating merchant feed with ${validProducts.length} valid products`,
-    );
+    console.log(`Processing ${validProducts.length} valid products for variants`);
 
-    // Generate XML items
-    const items = validProducts
-      .map((product) => {
-        const { main, additional } = pickImages(product.images);
-        const mainImage = escapeXml(main);
+    // Generate XML items - CREATE VARIANTS for each color/size combination
+    const items: string[] = [];
+    let variantCount = 0;
 
-        // Calculate price with margin (add 20% for retail display)
-        const price = product.price_ht
-          ? (parseFloat(String(product.price_ht)) * 1.2).toFixed(2)
-          : "0.00";
+    for (const product of validProducts) {
+      const { main, additional } = pickImages(product.images);
+      const mainImage = escapeXml(main);
 
-        // Availability based on stock
-        const availability = product.stock === null || product.stock > 0
-          ? "in_stock"
-          : "out_of_stock";
+      // Calculate price with margin (add 20% for retail display)
+      const price = product.price_ht
+        ? (parseFloat(String(product.price_ht)) * 1.2).toFixed(2)
+        : "0.00";
 
-        // Extract optional attributes
-        const color = extractColor(product.colors);
-        const gender = extractGender(product.name);
-        const size = extractSize(product.sizes);
+      // Availability based on stock
+      const availability = product.stock === null || product.stock > 0
+        ? "in_stock"
+        : "out_of_stock";
 
-        const additionalImagesXml = additional
-          .filter((img: string) => img && img.trim())
-          .map((img: string) =>
-            `\n<g:additional_image_link>${escapeXml(img)}</g:additional_image_link>`
-          )
-          .join("");
+      // Extract gender and age_group from name
+      const gender = extractGender(product.name);
+      const ageGroup = extractAgeGroup(product.name);
 
-        // Build optional XML blocks only if value exists
-        const colorXml = color ? `<g:color>${color}</g:color>` : "";
-        const sizeXml = size ? `<g:size>${size}</g:size>` : "";
+      const additionalImagesXml = additional
+        .filter((img: string) => img && img.trim())
+        .map((img: string) =>
+          `\n<g:additional_image_link>${escapeXml(img)}</g:additional_image_link>`
+        )
+        .join("");
 
+      const colors = extractColors(product.colors);
+      const sizes = extractSizes(product.sizes);
+
+      // If we have colors AND sizes, create variants for each combination
+      if (colors.length > 0 && sizes.length > 0) {
+        for (const color of colors) {
+          for (const size of sizes) {
+            const variantId = generateVariantId(product.sku, color.name, size);
+            const productUrl = `${SITE_URL}/produit/${encodeURIComponent(product.sku)}?color=${encodeURIComponent(color.name)}&size=${encodeURIComponent(size)}`;
+
+            items.push(
+              `<item>` +
+              `<g:id>${escapeXml(variantId)}</g:id>` +
+              `<g:item_group_id>${escapeXml(product.sku)}</g:item_group_id>` +
+              `<g:title>${escapeXml(product.name?.substring(0, 150))}</g:title>` +
+              `<g:description>${escapeXml(buildDescription(product))}</g:description>` +
+              `<g:link>${escapeXml(productUrl)}</g:link>` +
+              `<g:image_link>${mainImage}</g:image_link>` +
+              additionalImagesXml +
+              `<g:availability>${availability}</g:availability>` +
+              `<g:price>${price} EUR</g:price>` +
+              `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
+              `<g:condition>new</g:condition>` +
+              `<g:color>${escapeXml(color.name)}</g:color>` +
+              `<g:size>${escapeXml(size)}</g:size>` +
+              `<g:gender>${gender}</g:gender>` +
+              `<g:age_group>${ageGroup}</g:age_group>` +
+              `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
+              `<g:product_type>${escapeXml(product.category || "Vêtements")}</g:product_type>` +
+              `<g:identifier_exists>false</g:identifier_exists>` +
+              `<g:mpn>${escapeXml(product.sku)}</g:mpn>` +
+              `<g:shipping>` +
+              `<g:country>FR</g:country>` +
+              `<g:service>Standard</g:service>` +
+              `<g:price>0.00 EUR</g:price>` +
+              `</g:shipping>` +
+              `</item>`
+            );
+            variantCount++;
+          }
+        }
+      } 
+      // If only colors, create one variant per color
+      else if (colors.length > 0) {
+        for (const color of colors) {
+          const variantId = generateVariantId(product.sku, color.name, "");
+          const productUrl = `${SITE_URL}/produit/${encodeURIComponent(product.sku)}?color=${encodeURIComponent(color.name)}`;
+
+          items.push(
+            `<item>` +
+            `<g:id>${escapeXml(variantId)}</g:id>` +
+            `<g:item_group_id>${escapeXml(product.sku)}</g:item_group_id>` +
+            `<g:title>${escapeXml(product.name?.substring(0, 150))}</g:title>` +
+            `<g:description>${escapeXml(buildDescription(product))}</g:description>` +
+            `<g:link>${escapeXml(productUrl)}</g:link>` +
+            `<g:image_link>${mainImage}</g:image_link>` +
+            additionalImagesXml +
+            `<g:availability>${availability}</g:availability>` +
+            `<g:price>${price} EUR</g:price>` +
+            `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
+            `<g:condition>new</g:condition>` +
+            `<g:color>${escapeXml(color.name)}</g:color>` +
+            `<g:gender>${gender}</g:gender>` +
+            `<g:age_group>${ageGroup}</g:age_group>` +
+            `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
+            `<g:product_type>${escapeXml(product.category || "Vêtements")}</g:product_type>` +
+            `<g:identifier_exists>false</g:identifier_exists>` +
+            `<g:mpn>${escapeXml(product.sku)}</g:mpn>` +
+            `<g:shipping>` +
+            `<g:country>FR</g:country>` +
+            `<g:service>Standard</g:service>` +
+            `<g:price>0.00 EUR</g:price>` +
+            `</g:shipping>` +
+            `</item>`
+          );
+          variantCount++;
+        }
+      }
+      // If only sizes, create one variant per size
+      else if (sizes.length > 0) {
+        for (const size of sizes) {
+          const variantId = generateVariantId(product.sku, "", size);
+          const productUrl = `${SITE_URL}/produit/${encodeURIComponent(product.sku)}?size=${encodeURIComponent(size)}`;
+
+          items.push(
+            `<item>` +
+            `<g:id>${escapeXml(variantId)}</g:id>` +
+            `<g:item_group_id>${escapeXml(product.sku)}</g:item_group_id>` +
+            `<g:title>${escapeXml(product.name?.substring(0, 150))}</g:title>` +
+            `<g:description>${escapeXml(buildDescription(product))}</g:description>` +
+            `<g:link>${escapeXml(productUrl)}</g:link>` +
+            `<g:image_link>${mainImage}</g:image_link>` +
+            additionalImagesXml +
+            `<g:availability>${availability}</g:availability>` +
+            `<g:price>${price} EUR</g:price>` +
+            `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
+            `<g:condition>new</g:condition>` +
+            `<g:size>${escapeXml(size)}</g:size>` +
+            `<g:gender>${gender}</g:gender>` +
+            `<g:age_group>${ageGroup}</g:age_group>` +
+            `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
+            `<g:product_type>${escapeXml(product.category || "Vêtements")}</g:product_type>` +
+            `<g:identifier_exists>false</g:identifier_exists>` +
+            `<g:mpn>${escapeXml(product.sku)}</g:mpn>` +
+            `<g:shipping>` +
+            `<g:country>FR</g:country>` +
+            `<g:service>Standard</g:service>` +
+            `<g:price>0.00 EUR</g:price>` +
+            `</g:shipping>` +
+            `</item>`
+          );
+          variantCount++;
+        }
+      }
+      // Fallback: no colors or sizes, create single item
+      else {
         const productUrl = `${SITE_URL}/produit/${encodeURIComponent(product.sku)}`;
 
-        return (
+        items.push(
           `<item>` +
           `<g:id>${escapeXml(product.sku)}</g:id>` +
           `<g:title>${escapeXml(product.name?.substring(0, 150))}</g:title>` +
@@ -273,10 +409,8 @@ Deno.serve(async (req) => {
           `<g:price>${price} EUR</g:price>` +
           `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
           `<g:condition>new</g:condition>` +
-          colorXml +
-          sizeXml +
           `<g:gender>${gender}</g:gender>` +
-          `<g:age_group>adult</g:age_group>` +
+          `<g:age_group>${ageGroup}</g:age_group>` +
           `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
           `<g:product_type>${escapeXml(product.category || "Vêtements")}</g:product_type>` +
           `<g:identifier_exists>false</g:identifier_exists>` +
@@ -288,8 +422,11 @@ Deno.serve(async (req) => {
           `</g:shipping>` +
           `</item>`
         );
-      })
-      .join("\n");
+        variantCount++;
+      }
+    }
+
+    console.log(`Generated ${variantCount} variant items from ${validProducts.length} products`);
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>` +
       `<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">` +
@@ -297,7 +434,7 @@ Deno.serve(async (req) => {
       `<title>${SHOP_NAME} - Catalogue Produits</title>` +
       `<link>${SITE_URL}</link>` +
       `<description>Vêtements professionnels personnalisables - ${SHOP_NAME}</description>` +
-      items +
+      items.join("\n") +
       `</channel>` +
       `</rss>`;
 
@@ -312,7 +449,6 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("Merchant feed error:", error);
     
-    // Return empty but valid feed on error
     const errorXml = `<?xml version="1.0" encoding="UTF-8"?>` +
       `<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">` +
       `<channel>` +
