@@ -248,11 +248,10 @@ Deno.serve(async (req) => {
       return Boolean(main);
     });
 
-    console.log(`Processing ${validProducts.length} valid products for variants`);
+    console.log(`Processing ${validProducts.length} valid products`);
 
-    // Generate XML items - CREATE VARIANTS for each color/size combination
+    // Generate XML items - ONE item per product (no variants to avoid memory issues)
     const items: string[] = [];
-    let variantCount = 0;
 
     for (const product of validProducts) {
       const { main, additional } = pickImages(product.images);
@@ -270,161 +269,58 @@ Deno.serve(async (req) => {
       const gender = extractGender(product.name);
       const ageGroup = extractAgeGroup(product.name);
 
-      const additionalImagesXml = additional
-        .filter((img: string) => img && img.trim())
-        .map((img: string) =>
-          `\n<g:additional_image_link>${escapeXml(img)}</g:additional_image_link>`
-        )
-        .join("");
+      // Take first additional image only to reduce size
+      const firstAdditional = additional.length > 0 && additional[0]?.trim()
+        ? `<g:additional_image_link>${escapeXml(additional[0])}</g:additional_image_link>`
+        : "";
 
+      // Get first color and first size if available
       const colors = extractColors(product.colors);
       const sizes = extractSizes(product.sizes);
+      const firstColor = colors.length > 0 ? colors[0].name : "";
+      const firstSize = sizes.length > 0 ? sizes[0] : "";
 
-      // If we have colors AND sizes, create variants for each combination
-      if (colors.length > 0 && sizes.length > 0) {
-        for (const color of colors) {
-          for (const size of sizes) {
-            const variantId = generateVariantId(product.sku, color.name, size);
-            const productUrl = `${SITE_URL}/produit/${encodeURIComponent(product.sku)}?color=${encodeURIComponent(color.name)}&size=${encodeURIComponent(size)}`;
+      const productUrl = `${SITE_URL}/produit/${encodeURIComponent(product.sku)}`;
 
-            items.push(
-              `<item>` +
-              `<g:id>${escapeXml(variantId)}</g:id>` +
-              `<g:item_group_id>${escapeXml(product.sku)}</g:item_group_id>` +
-              `<g:title>${escapeXml(product.name?.substring(0, 150))}</g:title>` +
-              `<g:description>${escapeXml(buildDescription(product))}</g:description>` +
-              `<g:link>${escapeXml(productUrl)}</g:link>` +
-              `<g:image_link>${mainImage}</g:image_link>` +
-              additionalImagesXml +
-              `<g:availability>${availability}</g:availability>` +
-              `<g:price>${price} EUR</g:price>` +
-              `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
-              `<g:condition>new</g:condition>` +
-              `<g:color>${escapeXml(color.name)}</g:color>` +
-              `<g:size>${escapeXml(size)}</g:size>` +
-              `<g:gender>${gender}</g:gender>` +
-              `<g:age_group>${ageGroup}</g:age_group>` +
-              `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
-              `<g:product_type>${escapeXml(product.category || "Vêtements")}</g:product_type>` +
-              `<g:identifier_exists>false</g:identifier_exists>` +
-              `<g:mpn>${escapeXml(product.sku)}</g:mpn>` +
-              `<g:shipping>` +
-              `<g:country>FR</g:country>` +
-              `<g:service>Standard</g:service>` +
-              `<g:price>0.00 EUR</g:price>` +
-              `</g:shipping>` +
-              `</item>`
-            );
-            variantCount++;
-          }
-        }
-      } 
-      // If only colors, create one variant per color
-      else if (colors.length > 0) {
-        for (const color of colors) {
-          const variantId = generateVariantId(product.sku, color.name, "");
-          const productUrl = `${SITE_URL}/produit/${encodeURIComponent(product.sku)}?color=${encodeURIComponent(color.name)}`;
+      let itemXml = `<item>` +
+        `<g:id>${escapeXml(product.sku)}</g:id>` +
+        `<g:title>${escapeXml(product.name?.substring(0, 150))}</g:title>` +
+        `<g:description>${escapeXml(buildDescription(product))}</g:description>` +
+        `<g:link>${escapeXml(productUrl)}</g:link>` +
+        `<g:image_link>${mainImage}</g:image_link>` +
+        firstAdditional +
+        `<g:availability>${availability}</g:availability>` +
+        `<g:price>${price} EUR</g:price>` +
+        `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
+        `<g:condition>new</g:condition>`;
 
-          items.push(
-            `<item>` +
-            `<g:id>${escapeXml(variantId)}</g:id>` +
-            `<g:item_group_id>${escapeXml(product.sku)}</g:item_group_id>` +
-            `<g:title>${escapeXml(product.name?.substring(0, 150))}</g:title>` +
-            `<g:description>${escapeXml(buildDescription(product))}</g:description>` +
-            `<g:link>${escapeXml(productUrl)}</g:link>` +
-            `<g:image_link>${mainImage}</g:image_link>` +
-            additionalImagesXml +
-            `<g:availability>${availability}</g:availability>` +
-            `<g:price>${price} EUR</g:price>` +
-            `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
-            `<g:condition>new</g:condition>` +
-            `<g:color>${escapeXml(color.name)}</g:color>` +
-            `<g:gender>${gender}</g:gender>` +
-            `<g:age_group>${ageGroup}</g:age_group>` +
-            `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
-            `<g:product_type>${escapeXml(product.category || "Vêtements")}</g:product_type>` +
-            `<g:identifier_exists>false</g:identifier_exists>` +
-            `<g:mpn>${escapeXml(product.sku)}</g:mpn>` +
-            `<g:shipping>` +
-            `<g:country>FR</g:country>` +
-            `<g:service>Standard</g:service>` +
-            `<g:price>0.00 EUR</g:price>` +
-            `</g:shipping>` +
-            `</item>`
-          );
-          variantCount++;
-        }
+      // Add color if available
+      if (firstColor) {
+        itemXml += `<g:color>${escapeXml(firstColor)}</g:color>`;
       }
-      // If only sizes, create one variant per size
-      else if (sizes.length > 0) {
-        for (const size of sizes) {
-          const variantId = generateVariantId(product.sku, "", size);
-          const productUrl = `${SITE_URL}/produit/${encodeURIComponent(product.sku)}?size=${encodeURIComponent(size)}`;
 
-          items.push(
-            `<item>` +
-            `<g:id>${escapeXml(variantId)}</g:id>` +
-            `<g:item_group_id>${escapeXml(product.sku)}</g:item_group_id>` +
-            `<g:title>${escapeXml(product.name?.substring(0, 150))}</g:title>` +
-            `<g:description>${escapeXml(buildDescription(product))}</g:description>` +
-            `<g:link>${escapeXml(productUrl)}</g:link>` +
-            `<g:image_link>${mainImage}</g:image_link>` +
-            additionalImagesXml +
-            `<g:availability>${availability}</g:availability>` +
-            `<g:price>${price} EUR</g:price>` +
-            `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
-            `<g:condition>new</g:condition>` +
-            `<g:size>${escapeXml(size)}</g:size>` +
-            `<g:gender>${gender}</g:gender>` +
-            `<g:age_group>${ageGroup}</g:age_group>` +
-            `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
-            `<g:product_type>${escapeXml(product.category || "Vêtements")}</g:product_type>` +
-            `<g:identifier_exists>false</g:identifier_exists>` +
-            `<g:mpn>${escapeXml(product.sku)}</g:mpn>` +
-            `<g:shipping>` +
-            `<g:country>FR</g:country>` +
-            `<g:service>Standard</g:service>` +
-            `<g:price>0.00 EUR</g:price>` +
-            `</g:shipping>` +
-            `</item>`
-          );
-          variantCount++;
-        }
+      // Add size if available
+      if (firstSize) {
+        itemXml += `<g:size>${escapeXml(firstSize)}</g:size>`;
       }
-      // Fallback: no colors or sizes, create single item
-      else {
-        const productUrl = `${SITE_URL}/produit/${encodeURIComponent(product.sku)}`;
 
-        items.push(
-          `<item>` +
-          `<g:id>${escapeXml(product.sku)}</g:id>` +
-          `<g:title>${escapeXml(product.name?.substring(0, 150))}</g:title>` +
-          `<g:description>${escapeXml(buildDescription(product))}</g:description>` +
-          `<g:link>${escapeXml(productUrl)}</g:link>` +
-          `<g:image_link>${mainImage}</g:image_link>` +
-          additionalImagesXml +
-          `<g:availability>${availability}</g:availability>` +
-          `<g:price>${price} EUR</g:price>` +
-          `<g:brand>${escapeXml(product.brand || SHOP_NAME)}</g:brand>` +
-          `<g:condition>new</g:condition>` +
-          `<g:gender>${gender}</g:gender>` +
-          `<g:age_group>${ageGroup}</g:age_group>` +
-          `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
-          `<g:product_type>${escapeXml(product.category || "Vêtements")}</g:product_type>` +
-          `<g:identifier_exists>false</g:identifier_exists>` +
-          `<g:mpn>${escapeXml(product.sku)}</g:mpn>` +
-          `<g:shipping>` +
-          `<g:country>FR</g:country>` +
-          `<g:service>Standard</g:service>` +
-          `<g:price>0.00 EUR</g:price>` +
-          `</g:shipping>` +
-          `</item>`
-        );
-        variantCount++;
-      }
+      itemXml += `<g:gender>${gender}</g:gender>` +
+        `<g:age_group>${ageGroup}</g:age_group>` +
+        `<g:google_product_category>${getGoogleCategory(product.category)}</g:google_product_category>` +
+        `<g:product_type>${escapeXml(product.category || "Vêtements")}</g:product_type>` +
+        `<g:identifier_exists>false</g:identifier_exists>` +
+        `<g:mpn>${escapeXml(product.sku)}</g:mpn>` +
+        `<g:shipping>` +
+        `<g:country>FR</g:country>` +
+        `<g:service>Standard</g:service>` +
+        `<g:price>0.00 EUR</g:price>` +
+        `</g:shipping>` +
+        `</item>`;
+
+      items.push(itemXml);
     }
 
-    console.log(`Generated ${variantCount} variant items from ${validProducts.length} products`);
+    console.log(`Generated ${items.length} items from ${validProducts.length} products`);
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>` +
       `<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">` +
