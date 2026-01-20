@@ -65,6 +65,80 @@ function pickMainImage(images: unknown): string {
   return unique[0] || "";
 }
 
+// Extract age group from product name
+function extractAgeGroup(name: string | null): string {
+  if (!name) return "adult";
+  const nameLower = name.toLowerCase();
+
+  if (
+    nameLower.includes("enfant") ||
+    nameLower.includes("enfants") ||
+    nameLower.includes("kid") ||
+    nameLower.includes("kids") ||
+    nameLower.includes("child") ||
+    nameLower.includes("children") ||
+    nameLower.includes("junior") ||
+    nameLower.includes("bébé") ||
+    nameLower.includes("bebe") ||
+    nameLower.includes("baby") ||
+    nameLower.includes("infant") ||
+    nameLower.includes("toddler") ||
+    /\d+\s*[/-]\s*\d+\s*ans/i.test(name) ||
+    /\d+\s*ans/i.test(name)
+  ) {
+    return "kids";
+  }
+
+  return "adult";
+}
+
+// Extract gender from product name
+function extractGender(name: string | null): string {
+  if (!name) return "unisex";
+  const nameLower = name.toLowerCase();
+
+  const femaleKeywords = [
+    "femme", "woman", "women", "fille", "girl", "lady", "ladies",
+    "robe", "jupe", "legging femme", "blouse"
+  ];
+  
+  for (const keyword of femaleKeywords) {
+    if (nameLower.includes(keyword)) {
+      return "female";
+    }
+  }
+
+  const maleKeywords = [
+    "homme", "man", "men", "garçon", "boy", "garcon"
+  ];
+  
+  for (const keyword of maleKeywords) {
+    if (nameLower.includes(keyword)) {
+      return "male";
+    }
+  }
+
+  return "unisex";
+}
+
+// Extract first color from colors array
+function extractFirstColor(colors: unknown): string {
+  if (!colors || !Array.isArray(colors) || colors.length === 0) return "";
+  const first = colors[0];
+  if (typeof first === "object" && first !== null && "name" in first) {
+    return String((first as { name: string }).name);
+  }
+  return "";
+}
+
+// Extract first size from sizes array
+function extractFirstSize(sizes: unknown): string {
+  if (!sizes || !Array.isArray(sizes) || sizes.length === 0) return "";
+  const first = sizes[0];
+  if (typeof first === "string") return first.trim();
+  return "";
+}
+
 function buildDescription(product: {
   name: string;
   description: string | null;
@@ -107,6 +181,8 @@ Deno.serve(async (req) => {
       images: unknown;
       stock: number | null;
       category: string | null;
+      colors: unknown;
+      sizes: unknown;
     }> = [];
 
     const pageSize = 1000;
@@ -117,7 +193,7 @@ Deno.serve(async (req) => {
       const { data: batch, error } = await supabase
         .from("products")
         .select(
-          "id, sku, name, description, brand, price_ht, images, stock, category",
+          "id, sku, name, description, brand, price_ht, images, stock, category, colors, sizes",
         )
         .not("images", "is", null)
         .not("price_ht", "is", null)
@@ -151,8 +227,8 @@ Deno.serve(async (req) => {
 
     console.log(`Processing ${validProducts.length} valid products`);
 
-    // CSV Header
-    const csvHeader = "id,title,description,link,image_link,price,availability,brand,condition";
+    // CSV Header with all required Merchant Center attributes
+    const csvHeader = "id,title,description,link,image_link,price,availability,brand,condition,color,gender,age_group,size";
     
     // Generate CSV rows
     const csvRows: string[] = [csvHeader];
@@ -168,6 +244,12 @@ Deno.serve(async (req) => {
       // Availability - always in_stock for B2B
       const availability = "en stock";
 
+      // Extract attributes
+      const color = extractFirstColor(product.colors);
+      const size = extractFirstSize(product.sizes);
+      const gender = extractGender(product.name);
+      const ageGroup = extractAgeGroup(product.name);
+
       const productUrl = `${SITE_URL}/produit/${encodeURIComponent(product.sku)}`;
 
       const row = [
@@ -180,6 +262,10 @@ Deno.serve(async (req) => {
         escapeCsv(availability),
         escapeCsv(product.brand || SHOP_NAME),
         escapeCsv("nouveau"),
+        escapeCsv(color),
+        escapeCsv(gender),
+        escapeCsv(ageGroup),
+        escapeCsv(size),
       ].join(",");
 
       csvRows.push(row);
