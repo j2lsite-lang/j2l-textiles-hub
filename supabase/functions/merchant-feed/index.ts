@@ -263,10 +263,8 @@ Deno.serve(async (req) => {
         ? (parseFloat(String(product.price_ht)) * 1.2).toFixed(2)
         : "0.00";
 
-      // Availability based on stock
-      const availability = product.stock === null || product.stock > 0
-        ? "in_stock"
-        : "out_of_stock";
+      // Availability - always in_stock for B2B (products are made to order)
+      const availability = "in_stock";
 
       // Extract gender and age_group from name
       const gender = extractGender(product.name);
