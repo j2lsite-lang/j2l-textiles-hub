@@ -27,6 +27,11 @@ import Marques from "./pages/Marques";
 import MarquePage from "./pages/MarquePage";
 import LocalSEOPage from "./pages/LocalSEOPage";
 import NotFound from "./pages/NotFound";
+import Blog from "./pages/Blog";
+import BlogArticle from "./pages/BlogArticle";
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminBlog from "./pages/admin/AdminBlog";
+import AdminBlogEditor from "./pages/admin/AdminBlogEditor";
 
 
 const queryClient = new QueryClient();
@@ -70,6 +75,16 @@ const App = () => (
             <Route path="/zones" element={<LocationPage />} />
             <Route path="/zones/:department" element={<LocationPage />} />
             <Route path="/zones/:department/:city" element={<LocationPage />} />
+            
+            {/* Blog */}
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:slug" element={<BlogArticle />} />
+            
+            {/* Admin */}
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/blog" element={<AdminBlog />} />
+            <Route path="/admin/blog/new" element={<AdminBlogEditor />} />
+            <Route path="/admin/blog/edit/:id" element={<AdminBlogEditor />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
