@@ -264,6 +264,18 @@ export function Header() {
               </Link>
 
               <Link
+                to="/blog"
+                className={cn(
+                  'px-5 py-2.5 rounded-lg text-base font-semibold transition-all',
+                  location.pathname.startsWith('/blog')
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-foreground hover:text-primary hover:bg-secondary'
+                )}
+              >
+                Blog
+              </Link>
+
+              <Link
                 to="/contact"
                 className={cn(
                   'px-5 py-2.5 rounded-lg text-base font-semibold transition-all',
@@ -453,6 +465,18 @@ export function Header() {
                   )}
                 >
                   FAQ
+                </Link>
+
+                <Link
+                  to="/blog"
+                  className={cn(
+                    'px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                    location.pathname.startsWith('/blog')
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-foreground hover:bg-secondary'
+                  )}
+                >
+                  Blog
                 </Link>
 
                 <Link
