@@ -15,6 +15,17 @@ export default function BlogArticle() {
   const { data: article, isLoading, error } = useArticleBySlug(slug || "");
 
   const articleUrl = `https://j2ltextiles.fr/blog/${slug}`;
+  
+  // Build absolute image URL for OG/Twitter (1200x630 recommended)
+  const getAbsoluteImageUrl = (imagePath: string | null | undefined): string => {
+    if (!imagePath) return "https://j2ltextiles.fr/og-image.jpg";
+    if (imagePath.startsWith("http")) return imagePath;
+    return `https://j2ltextiles.fr${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
+  };
+
+  const ogImageUrl = article ? getAbsoluteImageUrl(article.cover_image) : "https://j2ltextiles.fr/og-image.jpg";
+  const metaTitle = article?.meta_title || article?.title || "Article | J2L Textiles";
+  const metaDescription = article?.meta_description || article?.excerpt || "Découvrez nos articles sur la personnalisation textile.";
 
   if (isLoading) {
     return (
@@ -56,19 +67,31 @@ export default function BlogArticle() {
   return (
     <Layout>
       <Helmet>
-        <title>{article.meta_title || article.title} | J2L Textiles</title>
-        <meta
-          name="description"
-          content={article.meta_description || article.excerpt || ""}
-        />
+        <title>{metaTitle} | J2L Textiles</title>
+        <meta name="description" content={metaDescription} />
         <link rel="canonical" href={articleUrl} />
-        <meta property="og:title" content={article.title} />
-        <meta property="og:description" content={article.excerpt || ""} />
-        <meta property="og:url" content={articleUrl} />
+        
+        {/* Open Graph */}
         <meta property="og:type" content="article" />
-        {article.cover_image && (
-          <meta property="og:image" content={article.cover_image} />
+        <meta property="og:title" content={metaTitle} />
+        <meta property="og:description" content={metaDescription} />
+        <meta property="og:url" content={articleUrl} />
+        <meta property="og:image" content={ogImageUrl} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={article.title} />
+        <meta property="og:site_name" content="J2L Textiles" />
+        <meta property="og:locale" content="fr_FR" />
+        {article.published_at && (
+          <meta property="article:published_time" content={article.published_at} />
         )}
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={metaTitle} />
+        <meta name="twitter:description" content={metaDescription} />
+        <meta name="twitter:image" content={ogImageUrl} />
+        <meta name="twitter:image:alt" content={article.title} />
       </Helmet>
 
       <article className="container mx-auto px-4 py-12 max-w-4xl">
