@@ -2,7 +2,7 @@ import { Helmet } from "react-helmet-async";
 import { useParams, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { useArticleBySlug } from "@/hooks/useBlogArticles";
-import { BlogShareButtons } from "@/components/blog/BlogShareButtons";
+import { ShareButtons } from "@/components/share/ShareButtons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -139,11 +139,11 @@ export default function BlogArticle() {
           )}
 
           <div className="border-t pt-4">
-            <p className="text-sm text-muted-foreground mb-2">Partager cet article :</p>
-            <BlogShareButtons
-              articleTitle={article.title}
-              articleUrl={articleUrl}
-              articleDescription={article.excerpt || undefined}
+            <ShareButtons
+              title={article.title}
+              url={articleUrl}
+              description={article.excerpt || undefined}
+              image={ogImageUrl}
             />
           </div>
         </header>
@@ -154,11 +154,11 @@ export default function BlogArticle() {
         />
 
         <footer className="mt-12 pt-8 border-t">
-          <p className="text-sm text-muted-foreground mb-2">Partager cet article :</p>
-          <BlogShareButtons
-            articleTitle={article.title}
-            articleUrl={articleUrl}
-            articleDescription={article.excerpt || undefined}
+          <ShareButtons
+            title={article.title}
+            url={articleUrl}
+            description={article.excerpt || undefined}
+            image={ogImageUrl}
           />
         </footer>
       </article>
