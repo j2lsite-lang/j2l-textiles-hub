@@ -13,6 +13,7 @@ import { useProduct } from '@/hooks/useTopTex';
 import { ProductSEO } from '@/components/product/ProductSEO';
 import { extractSkuFromSlug, generateProductSlug } from '@/lib/product-utils';
 import { PageSEOFooter } from '@/components/seo/PageSEOFooter';
+import { ShareButtons } from '@/components/share/ShareButtons';
 import {
   Dialog,
   DialogContent,
@@ -498,6 +499,16 @@ export default function Product() {
                   <dt className="text-muted-foreground">Catégorie</dt>
                   <dd className="font-medium">{product.category || 'Textile'}</dd>
                 </dl>
+              </div>
+
+              {/* Share Buttons */}
+              <div className="border-t pt-6">
+                <ShareButtons
+                  title={`${product.name} - ${product.brand || 'J2L Textiles'}`}
+                  url={productUrl}
+                  description={product.description || `Découvrez ${product.name} personnalisable chez J2L Textiles`}
+                  image={displayImages[0]}
+                />
               </div>
 
               {/* Internal Links - SEO Maillage */}

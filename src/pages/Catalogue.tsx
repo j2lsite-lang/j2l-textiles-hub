@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useParams, Link, useNavigate } from 'react-router-dom';
+import { useSearchParams, useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Search, Filter, X, Loader2, ShoppingBag, AlertCircle, RefreshCw } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
@@ -25,6 +25,7 @@ import { SyncProgressBar } from '@/components/admin/SyncProgressBar';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { normalizeBrandKey, useToptexBrandLogos } from '@/hooks/useToptexBrandLogos';
 import { getUniversSEO } from '@/lib/univers-seo-content';
+import { ShareButtons } from '@/components/share/ShareButtons';
 
 // Fallback mock products when API is unavailable
 const mockProducts = [
@@ -805,13 +806,33 @@ export default function Catalogue() {
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 {universSEO.heroDescription}
               </p>
+              {/* Share Buttons for Universe */}
+              <div className="mt-4 flex justify-center">
+                <ShareButtons
+                  title={universSEO.title}
+                  url={typeof window !== 'undefined' ? window.location.href : `https://j2ltextiles.fr/univers/${worldSlug}`}
+                  description={universSEO.metaDescription}
+                  variant="compact"
+                />
+              </div>
             </div>
           ) : (
-            <SectionHeader
-              eyebrow="Catalogue"
-              title="Nos produits textiles"
-              description="Explorez notre sélection de vêtements et accessoires personnalisables"
-            />
+            <div className="text-center mb-8">
+              <SectionHeader
+                eyebrow="Catalogue"
+                title="Nos produits textiles"
+                description="Explorez notre sélection de vêtements et accessoires personnalisables"
+              />
+              {/* Share Buttons for Catalogue */}
+              <div className="mt-4 flex justify-center">
+                <ShareButtons
+                  title="Catalogue J2L Textiles - Vêtements personnalisables"
+                  url={typeof window !== 'undefined' ? window.location.href : 'https://j2ltextiles.fr/catalogue'}
+                  description="Découvrez notre catalogue de textiles professionnels personnalisables : t-shirts, polos, sweats, vestes et accessoires."
+                  variant="compact"
+                />
+              </div>
+            </div>
           )}
 
           {/* Admin Progress Bar */}
