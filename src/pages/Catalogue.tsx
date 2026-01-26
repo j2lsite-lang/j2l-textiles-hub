@@ -866,16 +866,18 @@ export default function Catalogue() {
             </form>
 
             <div className="flex gap-2 flex-wrap">
-              {/* Bouton Synchroniser */}
-              <Button 
-                variant="outline" 
-                onClick={() => handleSync()}
-                disabled={isSyncing}
-                className="gap-2"
-              >
-                <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-                {isSyncing ? (syncStatus || 'Sync...') : 'Synchroniser'}
-              </Button>
+              {/* Bouton Synchroniser - Admin uniquement */}
+              {isAdmin && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleSync()}
+                  disabled={isSyncing}
+                  className="gap-2"
+                >
+                  <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+                  {isSyncing ? (syncStatus || 'Sync...') : 'Synchroniser'}
+                </Button>
+              )}
               <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
                 <SheetTrigger asChild>
                   <Button variant="outline" className="lg:hidden">
