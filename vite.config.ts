@@ -1,4 +1,6 @@
 import { defineConfig } from "vite";
+// Note: Run "npm run build" then "npm run prerender" for SSG
+// Or use "npm run build:ssg" for full static generation
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
