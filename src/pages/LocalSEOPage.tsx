@@ -159,6 +159,66 @@ export default function LocalSEOPage() {
     },
   };
 
+  // JSON-LD BreadcrumbList Schema
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    'itemListElement': [
+      {
+        '@type': 'ListItem',
+        'position': 1,
+        'name': 'Accueil',
+        'item': 'https://j2ltextiles.fr',
+      },
+      {
+        '@type': 'ListItem',
+        'position': 2,
+        'name': locationType === 'city' ? 'Villes' : 'Départements',
+        'item': locationType === 'city' ? 'https://j2ltextiles.fr/villes' : 'https://j2ltextiles.fr/zones',
+      },
+      {
+        '@type': 'ListItem',
+        'position': 3,
+        'name': locationName,
+        'item': locationType === 'city' 
+          ? `https://j2ltextiles.fr/villes/${citySlug}`
+          : `https://j2ltextiles.fr/zones/${departmentSlug}`,
+      },
+      {
+        '@type': 'ListItem',
+        'position': 4,
+        'name': intentData.pluralName,
+        'item': canonicalUrl,
+      },
+    ],
+  };
+
+  // JSON-LD Service Schema
+  const serviceSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    'name': `${intentData.pluralName} personnalisés à ${locationName}`,
+    'provider': {
+      '@type': 'LocalBusiness',
+      'name': COMPANY_INFO.name,
+      'telephone': COMPANY_INFO.phone,
+    },
+    'areaServed': {
+      '@type': locationType === 'city' ? 'City' : 'AdministrativeArea',
+      'name': locationName,
+    },
+    'description': `Service de personnalisation de ${intentData.pluralName.toLowerCase()} (broderie, sérigraphie, flocage) à ${locationName}. Livraison rapide et devis gratuit.`,
+    'serviceType': 'Personnalisation textile',
+    'offers': {
+      '@type': 'Offer',
+      'availability': 'https://schema.org/InStock',
+      'priceSpecification': {
+        '@type': 'PriceSpecification',
+        'priceCurrency': 'EUR',
+      },
+    },
+  };
+
   return (
     <Layout>
       <Helmet>
@@ -172,6 +232,8 @@ export default function LocalSEOPage() {
         <meta property="og:url" content={canonicalUrl} />
         <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>
         <script type="application/ld+json">{JSON.stringify(localBusinessSchema)}</script>
+        <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
+        <script type="application/ld+json">{JSON.stringify(serviceSchema)}</script>
       </Helmet>
 
       {/* Hero Section */}
