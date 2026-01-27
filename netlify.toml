@@ -1,11 +1,11 @@
 # Netlify configuration for J2L Textiles
-# Optimized for SPA prerendering and SEO
+# SEO optimized - Enable Prerendering via Netlify Dashboard:
+# Site settings → Build & deploy → Prerendering → Enable
 
 [build]
   command = "npm run build"
   publish = "dist"
 
-# Enable prerendering for better SEO
 [build.processing]
   skip_processing = false
 
@@ -15,37 +15,12 @@
   to = "/index.html"
   status = 200
 
-# Prerendering for search engine crawlers
-# Bot requests get server-rendered HTML
-[[plugins]]
-  package = "@netlify/plugin-prerender"
-
-  [plugins.inputs]
-    # Bot user agents to prerender for
-    botUserAgents = [
-      "googlebot",
-      "bingbot",
-      "yandexbot",
-      "baiduspider",
-      "facebookexternalhit",
-      "twitterbot",
-      "rogerbot",
-      "linkedinbot",
-      "embedly",
-      "quora link preview",
-      "showyoubot",
-      "outbrain",
-      "pinterest",
-      "slackbot",
-      "vkShare",
-      "W3C_Validator"
-    ]
-    
-    # Cache prerendered pages for 24 hours
-    prerenderCacheTtl = 86400
-    
-    # Custom sitemap location
-    sitemapUrl = "https://j2ltextiles.fr/sitemap.xml"
+# Force HTTPS and www redirect
+[[redirects]]
+  from = "https://www.j2ltextiles.fr/*"
+  to = "https://j2ltextiles.fr/:splat"
+  status = 301
+  force = true
 
 # Headers for SEO and performance
 [[headers]]
@@ -75,10 +50,3 @@
   [headers.values]
     Content-Type = "application/xml"
     Cache-Control = "public, max-age=3600"
-
-# Force HTTPS and www redirect
-[[redirects]]
-  from = "https://www.j2ltextiles.fr/*"
-  to = "https://j2ltextiles.fr/:splat"
-  status = 301
-  force = true
