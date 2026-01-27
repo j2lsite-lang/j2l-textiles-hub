@@ -3,7 +3,7 @@
 # Site settings → Build & deploy → Prerendering → Enable
 
 [build]
-  command = "npm run build"
+  command = "npm run build && node scripts/prerender.mjs"
   publish = "dist"
 
 [build.processing]
