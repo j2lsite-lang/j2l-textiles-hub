@@ -71,27 +71,43 @@ export async function fetchCatalog(filters: CatalogFilters = {}): Promise<Catalo
       dbQuery = dbQuery.or(`name.ilike.%${query}%,sku.ilike.%${query}%,brand.ilike.%${query}%,family_fr.ilike.%${query}%,sub_family_fr.ilike.%${query}%`);
     }
     if (category && category !== 'Tous') {
-      // Check if it's a smart sub-category (based on product name)
-      const smartCategories: Record<string, string[]> = {
-        'T-shirts': ['t-shirt', 'tee-shirt', 'tee shirt', 't shirt'],
-        'Polos': ['polo'],
-        'Sweats': ['sweat', 'hoodie', 'capuche'],
-        'Vestes': ['veste', 'jacket', 'softshell', 'parka', 'blouson', 'doudoune', 'manteau'],
-        'Chemises': ['chemise', 'blouse', 'shirt'],
-        'Pantalons': ['pantalon', 'jean', 'jogging', 'short', 'bermuda'],
-        'Casquettes': ['casquette', 'cap', 'bonnet', 'chapeau', 'bob', 'bandana'],
-        'Sacs': ['sac', 'bag', 'backpack', 'cabas', 'besace', 'pochette', 'trousse'],
-        'Serviettes': ['serviette', 'towel', 'drap', 'peignoir'],
-        'Tabliers': ['tablier', 'apron'],
-        'Gilets': ['gilet', 'bodywarmer', 'débardeur'],
-        'Accessoires': ['parapluie', 'cravate', 'foulard', 'écharpe', 'gant', 'ceinture'],
+      // Check if it's a smart sub-category - use sub_family_fr when available, fallback to name keywords
+      const smartCategoriesWithSubFamily: Record<string, { subFamily?: string; keywords?: string[] }> = {
+        'T-shirts': { subFamily: 'T-shirts' },
+        'Polos': { subFamily: 'Polos' },
+        'Sweats': { subFamily: 'Sweat-shirts' },
+        'Vestes': { subFamily: 'Vestes' },
+        'Chemises': { subFamily: 'Chemises / Surchemises', keywords: ['chemise', 'blouse'] },
+        'Pantalons': { subFamily: 'Pantalons / Pantacourts', keywords: ['pantalon', 'bermuda', 'short'] },
+        'Casquettes': { subFamily: 'Casquettes', keywords: ['casquette', 'cap', 'bonnet', 'chapeau', 'bob'] },
+        'Sacs': { subFamily: 'Sacs', keywords: ['sac', 'bag', 'backpack'] },
+        'Serviettes': { subFamily: 'Bain', keywords: ['serviette', 'towel', 'drap de bain', 'fouta', 'peignoir', 'gant de toilette'] },
+        'Tabliers': { subFamily: 'Tabliers', keywords: ['tablier', 'apron'] },
+        'Gilets': { subFamily: 'Bodywarmers', keywords: ['gilet', 'bodywarmer', 'débardeur'] },
+        'Accessoires': { keywords: ['parapluie', 'cravate', 'foulard', 'écharpe', 'gant', 'ceinture'] },
+        'Bonnets': { subFamily: 'Bonnets' },
+        'Bermudas': { subFamily: 'Bermudas / Shorts' },
+        'Débardeurs': { subFamily: 'Débardeurs' },
+        'Robes': { subFamily: 'Robes' },
+        'Jupes': { subFamily: 'Jupes' },
+        'Pyjamas': { subFamily: 'Pyjamas' },
+        'Chaussettes': { subFamily: 'Chaussettes' },
+        'Chaussures': { subFamily: 'Chaussures de sécurité', keywords: ['chaussure'] },
+        'Parapluies': { subFamily: 'Parapluies' },
       };
       
-      const keywords = smartCategories[category];
-      if (keywords) {
-        // Search in product name for any of the keywords
-        const orConditions = keywords.map(k => `name.ilike.%${k}%`).join(',');
-        dbQuery = dbQuery.or(orConditions);
+      const smartConfig = smartCategoriesWithSubFamily[category];
+      if (smartConfig) {
+        const conditions: string[] = [];
+        // Use sub_family_fr if available (more accurate)
+        if (smartConfig.subFamily) {
+          conditions.push(`sub_family_fr.ilike.%${smartConfig.subFamily}%`);
+        }
+        // Also search by keywords in name for additional matches
+        if (smartConfig.keywords) {
+          smartConfig.keywords.forEach(k => conditions.push(`name.ilike.%${k}%`));
+        }
+        dbQuery = dbQuery.or(conditions.join(','));
       } else {
         // Standard category filter - search in family_fr OR sub_family_fr OR category
         dbQuery = dbQuery.or(`category.ilike.%${category}%,family_fr.ilike.%${category}%,sub_family_fr.ilike.%${category}%`);
@@ -240,28 +256,39 @@ export async function fetchProduct(sku: string): Promise<Product> {
   }
 }
 
-// Sous-catégories intelligentes basées sur le nom du produit
-const productTypeKeywords: Record<string, string[]> = {
-  'T-shirts': ['t-shirt', 'tee-shirt', 'tee shirt', 't shirt'],
-  'Polos': ['polo'],
-  'Sweats': ['sweat', 'hoodie', 'capuche'],
-  'Vestes': ['veste', 'jacket', 'softshell', 'parka', 'blouson', 'doudoune', 'manteau'],
-  'Chemises': ['chemise', 'blouse', 'shirt'],
-  'Pantalons': ['pantalon', 'jean', 'jogging', 'short', 'bermuda'],
-  'Casquettes': ['casquette', 'cap', 'bonnet', 'chapeau', 'bob', 'bandana'],
-  'Sacs': ['sac', 'bag', 'backpack', 'cabas', 'besace', 'pochette', 'trousse'],
-  'Serviettes': ['serviette', 'towel', 'drap', 'peignoir'],
-  'Tabliers': ['tablier', 'apron'],
-  'Gilets': ['gilet', 'bodywarmer', 'débardeur'],
-  'Accessoires': ['parapluie', 'cravate', 'foulard', 'écharpe', 'gant', 'ceinture'],
+// Sous-catégories intelligentes - utilise sub_family_fr quand disponible
+const productTypeConfig: Record<string, { subFamily?: string; keywords?: string[] }> = {
+  'T-shirts': { subFamily: 'T-shirts' },
+  'Polos': { subFamily: 'Polos' },
+  'Sweats': { subFamily: 'Sweat-shirts' },
+  'Vestes': { subFamily: 'Vestes' },
+  'Chemises': { subFamily: 'Chemises / Surchemises', keywords: ['chemise', 'blouse'] },
+  'Pantalons': { subFamily: 'Pantalons / Pantacourts', keywords: ['pantalon', 'bermuda', 'short'] },
+  'Casquettes': { subFamily: 'Casquettes', keywords: ['casquette', 'cap', 'bonnet', 'chapeau', 'bob'] },
+  'Sacs': { subFamily: 'Sacs', keywords: ['sac', 'bag', 'backpack'] },
+  'Serviettes': { subFamily: 'Bain', keywords: ['serviette', 'towel', 'drap de bain', 'fouta', 'peignoir'] },
+  'Tabliers': { subFamily: 'Tabliers', keywords: ['tablier', 'apron'] },
+  'Gilets': { subFamily: 'Bodywarmers', keywords: ['gilet', 'bodywarmer', 'débardeur'] },
+  'Accessoires': { keywords: ['parapluie', 'cravate', 'foulard', 'écharpe', 'gant', 'ceinture'] },
 };
 
-function detectProductType(productName: string): string | null {
-  const nameLower = productName.toLowerCase();
-  for (const [category, keywords] of Object.entries(productTypeKeywords)) {
-    for (const keyword of keywords) {
-      if (nameLower.includes(keyword)) {
+function detectProductType(productName: string, subFamilyFr?: string): string | null {
+  // First check by sub_family_fr (most accurate)
+  if (subFamilyFr) {
+    for (const [category, config] of Object.entries(productTypeConfig)) {
+      if (config.subFamily && subFamilyFr.toLowerCase().includes(config.subFamily.toLowerCase())) {
         return category;
+      }
+    }
+  }
+  // Fallback to name keywords
+  const nameLower = productName.toLowerCase();
+  for (const [category, config] of Object.entries(productTypeConfig)) {
+    if (config.keywords) {
+      for (const keyword of config.keywords) {
+        if (nameLower.includes(keyword)) {
+          return category;
+        }
       }
     }
   }
@@ -328,12 +355,20 @@ export async function fetchAttributes(): Promise<{
     ];
 
     const smartCounts = await Promise.all(
-      Object.entries(productTypeKeywords).map(async ([smartCat, keywords]) => {
-        const orConditions = keywords.map((k) => `name.ilike.%${k}%`).join(',');
+      Object.entries(productTypeConfig).map(async ([smartCat, config]) => {
+        const conditions: string[] = [];
+        // Use sub_family_fr for counting (more accurate)
+        if (config.subFamily) {
+          conditions.push(`sub_family_fr.ilike.%${config.subFamily}%`);
+        }
+        // Also count by keywords
+        if (config.keywords) {
+          config.keywords.forEach(k => conditions.push(`name.ilike.%${k}%`));
+        }
         const { count } = await supabase
           .from('products')
           .select('id', { count: 'exact', head: true })
-          .or(orConditions);
+          .or(conditions.join(','));
         return [smartCat, count ?? 0] as const;
       })
     );
