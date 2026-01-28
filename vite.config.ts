@@ -8,6 +8,7 @@ import viteCompression from "vite-plugin-compression";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+      base: mode === "production" ? "/j2l-textiles-hub/" : "/",
   server: {
     host: "::",
     port: 8080,
