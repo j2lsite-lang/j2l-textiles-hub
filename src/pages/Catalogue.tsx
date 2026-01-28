@@ -374,19 +374,32 @@ function FilterSidebar({
 // Alphabet pour le filtre
 const alphabet = ['Tous', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
 
-// Mapping slug → terme de recherche pour URLs propres SEO (catégories)
-const categorySlugMap: Record<string, string> = {
-  't-shirts': 't-shirt',
-  'cuisine-hotellerie': 'cuisine',
-  'chemises-corporate': 'chemise',
-  'sport-loisirs': 'sport',
-  'vetements-travail': 'travail',
-  'haute-visibilite': 'visibilite',
-  'polos': 'polo',
-  'sweats': 'sweat',
-  'vestes': 'veste',
-  'accessoires': 'accessoire',
-  'bagagerie': 'sac',
+// Mapping slug → catégorie exacte pour le filtre (pas pour la recherche textuelle)
+const categorySlugToCategory: Record<string, string> = {
+  't-shirts': 'T-shirts',
+  'polos': 'Polos',
+  'sweats': 'Sweats',
+  'vestes': 'Vestes',
+  'chemises': 'Chemises',
+  'pantalons': 'Pantalons',
+  'casquettes': 'Casquettes',
+  'sacs': 'Sacs',
+  'serviettes': 'Serviettes',
+  'tabliers': 'Tabliers',
+  'gilets': 'Gilets',
+  'accessoires': 'Accessoires',
+  'bonnets': 'Bonnets',
+  'bermudas': 'Bermudas',
+  'debardeurs': 'Débardeurs',
+  'robes': 'Robes',
+  'jupes': 'Jupes',
+  'pyjamas': 'Pyjamas',
+  'chaussettes': 'Chaussettes',
+  'chaussures': 'Chaussures',
+  'parapluies': 'Parapluies',
+  'bagagerie': 'Bagagerie',
+  'linge-de-maison': 'Linge de maison',
+  'headwear-accessoires': 'Headwear & Accessoires',
 };
 
 // Mapping slug → univers TopTex pour URLs SEO (basé sur les vrais noms en base)
@@ -433,14 +446,17 @@ export default function Catalogue() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
-  // Convertir slug URL en terme de recherche (catégorie)
-  const slugSearchTerm = categorySlug ? (categorySlugMap[categorySlug] || categorySlug) : '';
+  // Convertir slug URL en catégorie (utilise le filtre category, pas la recherche textuelle)
+  const slugCategoryName = categorySlug ? (categorySlugToCategory[categorySlug] || null) : null;
   
   // Convertir slug URL en univers (world)
   const slugWorldTerm = worldSlug ? (worldSlugMap[worldSlug] || worldSlug) : '';
   
-  const [searchQuery, setSearchQuery] = useState(slugSearchTerm || searchParams.get('q') || '');
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('cat') || 'Tous');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  // Si on a un slug de catégorie valide, l'utiliser comme selectedCategory
+  const [selectedCategory, setSelectedCategory] = useState(
+    slugCategoryName || searchParams.get('cat') || 'Tous'
+  );
   const [selectedBrand, setSelectedBrand] = useState('Toutes');
   const [selectedWorld, setSelectedWorld] = useState(slugWorldTerm || 'Tous');
   const [selectedLetter, setSelectedLetter] = useState('Tous');
@@ -454,11 +470,14 @@ export default function Catalogue() {
   // Synchroniser avec le slug d'URL si présent (catégorie)
   useEffect(() => {
     if (categorySlug) {
-      const term = categorySlugMap[categorySlug] || categorySlug;
-      if (term !== searchQuery) {
-        setSearchQuery(term);
+      const catName = categorySlugToCategory[categorySlug];
+      if (catName && catName !== selectedCategory) {
+        setSelectedCategory(catName);
         setPage(1);
       }
+    } else if (!categorySlug && selectedCategory !== 'Tous' && !searchParams.get('cat')) {
+      // Reset to 'Tous' when navigating to /catalogue without slug
+      setSelectedCategory('Tous');
     }
   }, [categorySlug]);
 
@@ -495,10 +514,11 @@ export default function Catalogue() {
       return;
     }
     
-    // Rediriger ?q=t-shirt vers /catalogue/t-shirts si c'est un terme connu
+    // Rediriger ?q=t-shirts vers /catalogue/t-shirts si c'est une catégorie connue
     if (urlQuery) {
-      const slugFromQuery = Object.entries(categorySlugMap).find(
-        ([, term]) => term.toLowerCase() === urlQuery.toLowerCase()
+      const queryLower = urlQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const slugFromQuery = Object.entries(categorySlugToCategory).find(
+        ([slug]) => slug === queryLower || queryLower.includes(slug.replace(/-/g, ''))
       )?.[0];
       
       if (slugFromQuery) {
