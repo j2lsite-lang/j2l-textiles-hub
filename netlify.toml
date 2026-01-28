@@ -1,6 +1,6 @@
 # Netlify configuration for J2L Textiles
-# SEO optimized - Enable Prerendering via Netlify Dashboard:
-# Site settings → Build & deploy → Prerendering → Enable
+# SSG/Prerender: Les fichiers statiques générés dans dist/ ont priorité
+# La règle SPA fallback (sans force) ne s'applique que si aucun fichier n'existe
 
 [build]
   command = "npm run build && node scripts/prerender.mjs"
@@ -9,18 +9,20 @@
 [build.processing]
   skip_processing = false
 
-# SPA fallback - all routes go to index.html
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-# Force HTTPS and www redirect
+# Force HTTPS et redirection www → non-www (DOIT être en premier avec force=true)
 [[redirects]]
   from = "https://www.j2ltextiles.fr/*"
   to = "https://j2ltextiles.fr/:splat"
   status = 301
   force = true
+
+# SPA fallback - SANS force pour que les fichiers statiques prérendus aient priorité
+# Netlify sert d'abord les fichiers existants (dist/produit/.../index.html) 
+# puis fallback sur index.html uniquement si le fichier n'existe pas
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
 # Headers for SEO and performance
 [[headers]]
