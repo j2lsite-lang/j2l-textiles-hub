@@ -495,12 +495,14 @@ export default function Catalogue() {
     }
   }, [worldSlug]);
 
+  // Extraire les valeurs primitives de searchParams en dehors de l'effet
+  // pour éviter une boucle infinie (les objets sont comparés par référence)
+  const urlCat = searchParams.get('cat');
+  const urlQuery = searchParams.get('q');
+
   // Redirection des anciennes URLs ?cat= et ?q= vers les nouvelles URLs propres
   useEffect(() => {
     if (categorySlug) return; // Déjà sur une URL propre
-    
-    const urlCat = searchParams.get('cat');
-    const urlQuery = searchParams.get('q');
     
     // Rediriger ?cat=Vestes vers /catalogue/vestes
     if (urlCat && urlCat !== 'Tous') {
@@ -531,7 +533,7 @@ export default function Catalogue() {
         setPage(1);
       }
     }
-  }, [searchParams, categorySlug, navigate]);
+  }, [urlCat, urlQuery, categorySlug, navigate, searchQuery]);
   const { isAdmin } = useIsAdmin();
 
   const { data: remoteBrandLogos } = useToptexBrandLogos();
