@@ -8,7 +8,8 @@ import viteCompression from "vite-plugin-compression";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-      base: mode === "production" ? "/j2l-textiles-hub/" : "/",
+  // Custom domain j2ltextiles.fr uses root path
+  base: "/",
   server: {
     host: "::",
     port: 8080,
