@@ -2,7 +2,7 @@ name: Deploy GitHub Pages (Vite)
 
 on:
   push:
-    branches: ["principal", "main"]
+    branches: ["principal"]
   workflow_dispatch:
 
 permissions:
@@ -18,9 +18,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
@@ -31,16 +33,18 @@ jobs:
       - name: Build
         run: npm run build
 
-      # IMPORTANT: GitHub Pages + React Router (SPA)
+      # IMPORTANT: GitHub Pages + React Router (SPA) + Custom domain
       - name: SPA fallback + nojekyll + CNAME
         run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
           echo "www.j2ltextiles.fr" > dist/CNAME
 
-      - uses: actions/configure-pages@v5
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist/
 
