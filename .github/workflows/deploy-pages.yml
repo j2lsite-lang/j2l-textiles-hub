@@ -2,7 +2,7 @@ name: Deploy GitHub Pages (Vite)
 
 on:
   push:
-    branches: ["principal"]
+    branches: ["principal", "main"]
   workflow_dispatch:
 
 permissions:
@@ -31,11 +31,12 @@ jobs:
       - name: Build
         run: npm run build
 
-      # IMPORTANT pour éviter "File not found" / pages blanches sur les URLs
-      - name: SPA fallback (React Router)
+      # IMPORTANT: GitHub Pages + React Router (SPA)
+      - name: SPA fallback + nojekyll + CNAME
         run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
+          echo "www.j2ltextiles.fr" > dist/CNAME
 
       - uses: actions/configure-pages@v5
 
