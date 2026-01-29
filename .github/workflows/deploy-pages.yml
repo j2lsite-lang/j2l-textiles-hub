@@ -1,4 +1,4 @@
-name: Deploy GitHub Pages (Vite)
+name: Deploy GitHub Pages
 
 on:
   push:
@@ -18,9 +18,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
@@ -31,11 +33,18 @@ jobs:
       - name: Build
         run: npm run build
 
-      - uses: actions/configure-pages@v5
+      - name: SPA fallback (React Router) + NoJekyll
+        run: |
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist/
+          path: ./dist
 
   deploy:
     runs-on: ubuntu-latest
