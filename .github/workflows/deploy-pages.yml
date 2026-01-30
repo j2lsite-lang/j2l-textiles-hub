@@ -33,16 +33,40 @@ jobs:
       - name: Build
         run: npm run build
 
-      # IMPORTANT: GitHub Pages + React Router (SPA) + Custom domain
-      - name: SPA fallback + nojekyll + CNAME + routes
+      - name: GitHub Pages SPA fixes (404 + handler) + nojekyll + CNAME
         run: |
-          cp dist/index.html dist/404.html
+          # Required for GitHub Pages when using files/folders starting with _
           touch dist/.nojekyll
+
+          # Custom domain
           echo "www.j2ltextiles.fr" > dist/CNAME
 
-          # Evite 404 au F5 sur /catalogue/
-          mkdir -p dist/catalogue
-          cp dist/index.html dist/catalogue/index.html
+          # 1) Real SPA 404 that redirects to /?/<path> (returns 200)
+          cat > dist/404.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="fr">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="robots" content="noindex" />
+              <script type="text/javascript">
+                // SPA redirect for GitHub Pages (rafgraph/spa-github-pages)
+                (function(l) {
+                  var path = l.pathname;
+                  var search = l.search ? l.search.substring(1).replace(/&/g, '~and~') : '';
+                  var newUrl = l.protocol + '//' + l.host + '/?/' + path.substring(1) +
+                    (search ? '&' + search : '') + l.hash;
+                  l.replace(newUrl);
+                }(window.location));
+              </script>
+            </head>
+            <body></body>
+          </html>
+          EOF
+
+          # 2) Ensure index.html has the matching handler (only inject if missing)
+          if ! grep -q "spa-github-pages" dist/index.html; then
+            perl -0777 -i -pe 's#</head>#\n<!-- spa-github-pages handler -->\n<script type="text/javascript">\n// https://github.com/rafgraph/spa-github-pages\n(function(l) {\n  if (l.search[1] === \"/\") {\n    var decoded = l.search.slice(1).split(\"&\").map(function(s) {\n      return s.replace(/~and~/g, \"&\");\n    }).join(\"?\");\n    window.history.replaceState(null, null,\n      l.pathname.slice(0, -1) + decoded + l.hash\n    );\n  }\n}(window.location));\n</script>\n</head>#s' dist/index.html
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
