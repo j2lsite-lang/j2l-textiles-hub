@@ -34,11 +34,15 @@ jobs:
         run: npm run build
 
       # IMPORTANT: GitHub Pages + React Router (SPA) + Custom domain
-      - name: SPA fallback + nojekyll + CNAME
+      - name: SPA fallback + nojekyll + CNAME + routes
         run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
           echo "www.j2ltextiles.fr" > dist/CNAME
+
+          # Evite 404 au F5 sur /catalogue/
+          mkdir -p dist/catalogue
+          cp dist/index.html dist/catalogue/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
